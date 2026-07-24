@@ -1,0 +1,17 @@
+# Delphi/Object Pascal kaynakları
+*.pas linguist-language=Pascal
+*.dpr linguist-language=Pascal
+*.dpk linguist-language=Pascal
+*.inc linguist-language=Pascal
+
+# Form ve kaynak dosyalarını dil hesabından çıkar
+*.dfm linguist-detectable=false
+*.fmx linguist-detectable=false
+*.res linguist-detectable=false
+
+# Projeye ait olmayan kütüphaneleri hariç tut
+ThirdParty/** linguist-vendored
+Libraries/** linguist-vendored
+Vendor/** linguist-vendored
+tools/generate-ai-configs.ps1 linguist-vendored
+.agents/skills/rad-repo-scaffold/scripts/apply_structure.py linguist-vendored

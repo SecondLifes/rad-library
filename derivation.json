@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "mode_version": "2.0",
+  "run_id": "a5ef470c-cd79-445c-a41c-48a188b88f0d",
+  "status": "completed",
+  "created_at": "2026-07-24T10:48:24.6928558+03:00",
+  "completed_at": "2026-07-24T11:24:00+03:00",
+  "approved_plan_sha256": "81c0b1dd60d17a73c902c83f5d73d005bfed650a12d8e7b87da744f47d918380",
+  "created_by_this_run": true,
+  "base": {
+    "kit": "delphi-library-expert",
+    "portable_path": "spec-kits/delphi-library-expert/",
+    "repo": "delphi-library-expert",
+    "commit": "b9795465c997ea841a8b319a9931256a7f35bd5c",
+    "tree": "8accb041d6b503b15bec2d1195c80da709a60cfe",
+    "dirty": false,
+    "snapshot_sha256": "107295618b6bd38cd171a53884ceeef782a025031c156db7de4809867801ad5d",
+    "tracked_file_count": 265,
+    "tracked_bytes": 30889309
+  },
+  "target": {
+    "slug": "rad-library",
+    "display_name": "RAD Library AI Spec-Kit",
+    "portable_path": "spec-kits/rad-library/",
+    "purpose": "A Delphi 13+ specification kit for a compact, stable and fast reusable helper, component and optional vendor-integration library targeting Win32, Win64, VCL and FMX.",
+    "initial_version": "0.1.0"
+  },
+  "license": {
+    "base_identifier": "MIT",
+    "decision": "preserve",
+    "rationale": "Preserve the base license byte-identically and retain full derivation lineage.",
+    "approved": true
+  },
+  "decisions": {
+    "preserve": [
+      {"path":"LICENSE","base_role":"Legal terms","rationale":"Retain inherited license obligations.","dependencies":[],"validation":"Byte hash equals pinned base.","approved":true},
+      {"path":"CODE_OF_CONDUCT.md","base_role":"Community conduct","rationale":"Generic and reusable.","dependencies":[],"validation":"Byte hash equals pinned base.","approved":true},
+      {"path":".agents/commands/review.md","base_role":"Generic review command","rationale":"Review behavior remains applicable.","dependencies":[".claude/commands/review.md"],"validation":"Command and generated mirror resolve.","approved":true},
+      {"path":".agents/rules/{design-patterns,kit-settings,local-machine-registry,memory-exceptions,refactoring,solid-patterns}.md","base_role":"Generic Delphi and kit rules","rationale":"Core engineering behavior remains applicable.","dependencies":[".claude/rules/**",".cursor/rules/**"],"validation":"Canonical and generated mirrors match.","approved":true},
+      {"path":".agents/skills/{clean-code,code-review,delphi-build,delphi-encoding,delphi-http-client,delphi-memory-exceptions,delphi-patterns,design-patterns,dunitx-testing,refactoring,tdd-dunitx,threading}/**","base_role":"Generic Delphi skills","rationale":"Preserve the verified Delphi engineering brain.","dependencies":[".claude/commands/**"],"validation":"Skill structure and wrappers validate.","approved":true},
+      {"path":".specify/**","base_role":"Specification workflow","rationale":"Multi-tool spec workflow remains applicable.","dependencies":[],"validation":"All copied paths reconcile with snapshot.","approved":true},
+      {"path":".gitattributes,.vscode/**,tools/resize-images.bat","base_role":"Generic repository support","rationale":"Portable support files remain applicable.","dependencies":[],"validation":"Copied files are present and valid.","approved":true}
+    ],
+    "preserve_byte_identical": [
+      {"path":".agents/skills/rad-{powershell-master,prompt-studio,python,repo-scaffold,skill-finder,web-scraping}/**","base_role":"Bundled RAD system skills","rationale":"Locked inherited infrastructure.","dependencies":["workspace canonical skills"],"validation":"Byte hashes match approved canonical/base copies.","approved":true},
+      {"path":".agents/rules/sync-workflow.md","base_role":"Source-of-truth policy","rationale":"Locked generator ownership behavior.","dependencies":[".claude/rules/**",".cursor/rules/**"],"validation":"Byte-identical to pinned base.","approved":true},
+      {"path":"tools/generate-ai-configs.ps1","base_role":"Multi-tool generator","rationale":"Locked sync machinery.","dependencies":[".agents/rules/**",".agents/skills/**"],"validation":"Byte-identical and idempotent.","approved":true},
+      {"path":"identity generic safety, approval, routing and working-directory clauses","base_role":"Base behavioral contract","rationale":"Stacked specialization must not weaken inherited safeguards.","dependencies":["AGENTS.md",".claude/CLAUDE.md",".gemini/rules/project-rules.md",".github/copilot-instructions.md"],"validation":"Four-way semantic regression audit.","approved":true}
+    ],
+    "adapt": [
+      {"path":"AGENTS.md","base_role":"Primary multi-tool identity","rationale":"Apply RAD Library domain layer while preserving base behavior.","dependencies":["tool identities"],"validation":"Identity parity audit.","approved":true},
+      {"path":".claude/CLAUDE.md","base_role":"Claude identity","rationale":"Reword the approved behavioral contract.","dependencies":["AGENTS.md"],"validation":"Identity parity audit.","approved":true},
+      {"path":".gemini/rules/project-rules.md","base_role":"Gemini identity","rationale":"Reword the approved behavioral contract.","dependencies":["AGENTS.md"],"validation":"Identity parity audit.","approved":true},
+      {"path":".github/copilot-instructions.md","base_role":"Copilot identity","rationale":"Reword the approved behavioral contract.","dependencies":["AGENTS.md"],"validation":"Identity parity audit.","approved":true},
+      {"path":".kiro/**","base_role":"Kiro tool configuration","rationale":"Route Kiro to the RAD Library contract.","dependencies":["AGENTS.md"],"validation":"Paths and names resolve.","approved":true},
+      {"path":".agents/rules/{delphi-conventions,library-packaging,performance,tdd,threading}.md","base_role":"Delphi library rules","rationale":"Add approved helper, component, platform and measurement constraints.","dependencies":["generated rule mirrors"],"validation":"Rule mirrors match and capability trace passes.","approved":true},
+      {"path":".agents/skills/vcl-component-architecture/**","base_role":"VCL component architecture","rationale":"Specialize for TRAD, runtime/design-time split and compatibility.","dependencies":["component-patterns rule"],"validation":"Skill references and contract validate.","approved":true},
+      {"path":".agents/skills/unidac-database/**","base_role":"UniDAC integration","rationale":"Make vendor support optional and isolated.","dependencies":["vendor-integration rule"],"validation":"No core dependency claim remains.","approved":true},
+      {"path":".agents/skills/devexpress-vcl/**","base_role":"DevExpress integration","rationale":"Make vendor support optional and isolated.","dependencies":["vendor-integration rule"],"validation":"No core dependency claim remains.","approved":true},
+      {"path":".agents/skills/tms-vcl/**","base_role":"TMS integration","rationale":"Make vendor support optional and isolated.","dependencies":["vendor-integration rule"],"validation":"No core dependency claim remains.","approved":true},
+      {"path":".agents/skills/fastreport-vcl/**","base_role":"FastReport integration","rationale":"Make vendor support optional and isolated.","dependencies":["vendor-integration rule"],"validation":"No core dependency claim remains.","approved":true},
+      {"path":"README.md,README.tr-TR.md,CONTRIBUTING*,SECURITY*,ACKNOWLEDGMENTS*","base_role":"Human documentation","rationale":"Describe the new kit, policies and lineage bilingually.","dependencies":["derivation.json"],"validation":"Names, links and bilingual alignment validate.","approved":true},
+      {"path":"src/README.md,docs/proje-haritasi.md,docs/ai-ignore-strategy.md,.cursorignore","base_role":"Project layout and map","rationale":"Document the src-rooted library/test/vendor layout without creating code.","dependencies":["approved source-layout decision"],"validation":"No project files beyond src/README.md are created.","approved":true},
+      {"path":"Prompts/image-prompts.md,Prompts/image-prompts.tr-TR.md","base_role":"Banner design prompts","rationale":"Give the kit a unique visual world.","dependencies":["README pair"],"validation":"Palette, object, metaphor and style differ from existing kits.","approved":true},
+      {"path":"settings.json","base_role":"Kit version","rationale":"Start independent pre-release history.","dependencies":["CHANGELOG.md"],"validation":"Version equals 0.1.0 in both files.","approved":true}
+    ],
+    "drop": [
+      {"path":"CHANGELOG.md","base_role":"Base release history","rationale":"Derived kit starts independent history.","dependencies":[],"validation":"Base history absent; new changelog created.","approved":true},
+      {"path":"examples/**","base_role":"Base examples","rationale":"Examples do not match the approved smaller core and will not be invented.","dependencies":[],"validation":"Path absent.","approved":true},
+      {"path":"docs/delphi-library-expert-analysis.md,docs/images/*.png","base_role":"Base audit and imagery","rationale":"Do not inherit stale audit results or visual identity.","dependencies":[],"validation":"Paths absent.","approved":true},
+      {"path":".agents/rules/{mssql-patterns,postgresql-patterns}.md and mirrors","base_role":"Database-specific rules","rationale":"Database engines are outside the target core.","dependencies":[".claude/rules/**",".cursor/rules/**"],"validation":"Canonical and mirrors absent.","approved":true},
+      {"path":".agents/skills/{aurelius-mapping,aurelius-objects,flexcel-vcl,htmx-skill,mssql-database,postgresql-database,spring4d-di}/** and wrappers","base_role":"Unapproved domain/vendor skills","rationale":"Outside the target capability set.","dependencies":[".claude/commands/**"],"validation":"Sources and wrappers absent.","approved":true},
+      {"path":".agents/skills/{dmvcframework,dmvcframework-minimal-api,dmvcframework-security,dmvcframework-testing,dmvcframework-ui,dmvcframework-webapp}/** and wrappers","base_role":"Web framework skills","rationale":"DMVCFramework is outside the target library scope.","dependencies":[".claude/commands/**"],"validation":"Sources and wrappers absent.","approved":true}
+    ],
+    "add": [
+      {"path":".agents/rules/helper-patterns.md and mirrors","base_role":"New helper contract","rationale":"Enforce help.* unit names, underscore-prefixed public helpers and non-invented APIs.","dependencies":["delphi-conventions rule"],"validation":"Mirrors match and rules are explicit.","approved":true},
+      {"path":".agents/rules/component-patterns.md and mirrors","base_role":"New component contract","rationale":"Enforce TRAD prefix, package separation and streaming compatibility.","dependencies":["VCL and FMX skills"],"validation":"Mirrors match and traceability passes.","approved":true},
+      {"path":".agents/rules/vendor-integration.md and mirrors","base_role":"New integration boundary","rationale":"Keep core dependency-free and vendors optional.","dependencies":["vendor skills"],"validation":"Mirrors match and vendor claims are conditional.","approved":true},
+      {"path":".agents/skills/fmx-component-architecture/** and wrapper","base_role":"New FMX skill","rationale":"Cover Delphi 13+ FMX component lifecycle, styles, platforms and packaging.","dependencies":["component-patterns rule"],"validation":"Official-doc-backed skill and wrapper validate.","approved":true},
+      {"path":".agents/skills/jedi-integration/** and wrapper","base_role":"New JEDI skill","rationale":"Document optional JCL/JVCL boundaries with Delphi 13 compile validation required.","dependencies":["vendor-integration rule"],"validation":"Conditional status and references validate.","approved":true},
+      {"path":".agents/skills/mormot2-integration/** and wrapper","base_role":"New mORMot2 skill","rationale":"Document optional mORMot2 boundaries with Delphi 13 compile validation required.","dependencies":["vendor-integration rule"],"validation":"Conditional status and references validate.","approved":true},
+      {"path":"CHANGELOG.md","base_role":"Independent release history","rationale":"Bootstrap version 0.1.0.","dependencies":["settings.json"],"validation":"Version agreement.","approved":true},
+      {"path":"derivation.json","base_role":"Provenance and verification manifest","rationale":"Make derivation auditable and reproducible.","dependencies":["all validation gates"],"validation":"JSON Schema validation passes.","approved":true},
+      {"path":"docs/rad-library-analysis.md","base_role":"Five-lens self-audit","rationale":"Record inheritance and capability evidence.","dependencies":["rad-prompt-studio"],"validation":"No unresolved Critical or Important findings.","approved":true}
+    ]
+  },
+  "excluded_paths": [
+    {"path":"analysis/**","reason":"Machine-local or legacy analysis output is never inherited."},
+    {"path":"CHANGELOG.md","reason":"Base release history is replaced."},
+    {"path":"examples/**","reason":"Base examples are outside the approved target scope."},
+    {"path":"docs/delphi-library-expert-analysis.md","reason":"Stale base audit is not inherited."},
+    {"path":"docs/images/*.png","reason":"Base visual identity is not inherited."},
+    {"path":"database-specific rules and mirrors","reason":"MSSQL and PostgreSQL rules are dropped."},
+    {"path":"13 dropped skill directories and their wrappers","reason":"Unapproved domain and vendor capabilities are excluded."}
+  ],
+  "name_residue_allowlist": [
+    {"path":"README.md","pattern":"Delphi Library AI Spec-Kit|delphi-library-expert","reason":"Concise derivation lineage."},
+    {"path":"README.tr-TR.md","pattern":"Delphi Library AI Spec-Kit|delphi-library-expert","reason":"Concise derivation lineage."},
+    {"path":"ACKNOWLEDGMENTS.md","pattern":"Delphi Library AI Spec-Kit|delphi-library-expert","reason":"Required attribution lineage."},
+    {"path":"ACKNOWLEDGMENTS.tr-TR.md","pattern":"Delphi Library AI Spec-Kit|delphi-library-expert","reason":"Required attribution lineage."},
+    {"path":"derivation.json","pattern":"Delphi Library AI Spec-Kit|delphi-library-expert","reason":"Machine-readable provenance."},
+    {"path":"docs/rad-library-analysis.md","pattern":"Delphi Library AI Spec-Kit|delphi-library-expert","reason":"Audit provenance evidence."}
+  ],
+  "capabilities": [
+    {"name":"Delphi 13+ core engineering","origin":"inherited","artifacts":[".agents/rules/delphi-conventions.md",".agents/skills/delphi-build/"],"verification":"Inheritance regression passed; local dcc32/dcc64 tool discovery recorded.","status":"pass"},
+    {"name":"Win32 and Win64 library targets","origin":"adapted","artifacts":[".agents/rules/library-packaging.md","src/README.md"],"verification":"Final contract inspection passed; no project source was generated by design.","status":"pass"},
+    {"name":"VCL and FMX component architecture","origin":"adapted","artifacts":[".agents/skills/vcl-component-architecture/",".agents/skills/fmx-component-architecture/"],"verification":"Rule/skill trace and current official documentation basis passed.","status":"pass"},
+    {"name":"Helper naming and API discipline","origin":"new","artifacts":[".agents/rules/helper-patterns.md"],"verification":"Naming, test pairing and API non-invention clauses passed.","status":"pass"},
+    {"name":"DUnitX test structure","origin":"adapted","artifacts":[".agents/rules/tdd-patterns.md",".agents/skills/dunitx-testing/","src/README.md"],"verification":"Contract inspection passed; executable tests are intentionally absent until the user creates APIs.","status":"pass"},
+    {"name":"Measured performance discipline","origin":"adapted","artifacts":[".agents/rules/performance-patterns.md"],"verification":"Release, baseline, allocation, warm-up, repetition and outlier policy passed.","status":"pass"},
+    {"name":"Optional vendor integrations","origin":"adapted","artifacts":[".agents/rules/vendor-integration.md",".agents/skills/unidac-data-access/",".agents/skills/devexpress-components/",".agents/skills/tms-vcl-ui/",".agents/skills/fastreport-vcl/",".agents/skills/jedi-integration/",".agents/skills/mormot2-integration/"],"verification":"Boundary inspection; vendor compilation remains conditional.","status":"unverified"},
+    {"name":"Runtime and design-time package separation","origin":"new","artifacts":[".agents/rules/component-patterns.md"],"verification":"Rule and VCL/FMX component-skill inspection passed.","status":"pass"},
+    {"name":"Thread-safe core and UI-thread boundaries","origin":"adapted","artifacts":[".agents/rules/threading-patterns.md",".agents/skills/threading/"],"verification":"Core, cache, UI thread and vendor limitation policy passed.","status":"pass"}
+  ],
+  "checks": {
+    "preflight":{"status":"pass","evidence":"Pinned clean base, target guard, inventory, license and approved dry-run completed."},
+    "secret_scan":{"status":"pass","evidence":"No likely live secret; three documented/example assignment markers classified as false positives by path and context."},
+    "copy_completeness":{"status":"pass","evidence":"161 approved paths materialized from git archive of the pinned commit; all SHA-256 comparisons matched."},
+    "no_git_metadata":{"status":"pass","evidence":"Recursive destination inspection found no entry named .git."},
+    "locked_infrastructure":{"status":"pass","evidence":"Pinned-copy hashes matched before specialization; locked artifacts remain outside the edit set."},
+    "sync_idempotency":{"status":"pass","evidence":"Second generator run produced the identical tree hash 25d830f8155a8744de70fbdb0ff9c719d0055d754549d0feb7a0495139a87ef7."},
+    "license_provenance":{"status":"pass","evidence":"LICENSE SHA-256 equals pinned base; README, acknowledgments and manifest agree on commit."},
+    "identity_pair":{"status":"pass","evidence":"AGENTS, Claude, Gemini, Copilot and Kiro express the same base brain and RAD Library domain contract."},
+    "name_residue":{"status":"pass","evidence":"Old base names occur only in approved README, acknowledgments, manifest and audit provenance."},
+    "compatibility":{"status":"pass","evidence":"Delphi 13+, Win32/64, VCL and FMX contract passed; optional vendors are explicitly conditional where runtime was unavailable."},
+    "inheritance_regression":{"status":"pass","evidence":"31 locked files match; safety, routing, approvals, discovery and canonical ownership survived."},
+    "capability_traceability":{"status":"pass","evidence":"Every advertised capability maps to a rule/skill and audit evidence; optional vendor runtime compatibility remains unverified, not claimed."},
+    "examples":{"status":"pass","evidence":"Approved plan intentionally drops base examples and creates no project source; structural examples are marked non-API."}
+  }
+}

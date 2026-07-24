@@ -1,0 +1,4 @@
+interface:
+  display_name: "Rad Repo Scaffold"
+  short_description: "Create a purpose-fit AI repository structure"
+  default_prompt: "Use $rad-repo-scaffold to gather my project requirements and create only the necessary AI-ready repository structure."

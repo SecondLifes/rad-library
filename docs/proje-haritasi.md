@@ -2,6 +2,9 @@
 
 Canonical system content lives under `.agents/`; generated Claude/Cursor
 copies are maintained by `tools/generate-ai-configs.ps1`.
+`tools/rad-register.ps1` registers this kit in the machine-wide `.rad`
+registry so other kits can reference it by name rather than by path —
+re-run it after moving or re-cloning the kit.
 
 ## Rules
 
@@ -13,7 +16,7 @@ copies are maintained by `tools/generate-ai-configs.ps1`.
 | `helper-patterns.md` | `help.*`, `_` public helpers and tests |
 | `kit-settings.md` | Operational settings |
 | `library-packaging.md` | Packages, SemVer and licensing |
-| `local-machine-registry.md` | Local machine discovery |
+| `local-machine-registry.md` | Two-level `.rad` hub (system + user roots), cross-kit references by registry name, shared rules |
 | `memory-exceptions.md` | Lifetime and exception safety |
 | `performance-patterns.md` | Evidence-based optimization |
 | `refactoring.md` | Behavior-preserving change |

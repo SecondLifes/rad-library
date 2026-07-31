@@ -1,12 +1,17 @@
-# The `.rad` Hub — Single Machine-Wide Root, Live Reference
+# The `.rad` Hub — Single Machine-Wide Root, One JSON File, Live Reference
 
 One root, `%ProgramData%\rad` (Windows) / `/usr/local/share/rad`. Outside
-every repo, never committed, never published. Holds `registry.json`,
+every repo, never committed, never published. Holds a single
 `settings.json`, `skills\` (the categorized link farm), and a handful of
 convenience links (`rad.ps1`, `workspace`, `tools`, `rules`, `prompts`,
 `analysis`, `spec-kits\`) — every one of them a **live link**, never a
 copy, into the registered workspace's own files. Nothing under the hub
 root is a primary source; the workspace is.
+
+**One JSON file, not two.** An earlier design split machine-wide facts
+(which workspace, which kits) and personal settings into
+`registry.json` + `settings.json`. There was no real reason for the
+split — `settings.json` alone now holds both.
 
 **Live reference, not publish-and-copy.** `rules\`, `prompts\` and
 `analysis\` under the hub root are not populated by copying files — they
@@ -26,14 +31,15 @@ shared rules are unavailable on this machine — say so plainly and point at
 `pwsh tools/rad.ps1 -Action Install`; never guess the content that would
 have been there.
 
-## `registry.json` — the shared source of truth
+## `settings.json` — the shared source of truth
 
 ```json
 {
-  "schema_version": 2,
-  "updated": "2026-07-31 07:54",
+  "schema_version": 3,
+  "updated": "2026-07-31 08:16",
   "updated_by": "user@MACHINE",
   "root": "E:\\...\\AI-Spec-Kits-Maker",
+  "last_bootstrap": { "date": "...", "machine": "..." },
   "kits": {
     "erp-muhasebe-temel": {
       "path": "E:\\...\\spec-kits\\erp-muhasebe-temel",
@@ -53,15 +59,18 @@ have been there.
   (never the literal folder name of the workspace or the kits folder —
   those can be renamed; the registry key must not silently go stale when
   they are).
+- Any other top-level key is personal/opaque machine state (see "Stack
+  keys" below) — coexists with `root`/`kits` in the same file without
+  conflict.
 
 **This file is authoritative; the convenience links under the hub root are
-not.** Resolve every path through the registry. A link that is missing or
-broken is a cosmetic problem, never a reason to report a kit as
-unavailable — check the registry before concluding anything.
+not.** Resolve every path through it. A link that is missing or broken is
+a cosmetic problem, never a reason to report a kit as unavailable — check
+`settings.json` before concluding anything.
 
 Writes are serialized by a lock file and committed by temp-file rename, so
 concurrent registrations cannot corrupt or silently overwrite each other.
-Never hand-edit `registry.json`; run the scripts.
+Never hand-edit `settings.json`; run the scripts.
 
 ## Shared rules — read them, they are not optional
 
@@ -75,7 +84,9 @@ publish or re-install step required.
 
 ## Referencing another kit
 
-This kit declares what it borrows in its own root `settings.json`:
+This kit declares what it borrows in its own root `settings.json` (this
+kit's own file, at its own repo root — a different file from the hub's
+`%ProgramData%\rad\settings.json`, same name, different job):
 
 ```json
 "references": [
@@ -85,12 +96,14 @@ This kit declares what it borrows in its own root `settings.json`:
 ]
 ```
 
-Resolve `kit` → `registry.json` → `kits.<name>.path`, then read the listed
-paths under it. Full procedure, failure handling and the copy-vs-reference
-decision table: the workspace's `share\rules\cross-kit-reference.md`.
+Resolve `kit` → the hub's `settings.json` → `kits.<name>.path`, then read
+the listed paths under it. Full procedure, failure handling and the
+copy-vs-reference decision table: the workspace's
+`share\rules\cross-kit-reference.md`.
 
 **Never hardcode another kit's filesystem path** in this kit's files. The
-name goes in `settings.json`; the path lives only in the registry.
+name goes in this kit's own `settings.json`; the path lives only in the
+hub's `settings.json`.
 
 ## Registering this kit
 
@@ -111,7 +124,7 @@ Re-run it after moving or re-cloning the kit — a registration pointing at
 a path that no longer exists is reported as `STALE REGISTRATION` by
 `rad.ps1 -Action Verify`.
 
-## Stack keys in `settings.json`
+## Stack keys in the hub's `settings.json`
 
 ```json
 "delphi": {

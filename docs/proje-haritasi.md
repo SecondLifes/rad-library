@@ -2,9 +2,10 @@
 
 Canonical system content lives under `.agents/`; generated Claude/Cursor
 copies are maintained by `tools/generate-ai-configs.ps1`.
-`tools/rad-register.ps1` registers this kit in the machine-wide `.rad`
-registry so other kits can reference it by name rather than by path —
-re-run it after moving or re-cloning the kit.
+`tools/register.bat` registers this kit in the machine-wide `.rad`
+registry — it carries no registration logic itself, it calls the
+workspace's own `rad.ps1` through the hub root's symlink. Re-run it after
+moving or re-cloning the kit.
 
 ## Rules
 

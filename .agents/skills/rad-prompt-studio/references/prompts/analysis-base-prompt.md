@@ -117,17 +117,21 @@ requires it.
 
 ### System Analysis mode
 
-Scans exactly two workspace-root folders — the skills folder and
-`Prompts/` — not the whole workspace (that's Bulk traversal mode's job).
+Scans exactly two root folders — the skills folder and the prompts
+folder — not the whole workspace (that's Bulk traversal mode's job).
 "The skills folder" means `.claude/skills/` where that is the hand-edited
 master (this workspace's root), or `.agents/skills/` where that is the
 native home and `.claude/` holds only generated copies (inside a
-spec-kit) — same mode, whichever location actually owns the skills.
+spec-kit) — same mode, whichever location actually owns the skills. "The
+prompts folder" means `share/prompts/` at the workspace root (live-
+referenced by the `.rad` hub), or a kit's own `Prompts/` folder inside a
+spec-kit (kit-local, unrelated to the workspace's `share/prompts/`).
 **This mode always asks before analyzing — it never auto-analyzes
 everything it finds.**
 
 1. **Enumerate candidates.** List every subfolder under `.claude/skills/`
-   (each one a candidate target) and every file directly under `Prompts/`
+   (each one a candidate target) and every file directly under the
+   prompts folder (as resolved above)
    (each one a candidate target). Inside a spec-kit,
    also include the rule files (`.agents/rules/*.md`), command files
    (`.agents/commands/*.md`), and the identity files. **The identity
@@ -157,7 +161,7 @@ everything it finds.**
    grouped by folder, either is fine as long as it's numbered) — and ask
    the user which one(s) to analyze. Support "all of them," a range, or
    specific numbers/names — **but "tümü"/"all" here means every item in
-   *this* list only** (the surviving `.claude/skills/` + `Prompts/`
+   *this* list only** (the surviving skills-folder + prompts-folder
    candidates after Golden Rule 7's exclusions), never an implicit
    expansion to `spec-kits/*` or the rest of the workspace — that's Bulk
    traversal mode, a separate, explicitly-requested mode, not something

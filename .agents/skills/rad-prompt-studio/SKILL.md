@@ -100,7 +100,7 @@ folder inside this skill's own directory:
 | `Analyze "c:\path\to\some-folder\"` | Analyzes that folder directly (its subdirectories too — a folder analysis that only reads the top-level `SKILL.md` is a critical failure per the master prompt's Deep Traversal Mandate). |
 | `Analyze "spec-kits\some-kit\"` (or any folder shaped like an AI-tool system — `.agents/skills`/`.agents/rules`/`.agents/commands` + an identity file) | Scoped to the system layer only (skills/rules/commands/identity) by default, excluding `examples/`, `docs/`, `src/`, `tools/`, and project meta — see `analysis-base-prompt.md`'s "Spec-kit / AI-tool system-folder scoping". Any `ADDITION` (missing-skill) finding must go through `rad-skill-finder` before being listed. **Output location depends on whether the kit is its own git repo/submodule** (e.g. `delphi-expert`) — if so, the result is written *inside that repo* at `<kit>/analysis/result/{ai_name}_v{n}.md`, not this workspace's own `analysis/result/`, so the kit's own analysis history travels with it. |
 | `"Review this workspace"` / `"Bu workspace'i denetle"` | Bulk traversal mode — walks `CLAUDE.md`'s own references depth-first, one result file per target, ending with a `system` write-up. |
-| `"System analizi"` / `"System analysis"` | System Analysis mode — scans only `.claude/skills/` and `Prompts/`, drops everything on the exclusion list (Golden Rule 7: `*.tr-TR.md` files, `python`, `powershell-master`), then presents the rest as a numbered pick-list and waits for you to choose before analyzing anything. |
+| `"System analizi"` / `"System analysis"` | System Analysis mode — scans only `.claude/skills/` and `share/prompts/`, drops everything on the exclusion list (Golden Rule 7: `*.tr-TR.md` files, `python`, `powershell-master`), then presents the rest as a numbered pick-list and waits for you to choose before analyzing anything. |
 | `"Is X still true in this repo?"` | Repo Auditor lens's verification protocol, scoped to that claim. |
 
 Output always lands at `analysis/result/{target_name}/{ai_name}_v{n}.md` — `{n}` increments on a re-run instead of overwriting.
@@ -180,7 +180,7 @@ request only needs the Prompt Engineer & Analyst lens's WORK MODES).
   → `references/prompts/analysis-base-prompt.md`'s Bulk traversal mode.
 - **Analysis, system** — "system analizi" / "system analysis", no specific
   target → `references/prompts/analysis-base-prompt.md`'s System Analysis
-  mode — scoped to just `.claude/skills/` and `Prompts/`, skipping every
+  mode — scoped to just `.claude/skills/` and `share/prompts/`, skipping every
   `*.tr-TR.md` file (Golden Rule 7).
 - **Evaluation** — "değerlendirme yap" / "evaluate the findings for X" /
   "bulguları değerlendir", asked directly rather than as a side effect of

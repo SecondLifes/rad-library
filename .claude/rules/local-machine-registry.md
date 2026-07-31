@@ -1,16 +1,25 @@
-# The `.rad` Hub — Single Machine-Wide Root
+# The `.rad` Hub — Single Machine-Wide Root, Live Reference
 
 One root, `%ProgramData%\rad` (Windows) / `/usr/local/share/rad`. Outside
 every repo, never committed, never published. Holds `registry.json`,
-`rules\`, `skills\`, `prompts\`, `settings.json`, and `analysis\` — all of
-it, no per-user split. An earlier design kept `settings.json`/`analysis\`
-under a separate `%USERPROFILE%\.rad` root on the theory that they were
-"personal" — dropped: this hub targets a single-developer machine, and the
-split added a second root to reason about for no real isolation benefit.
+`settings.json`, `skills\` (the categorized link farm), and a handful of
+convenience links (`rad.ps1`, `workspace`, `tools`, `rules`, `prompts`,
+`analysis`, `spec-kits\`) — every one of them a **live link**, never a
+copy, into the registered workspace's own files. Nothing under the hub
+root is a primary source; the workspace is.
+
+**Live reference, not publish-and-copy.** `rules\`, `prompts\` and
+`analysis\` under the hub root are not populated by copying files — they
+are single links straight into the workspace's own `share\rules\`,
+`share\prompts\` and `share\analysis\`. Reading through the hub link and
+reading the workspace's `share\` folder directly are the same files. If
+the workspace's real path is ever unreachable, the correct response is
+"workspace unreachable, cannot resolve" — never a guess and never a
+silently stale fallback copy from some earlier "publish" step, because
+there is no publish step anymore.
 
 Built and maintained by `tools/rad.ps1` in the AI-Spec-Kits-Maker
-workspace; any single kit registers itself with its own
-`tools/rad-register.ps1`. Idempotent, needs no elevation.
+workspace. Idempotent, needs no elevation.
 
 **A missing hub root is never fatal.** It means cross-kit references and
 shared rules are unavailable on this machine — say so plainly and point at
@@ -21,15 +30,10 @@ have been there.
 
 ```json
 {
-  "schema_version": 1,
-  "updated": "2026-07-29 07:22",
+  "schema_version": 2,
+  "updated": "2026-07-31 07:54",
   "updated_by": "user@MACHINE",
-  "shared": {
-    "rules":   "C:\\ProgramData\\rad\\rules",
-    "skills":  "C:\\ProgramData\\rad\\skills",
-    "prompts": "C:\\ProgramData\\rad\\prompts"
-  },
-  "workspaces": { "AI-Spec-Kits-Maker": "E:\\...\\AI-Spec-Kits-Maker" },
+  "root": "E:\\...\\AI-Spec-Kits-Maker",
   "kits": {
     "erp-muhasebe-temel": {
       "path": "E:\\...\\spec-kits\\erp-muhasebe-temel",
@@ -38,6 +42,17 @@ have been there.
   }
 }
 ```
+
+- **`root`** — the registered workspace's own path. Every other shared
+  path (`rules`, `prompts`, `analysis`, `skills`) is **derived** from this
+  one fact (`root\share\rules`, `root\share\prompts`, `root\share\
+  analysis`, `root\.claude\skills` or `root\.agents\skills`) — there is no
+  separate `shared` block duplicating them, because a duplicate is just
+  another thing that can drift.
+- **`kits`** — one entry per registered kit, keyed by its registry name
+  (never the literal folder name of the workspace or the kits folder —
+  those can be renamed; the registry key must not silently go stale when
+  they are).
 
 **This file is authoritative; the convenience links under the hub root are
 not.** Resolve every path through the registry. A link that is missing or
@@ -50,16 +65,13 @@ Never hand-edit `registry.json`; run the scripts.
 
 ## Shared rules — read them, they are not optional
 
-`registry.json`'s `shared.rules` folder holds rules that apply to **every**
-kit on this machine (commit/versioning discipline, cross-kit reference
-resolution, and whatever else the workspace publishes there). Read them at
-the start of any task they govern — they are as binding as this kit's own
+`root\share\rules\` holds rules that apply to **every** kit on this
+machine (commit/versioning discipline, cross-kit reference resolution,
+and whatever else the workspace keeps there). Read them at the start of
+any task they govern — they are as binding as this kit's own
 `.agents/rules/`, and they are deliberately **not** copied into the kit,
-so an update in the workspace takes effect everywhere immediately.
-
-Source of truth for their content is the workspace's git-tracked
-`shared-rules/` folder; `rad.ps1 -Action Install` publishes it. Never edit
-the published copy — edit the workspace source and re-publish.
+so an edit in the workspace takes effect everywhere immediately, with no
+publish or re-install step required.
 
 ## Referencing another kit
 
@@ -75,18 +87,25 @@ This kit declares what it borrows in its own root `settings.json`:
 
 Resolve `kit` → `registry.json` → `kits.<name>.path`, then read the listed
 paths under it. Full procedure, failure handling and the copy-vs-reference
-decision table: the published `cross-kit-reference.md` shared rule.
+decision table: the workspace's `share\rules\cross-kit-reference.md`.
 
 **Never hardcode another kit's filesystem path** in this kit's files. The
 name goes in `settings.json`; the path lives only in the registry.
 
 ## Registering this kit
 
-```powershell
-pwsh tools/rad-register.ps1                 # register under the folder name
-pwsh tools/rad-register.ps1 -Name my-kit    # register under an explicit name
-pwsh tools/rad-register.ps1 -Unregister     # remove the entry
+This kit carries no registration logic of its own — it only knows how to
+find and call the workspace's own script, through the hub root's symlink:
+
+```batch
+tools\register.bat                    :: register under this folder's own name
+tools\register.bat -Name my-kit       :: register under an explicit name
+tools\register.bat -Unregister        :: remove the entry
 ```
+
+`register.bat` checks for `%ProgramData%\rad\rad.ps1` first — if the hub
+isn't installed on this machine, it says so plainly (`Hub kurulu değil.`)
+and stops; it never tries to register anywhere else.
 
 Re-run it after moving or re-cloning the kit — a registration pointing at
 a path that no longer exists is reported as `STALE REGISTRATION` by
@@ -112,14 +131,18 @@ Never store secrets in the hub root — paths and opaque markers only.
 
 ## `analysis\` — a single machine's work product, not a permanent archive
 
-`analysis\{repo}\{target}\{ai_name}_v{n}.md` holds analysis reports.
+`root\share\analysis\{repo}\{target}\{ai_name}_v{n}.md` holds analysis
+reports (reachable through the hub's `analysis\` link too — same files).
 Filenames carry no per-user segment, so on a machine with more than one
 user, two people running the same analysis at the same time can collide on
 the same filename — accepted as out of scope for this tool, since the hub
 targets a single-developer machine. The retention rule in
 `analysis-output.md` (a resolved finding's report gets deleted once the
 fix lands, git history becomes the permanent record) already keeps this
-folder from growing into something that would need backing up.
+folder from growing into something that would need backing up. Because it
+lives inside the workspace's own folder tree now, the workspace's
+`.gitignore` excludes it — it is real, useful, work-in-progress data, but
+never meant to be committed.
 
 ## Disciplines (AI-binding)
 
@@ -133,6 +156,7 @@ folder from growing into something that would need backing up.
 3. **Repair = rebuild.** Broken or suspect links are never fixed by hand:
    `-Action Install` (idempotent), or `Clean` then `Install`. Nothing
    under the hub root is a primary source — every path resolves back to a
-   git-tracked repo, so deleting the hub root by accident (even the whole
-   thing) costs nothing but a re-run of `-Action Install`.
+   git-tracked repo or the workspace's own `share\` folder, so deleting
+   the hub root by accident (even the whole thing) costs nothing but a
+   re-run of `-Action Install`.
 4. **`-Action Push` is user-invoked.** AIs commit; the user publishes.

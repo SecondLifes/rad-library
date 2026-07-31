@@ -1,5 +1,5 @@
 ---
-name: rad-python
+name: python
 description: General-purpose Python engineering skill — profiling/performance optimization, pytest-based testing (fixtures, mocking, async, property-based), and design principles (SRP, composition over inheritance, dependency injection). Use whenever writing, reviewing, testing, or optimizing Python code, including ad-hoc scripts written to accomplish a task in this workspace.
 ---
 

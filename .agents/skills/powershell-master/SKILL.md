@@ -1,5 +1,5 @@
 ---
-name: rad-powershell-master
+name: powershell-master
 description: |
   Complete PowerShell expertise system across ALL platforms (Windows/Linux/macOS).
   PROACTIVELY activate for: (1) ANY PowerShell task (scripts/modules/cmdlets), (2) CI/CD automation (GitHub Actions/Azure DevOps/Bitbucket), (3) Cross-platform scripting, (4) Module discovery and management (PSGallery), (5) Azure/AWS/Microsoft 365 automation, (6) Script debugging and optimization, (7) Best practices and security.

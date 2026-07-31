@@ -138,7 +138,7 @@ everything it finds.**
    enumeration (observed real gap in live testing).
 2. **Apply Golden Rule 7 (Excluded from analysis) before presenting
    anything** — drop every candidate matching the exclusion list (any
-   `*.tr-TR.md` file, `rad-python`, `rad-powershell-master`) from the
+   `*.tr-TR.md` file, `python`, `powershell-master`) from the
    list entirely; don't show them as pickable options and don't mention
    them as skipped, they simply aren't candidates.
    **Inside a spec-kit, also drop every bundled `rad-*` skill that is a
@@ -253,10 +253,10 @@ list here.
      already-canonical English file (`image-prompts.md` →
      `image-prompts.tr-TR.md`, etc.). It carries no independent content
      to audit, only a restatement of the file it's paired with.
-   - **`rad-python`** (under `.claude/skills/`) — a general-purpose,
+   - **`python`** (under `.claude/skills/`) — a general-purpose,
      stack-agnostic helper skill with no workspace-specific content;
      reviewing it repeatedly adds no signal.
-   - **`rad-powershell-master`** (under `.claude/skills/`) — same
+   - **`powershell-master`** (under `.claude/skills/`) — same
      reasoning; already reviewed and trimmed once at install time (see
      `CLAUDE.md`'s Base Skills section), not a workspace-original skill
      that needs recurring audit.
@@ -269,8 +269,8 @@ list here.
    override) — even then, for a `.tr-TR.md` file specifically, say so
    back to the user first ("bu bir çeviri dosyası, orijinali zaten
    kapsamda / analiz edilecek — yine de bunu mu analiz edeyim?") rather
-   than silently complying or silently refusing. `rad-python`/
-   `rad-powershell-master` named explicitly are analyzed as asked, no
+   than silently complying or silently refusing. `python`/
+   `powershell-master` named explicitly are analyzed as asked, no
    pushback needed — the exclusion is about auto-discovery noise, not
    about these skills being off-limits.
 

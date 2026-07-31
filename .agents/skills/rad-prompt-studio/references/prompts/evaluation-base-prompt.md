@@ -28,7 +28,7 @@ own output goes, see `.agents/rules/analysis-output.md`.
 
 ## Determining the target (standalone entry only — skip if Edit mode already picked one)
 
-1. **A specific target is named** ("değerlendir: rad-python",
+1. **A specific target is named** ("değerlendir: python",
    "evaluate the findings for image-prompts.md") → evaluate
    `analysis/result/{target_name}/`'s existing analyses for that target.
 2. **No target named** → scan `analysis/result/` for target folders that

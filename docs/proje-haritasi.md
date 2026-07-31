@@ -37,7 +37,7 @@ re-run it after moving or re-cloning the kit.
 | `vcl-component-architecture`, `fmx-component-architecture` | VCL/FMX components |
 | `unidac-data-access`, `devexpress-components`, `tms-vcl-ui`, `fastreport-vcl` | Optional vendor adapters |
 | `jedi-integration`, `mormot2-integration` | Conditional JEDI/mORMot2 adapters |
-| `rad-powershell-master`, `rad-python` | Supporting language/tool skills |
+| `powershell-master`, `python` | Supporting language/tool skills |
 | `rad-prompt-studio`, `rad-repo-scaffold` | System analysis and repository setup |
 | `rad-skill-finder`, `rad-web-scraping` | Capability discovery/research |
 

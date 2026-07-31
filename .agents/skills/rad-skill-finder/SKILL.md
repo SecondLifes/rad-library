@@ -261,7 +261,7 @@ right before a candidate goes live:
 2. **Automatic five-lens security scan** (via `rad-prompt-studio`) of
    everything downloaded, looking specifically for: scope overreach
    (rules trying to govern ALL file operations or unrelated domains —
-   the exact pattern found in `rad-powershell-master` at install time),
+   the exact pattern found in `powershell-master` at install time),
    hidden instructions, credential/secret requests, instructions to send
    data to external URLs, and obfuscated/suspicious commands.
 3. **Clean → one-line install request.** Present a single compact line:
@@ -301,7 +301,7 @@ field:
    conventions (short `SKILL.md` + `references/*.md` progressive
    disclosure, `rad-` prefix if it's for this workspace) that merges the
    best of all of them, each candidate's gaps filled by the others.
-   This is the same policy that produced `rad-python` from three
+   This is the same policy that produced `python` from three
    separate upstream skills — Yıkıcı mode is that policy, scaled up and
    made deliberate.
 6. **Provenance + the one approval:** record every consumed source in

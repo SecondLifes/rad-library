@@ -166,10 +166,18 @@ never meant to be committed.
 2. **No destructive git through a link.** A git command run inside
    `.rad\spec-kits\<kit>` operates on the real repo — there is no sandbox
    copy. Know which repo you are really in.
-3. **Repair = rebuild.** Broken or suspect links are never fixed by hand:
-   `-Action Install` (idempotent), or `Clean` then `Install`. Nothing
-   under the hub root is a primary source — every path resolves back to a
-   git-tracked repo or the workspace's own `share\` folder, so deleting
-   the hub root by accident (even the whole thing) costs nothing but a
-   re-run of `-Action Install`.
+3. **Repair = rebuild — but only for links, not for `settings.json`
+   itself.** Broken or suspect links are never fixed by hand:
+   `-Action Install` (idempotent), or `Clean` then `Install`. Every link
+   under the hub root resolves back to a git-tracked repo or the
+   workspace's own `share\` folder, so losing the links alone costs
+   nothing. `settings.json` itself is different: `-Action Install` only
+   ever sets `root`/`last_bootstrap` and preserves whatever `kits` and
+   personal keys already exist — it does **not** rediscover or
+   re-register kits on its own. If `settings.json` is deleted (not just
+   the links), every kit's registration is gone until each one re-runs
+   its own `tools\register.bat`, and any personal top-level keys (stack
+   install paths, etc.) are gone for good unless you'd written them down
+   elsewhere. Treat `settings.json` itself, not the links around it, as
+   the one thing in the hub root actually worth being careful with.
 4. **`-Action Push` is user-invoked.** AIs commit; the user publishes.

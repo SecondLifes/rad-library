@@ -16,7 +16,7 @@ re-run it after moving or re-cloning the kit.
 | `helper-patterns.md` | `help.*`, `_` public helpers and tests |
 | `kit-settings.md` | Operational settings |
 | `library-packaging.md` | Packages, SemVer and licensing |
-| `local-machine-registry.md` | Two-level `.rad` hub (system + user roots), cross-kit references by registry name, shared rules |
+| `local-machine-registry.md` | Single machine-wide `.rad` hub (`%ProgramData%\rad`), cross-kit references by registry name, shared rules |
 | `memory-exceptions.md` | Lifetime and exception safety |
 | `performance-patterns.md` | Evidence-based optimization |
 | `refactoring.md` | Behavior-preserving change |

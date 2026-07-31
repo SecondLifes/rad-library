@@ -104,7 +104,7 @@ approval) instead of running the full search order below:
 ## Search order (cheapest to most expensive, local first)
 
 1. **Local workspace** — fastest first look: if the `.rad` hub is
-   installed, read `%USERPROFILE%\.rad\skills\` (categorized link farm)
+   installed, read `%ProgramData%\rad\skills\` (categorized link farm)
    and the workspace's committed `rad-skills-index.json` — one file
    lists every canonical skill across the workspace and all kits, by
    category. Without the hub, fall back to scanning
@@ -124,7 +124,7 @@ approval) instead of running the full search order below:
    **For a compiled-library/component gap specifically** (not a skill
    gap — an actual library's real API), also check the current kit's
    `.agents/rules/local-machine-registry.md` convention: if
-   `%USERPROFILE%\.rad\settings.json` registers a local source path for
+   `%ProgramData%\rad\settings.json` registers a local source path for
    the relevant stack/vendor, search it and read the real installed
    source before going any further — ground truth beats every external
    source below it.

@@ -42,7 +42,7 @@ adopted, and only once an approved change list exists.
      first at `../../` (marker: a `CLAUDE.md` charter there plus a
      matching canonical copy, `../../.claude/skills/<name>/`); if
      `../../` doesn't resolve (the kit is cloned somewhere else), read
-     `workspace_root` from `%USERPROFILE%\.rad\settings.json` and look
+     `workspace_root` from `%ProgramData%\rad\settings.json` and look
      there instead. If found either way, apply the identical change to
      the canonical copy too, and run the parent's
      `tools/sync-hardlinks.ps1` if the canonical file is hardlinked. If

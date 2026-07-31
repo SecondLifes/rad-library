@@ -1,28 +1,21 @@
-# The `.rad` Hub — System + User Roots
+# The `.rad` Hub — Single Machine-Wide Root
 
-Two roots, resolved in order like git's `system` → `global` config levels.
-Both are outside every repo, never committed, never published.
-
-| Level | Location | Holds | Shared with |
-|---|---|---|---|
-| **System** | `%ProgramData%\rad` (Windows) / `/usr/local/share/rad` | `registry.json`, `rules\`, `skills\`, `prompts\` | every user on the machine |
-| **User** | `%USERPROFILE%\.rad` | `settings.json`, `analysis\`, convenience links | just this user |
+One root, `%ProgramData%\rad` (Windows) / `/usr/local/share/rad`. Outside
+every repo, never committed, never published. Holds `registry.json`,
+`rules\`, `skills\`, `prompts\`, `settings.json`, and `analysis\` — all of
+it, no per-user split. An earlier design kept `settings.json`/`analysis\`
+under a separate `%USERPROFILE%\.rad` root on the theory that they were
+"personal" — dropped: this hub targets a single-developer machine, and the
+split added a second root to reason about for no real isolation benefit.
 
 Built and maintained by `tools/rad.ps1` in the AI-Spec-Kits-Maker
 workspace; any single kit registers itself with its own
-`tools/rad-register.ps1`. Both are idempotent and need no elevation.
+`tools/rad-register.ps1`. Idempotent, needs no elevation.
 
-**A missing system root is never fatal.** It means cross-kit references
-and shared rules are unavailable on this machine — say so plainly and
-point at `pwsh tools/rad.ps1 -Action Install`; never guess the content
-that would have been there.
-
-## Why analysis stays per-user
-
-`analysis\` holds personal work product and its filenames carry no user
-(`claude_v1.md`). Two people running the same analysis would collide on
-the same filename, so it deliberately stays in the user root while the
-factual, shared material lives in the system root.
+**A missing hub root is never fatal.** It means cross-kit references and
+shared rules are unavailable on this machine — say so plainly and point at
+`pwsh tools/rad.ps1 -Action Install`; never guess the content that would
+have been there.
 
 ## `registry.json` — the shared source of truth
 
@@ -46,10 +39,10 @@ factual, shared material lives in the system root.
 }
 ```
 
-**This file is authoritative; the convenience links under the user root
-are not.** Resolve every path through the registry. A link that is
-missing or broken is a cosmetic problem, never a reason to report a kit
-as unavailable — check the registry before concluding anything.
+**This file is authoritative; the convenience links under the hub root are
+not.** Resolve every path through the registry. A link that is missing or
+broken is a cosmetic problem, never a reason to report a kit as
+unavailable — check the registry before concluding anything.
 
 Writes are serialized by a lock file and committed by temp-file rename, so
 concurrent registrations cannot corrupt or silently overwrite each other.
@@ -99,7 +92,7 @@ Re-run it after moving or re-cloning the kit — a registration pointing at
 a path that no longer exists is reported as `STALE REGISTRATION` by
 `rad.ps1 -Action Verify`.
 
-## Stack keys in the user `settings.json`
+## Stack keys in `settings.json`
 
 ```json
 "delphi": {
@@ -115,11 +108,22 @@ when a library topic comes up, search these and **read the real installed
 source** before reaching for the web, citing the file path read. Missing
 file or missing key means skip silently — it is optional infrastructure.
 
-Never store secrets in either root — paths and opaque markers only.
+Never store secrets in the hub root — paths and opaque markers only.
+
+## `analysis\` — a single machine's work product, not a permanent archive
+
+`analysis\{repo}\{target}\{ai_name}_v{n}.md` holds analysis reports.
+Filenames carry no per-user segment, so on a machine with more than one
+user, two people running the same analysis at the same time can collide on
+the same filename — accepted as out of scope for this tool, since the hub
+targets a single-developer machine. The retention rule in
+`analysis-output.md` (a resolved finding's report gets deleted once the
+fix lands, git history becomes the permanent record) already keeps this
+folder from growing into something that would need backing up.
 
 ## Disciplines (AI-binding)
 
-1. **Never `rm -rf` anything under either root.** Removing links is
+1. **Never `rm -rf` anything under the hub root.** Removing links is
    `rad.ps1 -Action Clean`'s job (it deletes reparse points without
    recursing). A recursive delete pushed through a link destroys real
    repo files.
@@ -127,5 +131,8 @@ Never store secrets in either root — paths and opaque markers only.
    `.rad\spec-kits\<kit>` operates on the real repo — there is no sandbox
    copy. Know which repo you are really in.
 3. **Repair = rebuild.** Broken or suspect links are never fixed by hand:
-   `-Action Install` (idempotent), or `Clean` then `Install`.
+   `-Action Install` (idempotent), or `Clean` then `Install`. Nothing
+   under the hub root is a primary source — every path resolves back to a
+   git-tracked repo, so deleting the hub root by accident (even the whole
+   thing) costs nothing but a re-run of `-Action Install`.
 4. **`-Action Push` is user-invoked.** AIs commit; the user publishes.

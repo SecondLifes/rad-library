@@ -97,13 +97,13 @@ Never install anything it finds without the user's explicit approval —
 target** (determine the owning repo with
 `git -C <target> rev-parse --show-toplevel`):
 
-- **Default:** `%USERPROFILE%\.rad\analysis\{repo_name}\{target_name}\
+- **Default:** `%ProgramData%\rad\analysis\{repo_name}\{target_name}\
   {ai_name}_v{n}.md` — where `{repo_name}` is the owning repo's folder
   name (`AI-Spec-Kits-Maker` for this workspace's own targets; the
   kit's name, e.g. `delphi-expert`, for a kit target). One central
   place, decoupled from every repo's git history — see
   `.agents/rules/analysis-output.md`.
-- **Legacy fallback:** if `%USERPROFILE%\.rad\` doesn't exist on this
+- **Legacy fallback:** if `%ProgramData%\rad\` doesn't exist on this
   machine (hub not installed), fall back to the owning repo's own
   `analysis/result/{target_name}/{ai_name}_v{n}.md` (for an independent
   kit repo, drop the redundant target-name folder when the repo root

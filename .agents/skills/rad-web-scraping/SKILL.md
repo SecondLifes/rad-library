@@ -20,6 +20,7 @@ description: General-purpose web scraping / structured data extraction skill —
 | `"Turn these pages into clean Markdown for my RAG index"` | Recommends `crawl4AI` (LLM/RAG-ready output) per `references/tool-selection.md`. |
 | `"My scraper keeps getting blocked / breaks randomly"` | Reviews against the retry/backoff/rate-limit baseline in `references/discovery-and-extraction-patterns.md` — a scraper missing these isn't hardened, it's incomplete. |
 | `"Bypass this CAPTCHA / get around their bot detection"` | Refused — out of scope regardless of phrasing; reasonable retries/rate-limiting are fine, detection evasion is not. |
+| A scraping request with no target site/URL named (`"Scrape it"`, `"veriyi çek"`) | Asks what site/data is meant before picking any tool — never guesses a target, and an empty request is never treated as "nothing to do." |
 
 ## Golden Rules
 

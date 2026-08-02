@@ -39,7 +39,7 @@ DevOps/Config Engineer, Systems Forensics Analyst, Context Engineer" for
 this to happen — that enumeration lives here, once, permanently, as a
 current snapshot rather than a hardcoded gate.
 
-## Golden Rules (apply across all four modes)
+## Golden Rules (apply across every mode)
 
 1. **Every analysis MUST use the master prompt** —
    `references/prompts/analysis-base-prompt.md`. No ad hoc analysis format.
@@ -97,9 +97,13 @@ folder inside this skill's own directory:
   sitting there is offered as a pick-list — but it is never a required
   staging step; an explicit path always wins regardless of what is or
   isn't in that folder.
-- **Output** — every analysis, evaluation, and edit report lands under
-  `analysis/result/{target_name}/`. Full naming convention, resolution
-  order, and manual-path override rule: `.agents/rules/analysis-output.md`.
+- **Output** — every analysis, evaluation, and edit report lands at the
+  location `.agents/rules/analysis-output.md` resolves: the `.rad` hub's
+  `analysis\{repo}\{target}\` folder by default (the workspace's own
+  `share\analysis\`), with repo-local `analysis/result/{target_name}/`
+  only as the legacy fallback when the hub isn't installed. Every
+  `analysis/result/` mention elsewhere in this file is shorthand for
+  that resolved location, not an instruction to prefer the legacy path.
 
 ## Usage
 
@@ -110,12 +114,12 @@ folder inside this skill's own directory:
 | `"Analyze"` / `"Analiz yap"` (no path given) | Scans `analysis/` (excluding `analysis/result/`) for `.md` files and skill folders sitting there and presents them as a numbered pick-list to choose from; only asks a bare "what would you like me to analyze?" if that folder is empty. |
 | `Analyze "c:\path\to\prompt.md"` | Analyzes that file directly, all five lenses, using `analysis-base-prompt.md`. |
 | `Analyze "c:\path\to\some-folder\"` | Analyzes that folder directly (its subdirectories too — a folder analysis that only reads the top-level `SKILL.md` is a critical failure per the master prompt's Deep Traversal Mandate). |
-| `Analyze "spec-kits\some-kit\"` (or any folder shaped like an AI-tool system — `.agents/skills`/`.agents/rules`/`.agents/commands` + an identity file) | Scoped to the system layer only (skills/rules/commands/identity) by default, excluding `examples/`, `docs/`, `src/`, `tools/`, and project meta — see `analysis-base-prompt.md`'s "Spec-kit / AI-tool system-folder scoping". Any `ADDITION` (missing-skill) finding must go through `rad-skill-finder` before being listed. **Output location depends on whether the kit is its own git repo/submodule** (e.g. `delphi-expert`) — if so, the result is written *inside that repo* at `<kit>/analysis/result/{ai_name}_v{n}.md`, not this workspace's own `analysis/result/`, so the kit's own analysis history travels with it. |
+| `Analyze "spec-kits\some-kit\"` (or any folder shaped like an AI-tool system — `.agents/skills`/`.agents/rules`/`.agents/commands` + an identity file) | Scoped to the system layer only (skills/rules/commands/identity) by default, excluding `examples/`, `docs/`, `src/`, `tools/`, and project meta — see `analysis-base-prompt.md`'s "Spec-kit / AI-tool system-folder scoping". Any `ADDITION` (missing-skill) finding must go through `rad-skill-finder` before being listed. **Output goes to the hub keyed by the owning repo** — `analysis\{kit_name}\{target}\` for a kit target (e.g. `analysis\delphi-expert\...`), per `.agents/rules/analysis-output.md`; writing inside the kit's own repo (`<kit>/analysis/result/`) is only the legacy fallback when the hub isn't installed. |
 | `"Review this workspace"` / `"Bu workspace'i denetle"` | Bulk traversal mode — walks `CLAUDE.md`'s own references depth-first, one result file per target, ending with a `system` write-up. |
 | `"System analizi"` / `"System analysis"` | System Analysis mode — scans only `.claude/skills/` and `share/prompts/`, drops everything on the exclusion list (Golden Rule 7: `*.tr-TR.md` files, `python`, `powershell-master`), then presents the rest as a numbered pick-list and waits for you to choose before analyzing anything. |
 | `"Is X still true in this repo?"` | Repo Auditor lens's verification protocol, scoped to that claim. |
 
-Output always lands at `analysis/result/{target_name}/{ai_name}_v{n}.md` — `{n}` increments on a re-run instead of overwriting.
+Output lands at the resolved location above (hub by default) as `{ai_name}_v{n}.md` — `{n}` increments on a re-run instead of overwriting.
 
 ### Designing a new prompt
 

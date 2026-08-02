@@ -104,7 +104,7 @@ adopted, and only once an approved change list exists.
 **Approved items:** {list the exact finding IDs/titles the user signed off on}
 ```
 
-### Mandatory short Turkish summary
+### Mandatory short Turkish summary (ELI10 — same rule as `analysis-base-prompt.md`'s)
 
 ```
 ## Kısa Özet (Türkçe — bilgilendirme amaçlı, değerlendirilmez)

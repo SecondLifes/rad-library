@@ -142,7 +142,10 @@ One entry per prior finding evaluated:
    Edit mode's own step 3 requires: `ACCEPT`/`REJECT`/`DEFER` per
    candidate is the user's call, never assumed. Group candidates by
    severity (Critical → Bug → Error → Missing → Warning → Advisory) so
-   the user sees what matters most first.
+   the user sees what matters most first, and lead with a one-line
+   80/20 note naming the few candidates that deliver most of the value
+   (severity alone doesn't say this — two Important items can differ
+   sharply in payoff).
 7. **Only after the user approves specific items**, apply them using
    `references/prompts/edit-base-prompt.md` as the master template for
    how each correction is carried out, scoped, and reported — same rule

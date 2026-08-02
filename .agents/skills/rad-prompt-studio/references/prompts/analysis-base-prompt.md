@@ -372,19 +372,39 @@ Rules, non-negotiable:
   manifest first — citations into files the manifest doesn't cover
   invalidate the finding outright.
 
-### Mandatory short Turkish summary
+### Mandatory short Turkish summary (ELI10)
 
 Immediately after the header (before `OVERALL` or any finding), a short,
 plain-language Turkish summary — a few sentences, not a restated finding
-list. This section is informational only and is **never** part of what
-gets classified/scored: no `CRITICAL`/`BUG`/`ERROR`/etc. content belongs
-here, just a quick, non-technical recap of what was found and why it
-matters, for a reader who won't read the structured findings below it.
+list. **Write it at ELI10 level**: no jargon, no file paths, no category
+IDs — a smart reader with zero technical background must be able to
+follow it. This section is informational only and is **never** part of
+what gets classified/scored: no `CRITICAL`/`BUG`/`ERROR`/etc. content
+belongs here, just a quick recap of what was found and why it matters,
+for a reader who won't read the structured findings below it.
 
 ```
 ## Kısa Özet (Türkçe — bilgilendirme amaçlı, değerlendirilmez)
 
 {2-4 cümlelik sade özet: ne incelendi, genel durum ne, en önemli 1-2 şey ne.}
+```
+
+### Mandatory priority ranking (80/20)
+
+Immediately after the last finding (before the Coverage Manifest), a
+short ranked list answering one question: **which few findings carry
+most of the impact, and in what order should they be fixed?** Typically
+2-4 items — not a restatement of every finding, and never padded to
+look fuller. With only one or two findings total, a single line
+("fix X first, Y is minor") satisfies this. Severity classification
+alone doesn't replace it: three findings can all be Important yet differ
+sharply in payoff — this section states that difference explicitly.
+
+```
+## Öncelik Sıralaması (80/20)
+
+1. {finding ID} — {one line: why this delivers the most value}
+2. ...
 ```
 
 ## Standard finding format

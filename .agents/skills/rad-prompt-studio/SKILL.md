@@ -321,9 +321,10 @@ version of this same discipline, for use outside this skill).
      let it read as tested when it wasn't.
 6. **Single consolidated approval (default) — nothing is written to disk
    before this point.** Present one compact list per target: every
-   change (what + why, with its original finding category), how many
-   rounds ran and why the loop stopped (zero new findings vs. the
-   3-round cap), and anything still open. **`REMOVAL`/`MERGE` candidates
+   change (what + why, with its original finding category), **ordered
+   impact-first with a one-line 80/20 note naming the few changes that
+   matter most**, how many rounds ran and why the loop stopped (zero new
+   findings vs. the 3-round cap), and anything still open. **`REMOVAL`/`MERGE` candidates
    get their own clearly separated section** in this same report — never
    silently applied alongside the fixes, never silently dropped either —
    each with its `REMOVE`/`MERGE`/`KEEP`/`DEFER` recommendation, per the

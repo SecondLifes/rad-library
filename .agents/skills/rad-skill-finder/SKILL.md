@@ -1,6 +1,6 @@
 ---
 name: rad-skill-finder
-description: Searches for and recommends AI agent skills, plugins, and MCP servers relevant to a task or domain — via the npx skills ecosystem (skills.sh leaderboard), this workspace's local skill library (spec-kits/*/.agents/skills, .claude/skills), curated GitHub directories, MCP/plugin registries, and the public web as a last resort. Aggressive by default: searches, downloads into quarantine, and five-lens security-scans candidates automatically — the only pause is a single install approval per candidate (scan-flagged content is never presented as routine). Check here BEFORE writing any non-trivial capability from scratch — git/GitHub automation, web frontend (HTML/CSS/JS/Bootstrap/visual design), CI/CD, cloud APIs, database access patterns — even when confident about how to do it from general knowledge; a specialized skill usually encodes more than general knowledge alone. Also supports "Yıkıcı" mode: mass-harvest the top N candidates on a topic and consolidate their best content into one superior skill.
+description: Searches for and recommends AI agent skills, plugins, and MCP servers relevant to a task or domain — via this workspace's local skill library (spec-kits/*/.agents/skills, .claude/skills), the official vendor skill catalogs (anthropics/skills, openai/skills, microsoft/skills), the npx skills ecosystem (skills.sh leaderboard), curated GitHub directories, MCP/plugin registries, and the public web as a last resort. Aggressive by default: searches, downloads into quarantine, and five-lens security-scans candidates automatically — the only pause is a single install approval per candidate (scan-flagged content is never presented as routine). Check here BEFORE writing any non-trivial capability from scratch — git/GitHub automation, web frontend (HTML/CSS/JS/Bootstrap/visual design), CI/CD, cloud APIs, database access patterns — even when confident about how to do it from general knowledge; a specialized skill usually encodes more than general knowledge alone. Also supports "Yıkıcı" mode: mass-harvest the top N candidates on a topic and consolidate their best content into one superior skill.
 ---
 
 # Skill Finder
@@ -79,7 +79,7 @@ worse than not searching at all.
 
 | You say | What happens |
 |---|---|
-| `"Is there a skill for PostgreSQL?"` / `"GitHub Actions için bir skill ara"` | Runs the Search order below (local workspace → `npx skills` → 4 directory sites → GitHub awesome-lists → MCP/plugin registries → open web) with the evidence rule (queries + results shown, ≥3 phrasings), downloads the strong match into quarantine, security-scans it, and presents a one-line "scan clean — install?" request. |
+| `"Is there a skill for PostgreSQL?"` / `"GitHub Actions için bir skill ara"` | Runs the Search order below (local workspace → official vendor catalogs → `npx skills` → 4 directory sites → GitHub awesome-lists → MCP/plugin registries → open web) with the evidence rule (queries + results shown, ≥3 phrasings), downloads the strong match into quarantine, security-scans it, and presents a one-line "scan clean — install?" request. |
 | A vague/ambiguous topic (e.g. `"find me a database skill"`) | Asks what exactly is being searched for before running any search — never guesses and reports "nothing found" on the wrong topic. |
 | `"Yes, install"` (the one approval) | Runs `npx skills add <owner/repo> --skill <skill-name>` (no `-g`, no `-y`) for an ecosystem match, or moves the quarantined copy into `.agents/skills/<name>/`; verifies the file actually landed, records it in `skills-lock.json`, then runs the target template's generator script and updates its map-doc. |
 | `"Yıkıcı mod: <topic>"` / `"build me the best possible <topic> skill"` | Confirms scope, then harvests the top 20-30 candidates from multiple sources, quarantine-scans all, gap-analyzes them against each other, and consolidates the best of everything into ONE new skill — single install approval at the end, full provenance recorded. |
@@ -129,7 +129,25 @@ approval) instead of running the full search order below:
    source before going any further — ground truth beats every external
    source below it.
 
-2. **The `npx skills` ecosystem (primary external source — Vercel's
+2. **Official first-party vendor skill catalogs (check directly, before
+   the general npx ecosystem search)** — these are the model/tool
+   vendors' own canonical repos, not third-party aggregations, so a
+   match here is the strongest provenance signal available:
+   - `github.com/anthropics/skills` — Anthropic's public Agent Skills
+     repo (165K+ stars). `anthropics/frontend-design` (see Known Good
+     Picks) and other Anthropic-authored skills live here; this is also
+     `openskills.cc`'s upstream source for anything Anthropic-published.
+   - `github.com/openai/skills` — OpenAI's Skills Catalog for Codex
+     (24K+ stars).
+   - `github.com/microsoft/skills` — Microsoft's skills / MCP servers /
+     custom agents / `AGENTS.md` catalog for grounding coding agents
+     (2.8K+ stars, MIT licensed).
+   Search within a repo via `gh api search/code?q=<topic>+repo:<owner>/skills`,
+   or browse its own directory/index (`microsoft/skills` publishes one at
+   `https://microsoft.github.io/skills/`). **A match here is at least as
+   trustworthy as a 1K+-install npx match — stop the search here** if
+   found, same rule as step 3's stopping condition.
+3. **The `npx skills` ecosystem (primary external source — Vercel's
    official, verified project)** — the open agent-skills package manager
    announced by Vercel at `vercel.com/changelog`, MIT licensed; supports
    all major coding agents (Claude Code, Cursor, Codex, Copilot,
@@ -148,11 +166,11 @@ approval) instead of running the full search order below:
      extra requests would be wasted effort.
    - **If `npx` fails outright (Node.js not installed in this
      environment)** — don't treat that as "nothing found"; skip straight
-     to step 3, and say explicitly that step 2 was skipped for this
+     to step 4, and say explicitly that step 3 was skipped for this
      reason so the gap is visible rather than silently absorbed.
 
-3. **Four directory sites (parallel, only if step 2 came up weak/empty)**
-   — if step 2 found nothing, or its only candidate has under 100
+4. **Four directory sites (parallel, only if step 3 came up weak/empty)**
+   — if step 3 found nothing, or its only candidate has under 100
    installs from an unknown source, send **simultaneous (parallel)**
    requests to all four:
    - `claudeskills.info` — has an HTTP API, queryable programmatically
@@ -173,12 +191,12 @@ approval) instead of running the full search order below:
    otherwise "featured on this site or not") and state which criterion
    you used in the report.
 
-4. **Curated GitHub awesome-lists (if step 3 also comes up empty)**:
+5. **Curated GitHub awesome-lists (if step 4 also comes up empty)**:
    `ComposioHQ/awesome-claude-skills` (1000+ skills, categorized) and
    `VoltAgent/awesome-agent-skills` (1497+ skills, deliberately excludes
    "AI-slop" content).
 
-5. **Open web (last resort)** — if none of the above yield anything:
+6. **Open web (last resort)** — if none of the above yield anything:
    - **Try `github.com/topics/<topic-slug>` first.** GitHub's own topic
      pages return star-ranked, directly comparable candidates without
      needing a search engine — e.g. `topics/web-scraping-ai`,

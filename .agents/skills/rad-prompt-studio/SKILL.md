@@ -306,11 +306,13 @@ version of this same discipline, for use outside this skill).
    `ERROR`/`MISSING` finding and every `ADDITION` candidate whose
    justification is concrete (never a speculative one — "don't invent
    findings to look thorough" still applies), without writing to disk
-   yet. Re-run `analysis-base-prompt.md`'s categories against the draft
-   as if it were a fresh, unseen target. Anything new found gets folded
-   into the draft and the check repeats. **Hard cap: 3 rounds.** Hitting
-   the cap with findings still open is reported honestly at step 6 —
-   never presented as fully resolved.
+   yet. **Do not draft or apply `REMOVAL`/`MERGE` candidates here** —
+   see step 6; content removal is handled separately from fixes,
+   deliberately more conservatively. Re-run `analysis-base-prompt.md`'s
+   categories against the draft as if it were a fresh, unseen target.
+   Anything new found gets folded into the draft and the check repeats.
+   **Hard cap: 3 rounds.** Hitting the cap with findings still open is
+   reported honestly at step 6 — never presented as fully resolved.
    - **If a target includes executable code**, the self-check is not
      satisfied by a second static read alone — actually run it (tests, a
      syntax/type check, a smoke run) where the environment allows. When
@@ -321,17 +323,27 @@ version of this same discipline, for use outside this skill).
    before this point.** Present one compact list per target: every
    change (what + why, with its original finding category), how many
    rounds ran and why the loop stopped (zero new findings vs. the
-   3-round cap), and anything still open. **Support partial approval** —
-   the user may approve a subset; only approved items go through
-   `references/prompts/edit-base-prompt.md`, the rest stay as open,
-   unapplied findings — never silently applied, never silently dropped.
+   3-round cap), and anything still open. **`REMOVAL`/`MERGE` candidates
+   get their own clearly separated section** in this same report — never
+   silently applied alongside the fixes, never silently dropped either —
+   each with its `REMOVE`/`MERGE`/`KEEP`/`DEFER` recommendation, per the
+   Revision discipline above. **Support partial approval** — the user
+   may approve a subset (of either section); only approved items go
+   through `references/prompts/edit-base-prompt.md`, the rest stay as
+   open, unapplied findings.
 7. **Auto Mode (explicit opt-in — not the default).** Only when the
    user explicitly asks for it (e.g. "otomatik modda çalıştır, hiçbir
    şey sorma, hepsi bitince göster"), step 6's approval pause is
    replaced with: apply every confirmed fix and justified addition
    directly through `edit-base-prompt.md`, then deliver the same compact
    report at the very end — never silently; the report always exists,
-   only the mid-process question is skipped. Auto Mode still:
+   only the mid-process question is skipped. **`REMOVAL`/`MERGE`
+   candidates are never auto-applied, even in Auto Mode** — removing or
+   merging content is a judgment call with a real information-loss risk
+   if the model's "this is redundant" read is wrong, unlike a fix, which
+   is why it keeps a separate, always-required approval regardless of
+   mode. They still appear in the end-of-run report as proposals. Auto
+   Mode also still:
    - refuses anything irreversible/destructive or outside a named
      target's own scope (deleting the target itself, force-push,
      rewriting git history, touching an unrelated path) — stops and asks

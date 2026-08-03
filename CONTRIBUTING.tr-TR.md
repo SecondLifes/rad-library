@@ -8,7 +8,7 @@ Bu projeye katılarak [Davranış Kuralları](CODE_OF_CONDUCT.md)'na uymayı kab
 
 ### Hata Bildirme
 
-* Hatanın daha önce bildirilip bildirilmediğini görmek için [issue tracker](https://github.com/SecondLife/rad-library/issues)'a bakın.
+* Hatanın daha önce bildirilip bildirilmediğini görmek için [issue tracker](https://github.com/SecondLifes/rad-library/issues)'a bakın.
 * Bildirilmemişse yeni bir issue açın. Sorunu net şekilde tanımlayın ve tekrar üretme adımlarını ekleyin.
 
 ### İyileştirme Önerme
@@ -45,7 +45,7 @@ Var olan bir şeyi düzeltmek yerine yeni bir yetenek eklemek için:
 
 ## İletişim
 
-* Hata, soru ve öneriler için [issue tracker](https://github.com/SecondLife/rad-library/issues)'ı kullanın.
+* Hata, soru ve öneriler için [issue tracker](https://github.com/SecondLifes/rad-library/issues)'ı kullanın.
 * Tüm katkıda bulunanlara ve yöneticilere saygı gösterin — bkz. [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Köken

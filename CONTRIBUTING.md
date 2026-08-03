@@ -8,7 +8,7 @@ By participating in this project, you agree to abide by its [Code of Conduct](CO
 
 ### Reporting Bugs
 
-* Check the [issue tracker](https://github.com/SecondLife/rad-library/issues) to see if the bug has already been reported.
+* Check the [issue tracker](https://github.com/SecondLifes/rad-library/issues) to see if the bug has already been reported.
 * If not, open a new issue. Clearly describe the problem and include steps to reproduce it.
 
 ### Suggesting Enhancements
@@ -45,7 +45,7 @@ To add new capability rather than fix an existing one:
 
 ## Communication
 
-* Use the [issue tracker](https://github.com/SecondLife/rad-library/issues) for bugs, questions, and proposals.
+* Use the [issue tracker](https://github.com/SecondLifes/rad-library/issues) for bugs, questions, and proposals.
 * Respect all contributors and maintainers — see [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
 
 ## Provenance

@@ -11,7 +11,7 @@ We currently support and provide fixes for the following versions:
 
 ## Reporting a Vulnerability
 
-We take security seriously. If you find a security vulnerability in this kit — a rule, skill, or generator script that could lead to unsafe behavior, credential exposure, or unintended file/data loss — please report it via **https://github.com/SecondLife/rad-library/issues** using the `security` label, or privately at **baspinar99@gmail.com or emr.pov@gmail.com** if the issue shouldn't be public yet.
+We take security seriously. If you find a security vulnerability in this kit — a rule, skill, or generator script that could lead to unsafe behavior, credential exposure, or unintended file/data loss — please report it via **https://github.com/SecondLifes/rad-library/issues** using the `security` label, or privately at **baspinar99@gmail.com or emr.pov@gmail.com** if the issue shouldn't be public yet.
 
 Please include:
 

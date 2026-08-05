@@ -1,6 +1,6 @@
 ---
 name: rad-skill-finder
-description: Searches for and recommends AI agent skills, plugins, and MCP servers relevant to a task or domain — via this workspace's local skill library (spec-kits/*/.agents/skills, .claude/skills), the official vendor skill catalogs (anthropics/skills, openai/skills, microsoft/skills), the npx skills ecosystem (skills.sh leaderboard), curated GitHub directories, MCP/plugin registries, and the public web as a last resort. Aggressive by default: searches, downloads into quarantine, and five-lens security-scans candidates automatically — the only pause is a single install approval per candidate (scan-flagged content is never presented as routine). Check here BEFORE writing any non-trivial capability from scratch — git/GitHub automation, web frontend (HTML/CSS/JS/Bootstrap/visual design), CI/CD, cloud APIs, database access patterns — even when confident about how to do it from general knowledge; a specialized skill usually encodes more than general knowledge alone. Also supports "Yıkıcı" mode: mass-harvest the top N candidates on a topic and consolidate their best content into one superior skill.
+description: Searches for and recommends AI agent skills, plugins, and MCP servers relevant to a task or domain — via this workspace's local skill library (spec-kits/*/.agents/skills, .claude/skills), the official vendor skill catalogs (anthropics/skills, openai/skills, microsoft/skills, NVIDIA/skills), the npx skills ecosystem (skills.sh leaderboard), curated GitHub directories, MCP/plugin registries, and the public web as a last resort. Aggressive by default: searches, downloads into quarantine, and five-lens security-scans candidates automatically — the only pause is a single install approval per candidate (scan-flagged content is never presented as routine). Check here BEFORE writing any non-trivial capability from scratch — git/GitHub automation, web frontend (HTML/CSS/JS/Bootstrap/visual design), CI/CD, cloud APIs, database access patterns — even when confident about how to do it from general knowledge; a specialized skill usually encodes more than general knowledge alone. Also supports "Yıkıcı" mode: mass-harvest the top N candidates on a topic and consolidate their best content into one superior skill.
 ---
 
 # Skill Finder
@@ -142,6 +142,11 @@ approval) instead of running the full search order below:
    - `github.com/microsoft/skills` — Microsoft's skills / MCP servers /
      custom agents / `AGENTS.md` catalog for grounding coding agents
      (2.8K+ stars, MIT licensed).
+   - `github.com/NVIDIA/skills` — NVIDIA's official Agent Skills catalog
+     (2.7K+ stars, Apache-2.0): Physical AI, robotics, simulation, CUDA,
+     and RAG workflows. Browse: `npx skills add nvidia/skills --list`;
+     install: `npx skills add nvidia/skills --skill <name>` (or the
+     user-preferred bare `npx skills add nvidia/skills`).
    Search within a repo via `gh api search/code?q=<topic>+repo:<owner>/skills`,
    or browse its own directory/index (`microsoft/skills` publishes one at
    `https://microsoft.github.io/skills/`). **A match here is at least as

@@ -51,6 +51,9 @@ moving or re-cloning the kit.
 
 ## Project layout
 
-Only `src/README.md` exists initially. The user creates actual `src/core/`,
-`src/helpers/`, `src/components/`, `src/test/` and `src/vendor/` content
-while designing the real APIs.
+`src/` now holds the real **Rad Core** library, imported from its original
+working repository — `src/core/` (help.\*/rad.\* units), `src/component/`
+(VCL components + editors), `src/share/` (shared forms), `src/packages/`
+(dpk/dproj), and `src/test/` (`unit/`, `app/`, `scratch/`). See
+`src/README.md` for the full layout and `ACKNOWLEDGMENTS.md` for
+provenance.

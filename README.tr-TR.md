@@ -25,11 +25,20 @@ koşullu kabul edilir.
 ## Başlangıç
 
 Önce `AGENTS.md`, sonra konuya uygun `.agents/rules/` kuralı ve
-`.agents/skills/` skill'i okunur. `src/README.md` hedef yapıyı tanımlar; kit
-bilerek gerçek library kaynak kodu oluşturmaz.
+`.agents/skills/` skill'i okunur. `src/README.md` gerçek proje yapısını
+tanımlar — `src/` artık sadece yer tutucu değil, gerçek **Rad Core**
+kütüphanesini içeriyor (aşağıya bakın).
 
 ## Köken
 
-`rad-template-builder` Derivation Mode v2 ile **Delphi Library AI Spec-Kit**
-(`delphi-library-expert`) `b9795465c997ea841a8b319a9931256a7f35bd5c`
-commit'inden türetilmiştir. MIT lisansı korunmuştur.
+Bu kit'te iki ayrı soyağacı buluşuyor:
+
+- **AI talimat sistemi**, `rad-template-builder` Derivation Mode v2 ile
+  **Delphi Library AI Spec-Kit** (`delphi-library-expert`)
+  `b9795465c997ea841a8b319a9931256a7f35bd5c` commit'inden türetildi. Bkz.
+  `derivation.json`. MIT lisansı korunmuştur.
+- **`src/` altındaki kütüphane kodu**, ayrı bir yerde bakımı sürdürülen
+  **Rad Core | Enterprise Delphi Framework** projesinden aktarıldı — bu
+  kit'in kendi kurallarının (`help.*` adlandırma, `TRAD` component'leri,
+  vendor izolasyonu) aslında modellendiği gerçek proje. Bkz.
+  `ACKNOWLEDGMENTS.md`.

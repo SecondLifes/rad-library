@@ -25,12 +25,20 @@ user's exact versions compile with Delphi 13+.
 ## Start
 
 Read `AGENTS.md`, then use the matching rule under `.agents/rules/` and skill
-under `.agents/skills/`. `src/README.md` defines the intended project layout;
-the kit intentionally creates no real library source.
+under `.agents/skills/`. `src/README.md` documents the actual project
+layout — `src/` now contains the real **Rad Core** library (see
+Provenance below), not just a placeholder.
 
 ## Provenance
 
-Derived through `rad-template-builder` Derivation Mode v2 from
-**Delphi Library AI Spec-Kit** (`delphi-library-expert`) at commit
-`b9795465c997ea841a8b319a9931256a7f35bd5c`. See `derivation.json` and
-`ACKNOWLEDGMENTS.md`. The inherited MIT license is preserved.
+Two independent lineages meet in this kit:
+
+- **The AI instruction system** was derived through `rad-template-builder`
+  Derivation Mode v2 from **Delphi Library AI Spec-Kit**
+  (`delphi-library-expert`) at commit
+  `b9795465c997ea841a8b319a9931256a7f35bd5c`. See `derivation.json`. The
+  inherited MIT license is preserved.
+- **The library code under `src/`** is imported from **Rad Core |
+  Enterprise Delphi Framework**, the separately maintained working
+  repository this kit's own rules (`help.*` naming, `TRAD` components,
+  vendor isolation) were originally modeled on. See `ACKNOWLEDGMENTS.md`.

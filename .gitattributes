@@ -10,6 +10,7 @@
 *.res linguist-detectable=false
 
 # Projeye ait olmayan kütüphaneleri hariç tut
+.serena
 ThirdParty/** linguist-vendored
 Libraries/** linguist-vendored
 Vendor/** linguist-vendored

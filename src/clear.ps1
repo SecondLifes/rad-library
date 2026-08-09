@@ -1,0 +1,1 @@
+Get-ChildItem -Recurse -Include *.~*, *.dcu, *.o, *.a, *.ppu, *.map, *.mad, *.or, *.ddp | Remove-Item -Force

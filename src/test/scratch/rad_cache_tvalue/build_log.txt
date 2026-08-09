@@ -1,0 +1,119 @@
+Embarcadero Delphi for Win32 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+24372 lines, 0.22 seconds, 2460536 bytes code, 134036 bytes data.
+  Fixture : rad
+  -------------------------------------------------
+     Fixture : rad.cache
+     -------------------------------------------------
+        Fixture : rad.cache.Tests
+        -------------------------------------------------
+           Fixture : rad.cache.Tests.TSmartCacheTestleri
+           -------------------------------------------------
+             Test : rad.cache.Tests.TSmartCacheTestleri.EkleVeOku
+             -------------------------------------------------
+             Executing Test : EkleVeOku
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.SilmeIslemiDogruSonucDoner
+             -------------------------------------------------
+             Executing Test : SilmeIslemiDogruSonucDoner
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.GenelOlayEkleIslemiIptalEdebilir
+             -------------------------------------------------
+             Executing Test : GenelOlayEkleIslemiIptalEdebilir
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.GetOrAddSessizAddOrSetOlayTetikler
+             -------------------------------------------------
+             Executing Test : GetOrAddSessizAddOrSetOlayTetikler
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.TekHandlerKaldirma
+             -------------------------------------------------
+             Executing Test : TekHandlerKaldirma
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.EszamanliErisimdeCokmeOlmaz
+             -------------------------------------------------
+             Executing Test : EszamanliErisimdeCokmeOlmaz
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.GenelOlayEszamanliDegistirmedeYarisOlmaz
+             -------------------------------------------------
+             Executing Test : GenelOlayEszamanliDegistirmedeYarisOlmaz
+             
+               Success.
+            
+            Running Fixture Teardown Method : Destroy
+            
+         
+           Fixture : rad.cache.Tests.TValueOnbellekTestleri
+           -------------------------------------------------
+             Test : rad.cache.Tests.TValueOnbellekTestleri.TemelTiplerinGidisDonusu
+             -------------------------------------------------
+             Executing Test : TemelTiplerinGidisDonusu
+             
+               Success.
+            
+             Test : rad.cache.Tests.TValueOnbellekTestleri.KatiTipSozlesmesi
+             -------------------------------------------------
+             Executing Test : KatiTipSozlesmesi
+             
+               Success.
+            
+             Test : rad.cache.Tests.TValueOnbellekTestleri.NesneSaklamaVeYanlisSinifIcinNil
+             -------------------------------------------------
+             Executing Test : NesneSaklamaVeYanlisSinifIcinNil
+             
+               Success.
+            
+             Test : rad.cache.Tests.TValueOnbellekTestleri.ArayuzSaklamaVeGetIntf
+             -------------------------------------------------
+             Executing Test : ArayuzSaklamaVeGetIntf
+             
+               Success.
+            
+             Test : rad.cache.Tests.TValueOnbellekTestleri.UzerineYazmaEskiArayuzuSizdirmaz
+             -------------------------------------------------
+             Executing Test : UzerineYazmaEskiArayuzuSizdirmaz
+             
+               Success.
+            
+             Test : rad.cache.Tests.TValueOnbellekTestleri.EskiDegerYoksaOlayaEmptyGelir
+             -------------------------------------------------
+             Executing Test : EskiDegerYoksaOlayaEmptyGelir
+             
+               Success.
+            
+             Test : rad.cache.Tests.TValueOnbellekTestleri.FactoryGetOrAddYalnizBirKezUretir
+             -------------------------------------------------
+             Executing Test : FactoryGetOrAddYalnizBirKezUretir
+             
+               Success.
+            
+             Test : rad.cache.Tests.TValueOnbellekTestleri.KeysAnlikGoruntuDoner
+             -------------------------------------------------
+             Executing Test : KeysAnlikGoruntuDoner
+             
+               Success.
+            
+            Running Fixture Teardown Method : Destroy
+            
+         
+      
+   
+
+Done testing.
+Tests Found   : 15
+Tests Ignored : 0
+Tests Passed  : 15
+Tests Leaked  : 0
+Tests Failed  : 0
+Tests Errored : 0

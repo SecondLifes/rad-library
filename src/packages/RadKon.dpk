@@ -1,0 +1,75 @@
+package RadKon;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS OFF}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO OFF}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE RELEASE}
+{$ENDIF IMPLICITBUILDING}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  vcl,
+  dbrtl,
+  vclimg,
+  vclwinx,
+  dxCoreRS37,
+  cxLibraryRS37,
+  dxGDIPlusRS37,
+  dac370,
+  tdsprovider370,
+  designide,
+  dxServerModeRS37,
+  dxSpreadSheetCoreRS37,
+  cxGridRS37,
+  cxTreeListRS37,
+  dxBarRS37,
+  cxTreeListdxBarPopupMenuRS37,
+  unidacvcl370,
+  dacvcl370,
+  dclcxLibraryRS37,
+  cxVerticalGridRS37,
+  vquery370,
+  Jcl,
+  JvCore,
+  JvStdCtrls;
+
+contains
+  Rad.Register in 'Rad.Register.pas',
+  Rad.Editor in 'Rad.Editor.pas',
+  Kisayol.Edit in '..\share\Kisayol.Edit.pas' {Kisayol_Edit},
+  Permission.Edit in '..\component\Permission.Edit.pas' {Permission_Edit: TFrame},
+  rad.db in '..\component\rad.db.pas',
+  rad.rtl in '..\component\rad.rtl.pas',
+  rad.vcl in '..\component\rad.vcl.pas',
+  Help.DB in '..\core\Help.DB.pas',
+  rad.permission in '..\core\rad.permission.pas',
+  Help.uni in '..\core\Help.uni.pas',
+  rad.cache in '..\core\rad.cache.pas',
+  rad.cmd in '..\core\rad.cmd.pas',
+  rad.eventbus in '..\core\rad.eventbus.pas',
+  rad.thread in '..\core\rad.thread.pas',
+  rad.util in '..\core\rad.util.pas';
+
+end.
+

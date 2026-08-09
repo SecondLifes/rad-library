@@ -1,0 +1,12 @@
+Embarcadero Delphi for Win32 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+CacheBench.dpr(29) Warning: W1002 Symbol 'GetMemoryManagerState' is specific to a platform
+1625 lines, 0.11 seconds, 990112 bytes code, 43140 bytes data.
+N = 100000, tek thread, AThreadSafe=False, ayni kilit tipi, Win32
+--- isinma turu (atilir) ---
+--- olcum turu ---
+Variant  | int add:   22 ms | int get:    4 ms | ayni-deger yaz:    6 ms | str add:   20 ms | str get:    5 ms | bellek: +15613 KB
+TValue   | int add:   21 ms | int get:    5 ms | ayni-deger yaz:    6 ms | str add:   22 ms | str get:    7 ms | bellek: +17566 KB
+--- ikinci olcum turu (tutarlilik kontrolu) ---
+Variant  | int add:   23 ms | int get:    5 ms | ayni-deger yaz:    6 ms | str add:   19 ms | str get:    8 ms | bellek: +15613 KB
+TValue   | int add:   23 ms | int get:    6 ms | ayni-deger yaz:    6 ms | str add:   22 ms | str get:    7 ms | bellek: +17566 KB

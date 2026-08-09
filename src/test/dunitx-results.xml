@@ -1,0 +1,265 @@
+﻿<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<test-results name="E:\system\dev\00-Lib\source\test\RunTests.exe" total="89" errors="0" failures="0" ignored="0" inconclusive="0" not-run="0" skipped="0" invalid="0" date="2026-07-05" time="12:10:51">
+  <culture-info current-culture="en" current-uiculture="en" />
+  <test-suite type="Assembly" name="RunTests.exe" executed="true" result="Success" success="True" time="12:10:51" asserts="0">
+    <results>
+        <test-suite type="Namespace" name="rad" executed="true" result="Success" success="True" time="5.220" asserts="0" >
+          <results>
+              <test-suite type="Namespace" name="cache" executed="true" result="Success" success="True" time="0.256" asserts="0" >
+                <results>
+                    <test-suite type="Fixture" name="TCollectionBenchmarkTests" executed="True" result="Success" success="True" time="0.042" >
+                      <results>
+                        <test-case name="Benchmark_TSmartCache" executed="True" result="Success" success="True" time="0.022" asserts="0" />
+                        <test-case name="Benchmark_RtlDictionary" executed="True" result="Success" success="True" time="0.008" asserts="0" />
+                        <test-case name="Benchmark_DextDictionary" executed="True" result="Success" success="True" time="0.011" asserts="0" />
+                      </results>
+                    </test-suite>
+                    <test-suite type="Namespace" name="Tests" executed="true" result="Success" success="True" time="0.214" asserts="0" >
+                      <results>
+                          <test-suite type="Fixture" name="TSmartCacheTestleri" executed="True" result="Success" success="True" time="0.213" >
+                            <results>
+                              <test-case name="EkleVeOku" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="SilmeIslemiDogruSonucDoner" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="GenelOlayEkleIslemiIptalEdebilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="GetOrAddSessizAddOrSetOlayTetikler" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="TekHandlerKaldirma" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="EszamanliErisimdeCokmeOlmaz" executed="True" result="Success" success="True" time="0.002" asserts="0" >
+                                <categories>
+                                  <category name="Eşzamanlılık" />
+                                </categories>
+                              </test-case>
+                              <test-case name="GenelOlayEszamanliDegistirmedeYarisOlmaz" executed="True" result="Success" success="True" time="0.210" asserts="0" >
+                                <categories>
+                                  <category name="Eşzamanlılık" />
+                                </categories>
+                              </test-case>
+                            </results>
+                          </test-suite>
+                          <test-suite type="Fixture" name="TSmartParamTestleri" executed="True" result="Success" success="True" time="0.001" >
+                            <results>
+                              <test-case name="TemelTiplerGidisDonusu" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="BosVeNullDegerler" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="NesneReferansiGidisDonusu" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                              <test-case name="ArayuzDestegi" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                            </results>
+                          </test-suite>
+                      </results>
+                    </test-suite>
+                </results>
+              </test-suite>
+              <test-suite type="Fixture" name="TCmdsTestleri" executed="True" result="Success" success="True" time="0.063" >
+                <results>
+                  <test-case name="KomutKaydiVeSayisi" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="CalistirVeGuvenliCalistir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AnahtarBuyukKucukHarfDuyarsiz.Buyuk Kucuk Harf Duyarsizlik 1 - Kucuk Harf" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AnahtarBuyukKucukHarfDuyarsiz.Buyuk Kucuk Harf Duyarsizlik 2 - Buyuk Harf" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AnahtarBuyukKucukHarfDuyarsiz.Buyuk Kucuk Harf Duyarsizlik 3 - Karisik Harf" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="KomutKaydiniSil" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AsenkronCalistirBasariDurumu" executed="True" result="Success" success="True" time="0.048" asserts="0" >
+                    <categories>
+                      <category name="Asenkron" />
+                    </categories>
+                  </test-case>
+                  <test-case name="AsenkronCalistirHataDurumu" executed="True" result="Success" success="True" time="0.015" asserts="0" >
+                    <categories>
+                      <category name="Asenkron" />
+                    </categories>
+                  </test-case>
+                  <test-case name="EszamanliKayitCalistirSil" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                    <categories>
+                      <category name="Eşzamanlılık" />
+                    </categories>
+                  </test-case>
+                </results>
+              </test-suite>
+              <test-suite type="Namespace" name="eventbus" executed="true" result="Success" success="True" time="2.093" asserts="0" >
+                <results>
+                    <test-suite type="Fixture" name="TChannelBusBenchmarkTestleri" executed="True" result="Success" success="True" time="0.848" >
+                      <results>
+                        <test-case name="Benchmark_DmSync" executed="True" result="Success" success="True" time="0.079" asserts="0" />
+                        <test-case name="Benchmark_DmAsync" executed="True" result="Success" success="True" time="0.713" asserts="0" />
+                        <test-case name="Benchmark_DmMainSync" executed="True" result="Success" success="True" time="0.031" asserts="0" />
+                        <test-case name="Benchmark_DmMainAsync" executed="True" result="Success" success="True" time="0.016" asserts="0" />
+                      </results>
+                    </test-suite>
+                    <test-suite type="Fixture" name="TChannelBusTestleri" executed="True" result="Success" success="True" time="1.245" >
+                      <results>
+                        <test-case name="SenkronYayinAboneyeHemenUlasir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="KanalAdiBuyukKucukHarfVeBoslukDuyarsiz.Kanal Adi Buyuk Harf" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="KanalAdiBuyukKucukHarfVeBoslukDuyarsiz.Kanal Adi Bosluklu" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="KanalAdiBuyukKucukHarfVeBoslukDuyarsiz.Kanal Adi Karisik Harf" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="FarkliKanallarBirbirineKarismaz" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="AyniKanaldaFarkliTipteAbonelikBirbirineKarismaz" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="DinamikTValueDizisiIleYayinAboneyeUlasir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="JsonIDocDictIleYayinAboneyeUlasir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="DinamikVeJsonVeGenericAyniKanaldaKarismaz" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="AsenkronYayinSonundaBaskaThreaddeUlasir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="AnaThreadtanMainSyncYayinKendiKendiniKilitlemez" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="BaskaThreadtanMainSyncYayinAnaThreadePompalanarakUlasir" executed="True" result="Success" success="True" time="0.015" asserts="0" />
+                        <test-case name="MainAsyncYayinHemenCalismazSonraPompalaninceCalisir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="DispatchSirasindaUnsubscribeCakismaOlusturmaz" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="WaitAndUnsubscribeDevamEdenIsiBekler" executed="True" result="Success" success="True" time="0.220" asserts="0" />
+                        <test-case name="AboneSayisiVeKanalSilmeCalisir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="KanallarVeToplamAboneSayisiDogruDoner" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                        <test-case name="BirAboneninHatasiDigerAboneleriEngellemez" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Hata Yonetimi" />
+                          </categories>
+                        </test-case>
+                        <test-case name="OnErrorAtanmamissaHataSessizceYutulur" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Hata Yonetimi" />
+                          </categories>
+                        </test-case>
+                        <test-case name="OnErrorAtanmissaKanalVeVeriDogruBildirilir" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Hata Yonetimi" />
+                          </categories>
+                        </test-case>
+                        <test-case name="OnErrorAsenkronAbonedeDeCalisir" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Hata Yonetimi" />
+                          </categories>
+                        </test-case>
+                        <test-case name="WildcardAbonelikBirdenFazlaKanaliKarsilar" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Wildcard" />
+                          </categories>
+                        </test-case>
+                        <test-case name="WildcardDesenUyusmayanKanaliTetiklemez" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Wildcard" />
+                          </categories>
+                        </test-case>
+                        <test-case name="WildcardPatternsVeToplamSayiDogruDoner" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Wildcard" />
+                          </categories>
+                        </test-case>
+                        <test-case name="WildcardYokkenDavranisDegismez" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Wildcard" />
+                          </categories>
+                        </test-case>
+                        <test-case name="OpBlockPublisherHicVeriKaybetmez" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Geri Basinc" />
+                          </categories>
+                        </test-case>
+                        <test-case name="OpGrowSinirsizKabulEderVeKaybetmez" executed="True" result="Success" success="True" time="0.031" asserts="0" >
+                          <categories>
+                            <category name="Geri Basinc" />
+                          </categories>
+                        </test-case>
+                        <test-case name="OpDropOldestKuyrukDolunceVeriAtar" executed="True" result="Success" success="True" time="0.095" asserts="0" >
+                          <categories>
+                            <category name="Geri Basinc" />
+                          </categories>
+                        </test-case>
+                        <test-case name="InterceptorOncesindeVeSonrasindaDogruSirayla" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Interceptor" />
+                          </categories>
+                        </test-case>
+                        <test-case name="InterceptorHatasiDispatchiEngellemez" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Interceptor" />
+                          </categories>
+                        </test-case>
+                        <test-case name="DebounceArdisikOlaylardaSonDegerleBirKezCalisir" executed="True" result="Success" success="True" time="0.674" asserts="0" >
+                          <categories>
+                            <category name="Debounce" />
+                          </categories>
+                        </test-case>
+                        <test-case name="DebounceSifirsaHerOlaydaCalisir" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Debounce" />
+                          </categories>
+                        </test-case>
+                        <test-case name="MainSyncTimeoutSuresindeGeriDoner" executed="True" result="Success" success="True" time="0.204" asserts="0" >
+                          <categories>
+                            <category name="MainSync Timeout" />
+                          </categories>
+                        </test-case>
+                        <test-case name="MainSyncTimeoutsuzEskiDavranisDegismez" executed="True" result="Success" success="True" time="0.016" asserts="0" >
+                          <categories>
+                            <category name="MainSync Timeout" />
+                          </categories>
+                        </test-case>
+                        <test-case name="OpBlockPublisherAnaThreaddenCagrilirsaDebugtaHataVerir" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                          <categories>
+                            <category name="Geri Basinc" />
+                          </categories>
+                        </test-case>
+                      </results>
+                    </test-suite>
+                </results>
+              </test-suite>
+              <test-suite type="Fixture" name="TRadTaskTestleri" executed="True" result="Success" success="True" time="2.807" >
+                <results>
+                  <test-case name="OnGeciktirmeSuresiUygulanir" executed="True" result="Success" success="True" time="0.329" asserts="0" />
+                  <test-case name="SonGeciktirmeSuresiUygulanir" executed="True" result="Success" success="True" time="0.345" asserts="0" />
+                  <test-case name="TekrarTamSayidaCalisir" executed="True" result="Success" success="True" time="0.141" asserts="0" />
+                  <test-case name="HataliGorevYenidenDenenirVeHataVerir" executed="True" result="Success" success="True" time="0.078" asserts="0" />
+                  <test-case name="OnGeciktirmeSirasindaIptalEdilebilir" executed="True" result="Success" success="True" time="0.173" asserts="0" >
+                    <categories>
+                      <category name="İptal" />
+                    </categories>
+                  </test-case>
+                  <test-case name="YenidenDenemeGeciktirmesindeIptalEdilebilir" executed="True" result="Success" success="True" time="0.219" asserts="0" >
+                    <categories>
+                      <category name="İptal" />
+                    </categories>
+                  </test-case>
+                  <test-case name="HariciTokenIleIptalEdilebilir" executed="True" result="Success" success="True" time="0.173" asserts="0" >
+                    <categories>
+                      <category name="İptal" />
+                    </categories>
+                  </test-case>
+                  <test-case name="TekrarGeciktirmesindeIptalEdilebilir" executed="True" result="Success" success="True" time="0.172" asserts="0" >
+                    <categories>
+                      <category name="İptal" />
+                    </categories>
+                  </test-case>
+                  <test-case name="TumGorevleriBeklerVeTamamlar" executed="True" result="Success" success="True" time="0.141" asserts="0" />
+                  <test-case name="AdimlarArasiSonucTasinir" executed="True" result="Success" success="True" time="0.016" asserts="0" />
+                  <test-case name="ZamanAsimindaOtomatikIptalEdilir" executed="True" result="Success" success="True" time="0.235" asserts="0" />
+                  <test-case name="EszamanliCokGorevBasariylaTamamlanir" executed="True" result="Success" success="True" time="0.362" asserts="0" >
+                    <categories>
+                      <category name="Eşzamanlılık" />
+                    </categories>
+                  </test-case>
+                  <test-case name="IlerlemeBildirimiKisitlanir" executed="True" result="Success" success="True" time="0.188" asserts="0" />
+                  <test-case name="BeklemeCagrisiEsZamanliCalisir" executed="True" result="Success" success="True" time="0.204" asserts="0" />
+                  <test-case name="CallbackHatasiYutulurVeZincirDevamEder" executed="True" result="Success" success="True" time="0.031" asserts="0" />
+                </results>
+              </test-suite>
+              <test-suite type="Fixture" name="TGenerateFluentCodeTestleri" executed="True" result="Success" success="True" time="0.002" >
+                <results>
+                  <test-case name="NilClassVerilirseExceptionFirlatir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="InterfaceAdiTOnekiDusurulupIEklenerekUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="ImplementasyonClassAdiFluentEkiyleUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="BasitPropertyIcinSetVeGetFluentImzasiUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AccessorMetoduIleYazilmisPropertyDeUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="EventPropertyIcinDeSetVeGetUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="PublicMetodAyniImzaIlePassThroughUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="GenerikArrayParametreliMetodDaUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AyniIsimliOverloadMetodlaraOverloadEklenir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AsInstanceHerZamanUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" />
+                  <test-case name="AutoFreeParametresiVeDestructorUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                    <categories>
+                      <category name="AutoFree" />
+                    </categories>
+                  </test-case>
+                  <test-case name="IndeksliPropertyIcinIndexParametreliSetGetUretilir" executed="True" result="Success" success="True" time="0.000" asserts="0" >
+                    <categories>
+                      <category name="Indeksli Property" />
+                    </categories>
+                  </test-case>
+                </results>
+              </test-suite>
+          </results>
+        </test-suite>
+    </results>
+  </test-suite>
+</test-results>

@@ -1,0 +1,15 @@
+Embarcadero Delphi for Win32 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+851 lines, 0.05 seconds, 967204 bytes code, 43160 bytes data.
+  OK   : interface üzerinden AddOrSet
+  OK   : interface üzerinden Get(Integer)
+  OK   : interface üzerinden string gidiþ-dönüþü
+  OK   : View.Get<TStringList> ayný referans
+  OK   : View.Get yanlýþ sýnýfta nil
+  OK   : View.TryGet<Integer> baþarýlý yol
+  OK   : View.TryGet<Integer> tip uyuþmazlýðýnda False
+  OK   : View.GetIntf<T> GUID sorgusu
+  OK   : interface üzerinden factory GetOrAdd
+  OK   : Keys sayýsý (5 anahtar)
+  OK   : ISmartCache := nil (ARC yýkýmý) sorunsuz
+SONUC: TUM KONTROLLER GECTI

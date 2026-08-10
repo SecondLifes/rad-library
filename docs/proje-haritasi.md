@@ -16,6 +16,7 @@ moving or re-cloning the kit.
 | `design-patterns.md` | Pattern selection |
 | `helper-patterns.md` | `help.*`, `_` public helpers and tests |
 | `kit-settings.md` | Operational settings |
+| `analysis-output.md` | Where analysis/evaluation/edit reports go and how they are named — the shared input/output rule the three bundled `rad-prompt-studio` master prompts all point at |
 | `library-packaging.md` | Packages, SemVer and licensing |
 | `local-machine-registry.md` | Single machine-wide `.rad` hub (`%ProgramData%\rad`), cross-kit references by registry name, shared rules |
 | `memory-exceptions.md` | Lifetime and exception safety |
@@ -46,8 +47,27 @@ moving or re-cloning the kit.
 
 - `.agents/commands/review.md` — hand-authored review command.
 - `.claude/commands/*.md` — generated skill wrappers plus `review.md`.
+- `.claude/skills/<name>` — generated junction/symlink per skill, pointing back
+  at `.agents/skills/<name>`. Claude Code discovers skills only under
+  `.claude/skills/`, so without these none of this kit's skills trigger.
+  Machine-local and gitignored; `tools/generate-ai-configs.ps1` recreates them.
+- `.cursor/rules/*.mdc` — generated. The `.mdc` extension is mandatory; Cursor
+  ignores a plain `.md` file in that folder.
 - `AGENTS.md`, `.claude/CLAUDE.md`, `.gemini/rules/project-rules.md`,
   `.github/copilot-instructions.md` — one behavioral contract, reworded per tool.
+- `GEMINI.md` — Gemini CLI's entry point at the repo root. Gemini CLI loads the
+  `GEMINI.md` hierarchy and does not read `.gemini/rules/` on its own, so this
+  file imports `.gemini/rules/project-rules.md` rather than duplicating it.
+
+## Tooling
+
+- `tools/generate-ai-configs.ps1` — regenerates `.claude/rules`, `.cursor/rules`
+  (`.mdc`), `.claude/commands` and the `.claude/skills` links from `.agents/`.
+  Run after any change under `.agents/`, and once after cloning.
+- `tools/verify-kit.ps1` — mechanical consistency gate: generator drift, Cursor
+  extension, skill-link presence, `SKILL.md` frontmatter, `[FILL IN` residue,
+  README image links, `LICENSE`. Same script CI runs.
+- `.github/workflows/verify.yml` — runs that script on every push and PR.
 
 ## Project layout
 

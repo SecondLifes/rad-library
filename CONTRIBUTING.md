@@ -36,7 +36,7 @@ architecture conventions.
 To add new capability rather than fix an existing one:
 
 1. **Rule** → `.agents/rules/your-topic.md`, then run `pwsh tools/generate-ai-configs.ps1` to regenerate `.claude/rules/` and `.cursor/rules/` — do **not** hand-edit those two folders directly, your change will be overwritten on the next run.
-2. **Skill** → `.agents/skills/your-framework/SKILL.md` (one copy, read natively by every supported tool — no content to regenerate, but run `pwsh tools/generate-ai-configs.ps1` afterward so Claude Code also gets the matching `/your-framework` command wrapper).
+2. **Skill** → `.agents/skills/your-framework/SKILL.md` (one copy, the only place it is ever edited — no content to regenerate, but run `pwsh tools/generate-ai-configs.ps1` afterward so Claude Code also gets the matching `/your-framework` command wrapper).
 3. **Reference** → mention it in `AGENTS.md` (and `.gemini/rules/project-rules.md` if it's framework/database-specific, matching the existing entries) and in `docs/proje-haritasi.md`.
 
 ### Testing

@@ -57,3 +57,12 @@ working repository — `src/core/` (help.\*/rad.\* units), `src/component/`
 (dpk/dproj), and `src/test/` (`unit/`, `app/`, `scratch/`). See
 `src/README.md` for the full layout and `ACKNOWLEDGMENTS.md` for
 provenance.
+
+`examples/` holds curated, compiling reference units — distinct from
+`src/` (real library code) and from the short snippets inside
+`.agents/rules/*.md`. It currently carries only its own `README.md`:
+git does not track empty directories, and without that file the folder
+vanishes from a fresh clone while `AGENTS.md`, `.claude/CLAUDE.md` and
+`docs/ai-ignore-strategy.md` all still name `examples/**/*.pas` as
+always-load context. That dead reference was real in this kit until the
+placeholder was added.

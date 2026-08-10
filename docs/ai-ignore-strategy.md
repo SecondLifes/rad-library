@@ -19,6 +19,7 @@ The strategy is applied in three complementary layers:
 - `*.dcu`, `*.exe`, `*.dll`, `*.bpl`, `*.dcp`, `*.drc`, `*.map`, `*.obj`, `*.o`, `*.a`, `*.res`
 
 ### IDE Temporary Files
+- `.serena/` — Serena MCP coding-agent toolkit working directory (project memory/config); exclude from AI context and IDE indexing regardless of stack
 - `*.local`, `*.identcache`, `*.stat`, `*.~*`, `*.tvsconfig`, `__history/`, `__recovery/`
 
 ### Build / Output Directories

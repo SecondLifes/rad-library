@@ -18,6 +18,7 @@
 *.res
 
 # --- IDE Temporary Files ---
+.serena/
 *.local
 *.identcache
 *.stat

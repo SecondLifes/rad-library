@@ -772,7 +772,7 @@ same session — they're mirrors of the same content, not additive.
 ### Files AI Must Never Use as Context
 
 - Build artifacts: `*.dcu`, `*.exe`, `*.dll`, `*.bpl`, `*.dcp`, `*.map`, `*.res`
-- IDE temporaries: `*.local`, `*.identcache`, `*.stat`, `__history/`, `__recovery/`
+- IDE temporaries: `*.local`, `*.identcache`, `*.stat`, `__history/`, `__recovery/`, `.serena/`
 - Output directories: `Win32/`, `Win64/`, `Debug/`, `Release/`, `build/`, `dist/`
 - Secrets: `*.key`, `*.pfx`, `*.p12`, `.env`, `.env.*`
 - Noise: `*.log`, `*.dmp`, `*.bak`, `*.tmp`

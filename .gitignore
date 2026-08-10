@@ -61,3 +61,4 @@ Thumbs.db
 # --- Local dev convenience scripts (not part of the published kit) ---
 update.bat
 analysis/
+.serena

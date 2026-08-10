@@ -198,7 +198,7 @@ See `AGENTS.md` ("Memory Management (Critical)" section) for the full rule set. 
 ### Excludes (never useful as context)
 
 - Build artifacts: `*.dcu`, `*.exe`, `*.dll`, `*.bpl`, `*.dcp`, `*.map`
-- IDE temporaries: `*.local`, `*.identcache`, `__history/`, `__recovery/`
+- IDE temporaries: `*.local`, `*.identcache`, `__history/`, `__recovery/`, `.serena/`
 - Output dirs: `Win32/`, `Win64/`, `Debug/`, `Release/`
 - Secrets and noise: `*.key`, `*.pfx`, `.env`, `*.log`, `*.bak`
 

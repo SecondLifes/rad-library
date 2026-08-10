@@ -38,6 +38,7 @@
     "**/Release": true,
     "**/node_modules": true,
     "**/.venv": true,
-    "**/.pytest_cache": true
+    "**/.pytest_cache": true,
+    "**/.serena": true
   }
 }

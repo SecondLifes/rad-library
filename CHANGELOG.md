@@ -2,6 +2,26 @@
 
 All notable changes to RAD Library AI Spec-Kit are documented here.
 
+## Mandatory: record every file that was added, removed or renamed
+
+**Any commit that adds, deletes or renames a file under `.agents/rules/`,
+`.agents/commands/`, `.agents/skills/`, `tools/`, or any root-level document
+must name that file here, in the same commit.** Not "updated the rules" —
+the actual path, and one clause saying what it is for.
+
+Three things in this kit read the file inventory and go wrong silently when
+it drifts: `docs/proje-haritasi.md` states what exists and how many, and the
+count gate in `tools/verify-kit.ps1` compares those claims against disk;
+`tools/generate-ai-configs.ps1` produces one copy or link per source file, so
+a file nobody recorded is a file nobody notices going stale; and anyone
+auditing this kit later reconstructs what happened from this file plus
+`git log`.
+
+A change that only edits the *contents* of an existing file needs no
+inventory line — describe the behavior that changed instead. The rule is
+about files appearing, disappearing or moving, because those are the changes
+that break something else in the kit.
+
 ## [Unreleased]
 
 ### Fixed

@@ -48,9 +48,14 @@ $warnings = [System.Collections.Generic.List[string]]::new()
 # generated per kit from Prompts/image-prompts.md). Failing on either there
 # would mean the template can never be green, which trains people to ignore the
 # gate. Both stay hard failures in a real kit.
-$readmePath  = Join-Path $RepoRoot 'README.md'
-$IsScaffold  = (Test-Path $readmePath) -and
-               ((Get-Content $readmePath -TotalCount 1) -match '\[Project Name\]')
+#
+# Identify it by DIRECTORY NAME, not by content. The first version matched
+# "[Project Name]" on README.md's first line, which inverted the check exactly
+# where it mattered: a real kit whose author forgot to fill in the README title
+# was declared a scaffold, and the placeholder and banner gates -- the two that
+# would have caught that very omission -- switched themselves off. A kit is
+# never named blank-scaffold, so this cannot misfire the same way.
+$IsScaffold = (Split-Path -Leaf $RepoRoot) -eq 'blank-scaffold'
 if ($IsScaffold) {
     Write-Host "Detected the unfilled blank scaffold: placeholder and banner checks are advisory here." -ForegroundColor Cyan
 }
@@ -58,6 +63,66 @@ if ($IsScaffold) {
 function Add-Failure { param([string]$Check, [string]$Detail) $script:failures.Add("[$Check] $Detail") }
 function Add-Warning { param([string]$Check, [string]$Detail) $script:warnings.Add("[$Check] $Detail") }
 function Write-Section { param([string]$Name) Write-Host ""; Write-Host "== $Name" -ForegroundColor Cyan }
+
+function Get-FrontmatterValue {
+    <#
+      Reads one frontmatter key, handling BLOCK SCALARS.
+
+      This function exists because the naive '^description:\s*(.+)$' regex it
+      replaces measured a folded value as its indicator: for
+
+          description: >-
+            Searches for and recommends ...
+
+      it captured ">-" and reported the description as 2 characters long. Every
+      SKILL.md written that way sailed through the length check unmeasured --
+      including the one this repo deliberately converted to a folded scalar to
+      fix a YAML parse failure. The check silently stopped checking the file it
+      had just been used on.
+
+      PowerShell ships no YAML parser, and pulling one in for two fields is not
+      worth it. This handles what a SKILL.md frontmatter actually uses: plain
+      inline scalars, quoted scalars, and the block forms | > |- >- |+ >+.
+    #>
+    param(
+        [Parameter(Mandatory)] [string[]]$FrontmatterLines,
+        [Parameter(Mandatory)] [string]$Key
+    )
+
+    for ($i = 0; $i -lt $FrontmatterLines.Count; $i++) {
+        if ($FrontmatterLines[$i] -notmatch "^$([regex]::Escape($Key)):(.*)$") { continue }
+        $rest = $Matches[1].Trim()
+
+        # Inline scalar: return it, unquoted.
+        if ($rest -notmatch '^[|>]([+-]?\d*|\d*[+-]?)$') {
+            return $rest.Trim().Trim('"').Trim("'")
+        }
+
+        # Block scalar: collect the more-indented lines that follow.
+        $fold = $rest.StartsWith('>')
+        $body = [System.Collections.Generic.List[string]]::new()
+        for ($j = $i + 1; $j -lt $FrontmatterLines.Count; $j++) {
+            $line = $FrontmatterLines[$j]
+            if ($line.Trim() -eq '') { $body.Add(''); continue }
+            if ($line -notmatch '^\s') { break }   # dedented: block ended
+            $body.Add($line.TrimStart())
+        }
+        while ($body.Count -gt 0 -and $body[$body.Count - 1] -eq '') { $body.RemoveAt($body.Count - 1) }
+
+        if ($fold) {
+            # Folded: single newlines become spaces, blank lines become newlines.
+            $out = ''
+            foreach ($l in $body) {
+                if ($l -eq '') { $out = $out.TrimEnd() + "`n" }
+                elseif ($out -eq '' -or $out.EndsWith("`n")) { $out += $l }
+                else { $out += ' ' + $l }
+            }
+            return $out.Trim()
+        }
+        return ($body -join "`n").Trim()
+    }
+    return $null
+}
 
 # --- 1. Generator drift -------------------------------------------------------
 Write-Section "Generator drift"
@@ -124,31 +189,42 @@ if (Test-Path $agentsSkills) {
             return
         }
         $fm = $Matches[1]
+        $fmLines = $fm -split '\r?\n'
+        $folder  = $_.Name
 
-        if ($fm -match '(?m)^name:\s*(.+?)\s*$') {
-            $name = $Matches[1].Trim().Trim('"').Trim("'")
-            # Agent Skills spec: lowercase letters, digits and hyphens only.
-            if ($name -cnotmatch '^[a-z0-9]+(-[a-z0-9]+)*$') {
-                Add-Failure 'skill-md' "$($_.Name)/SKILL.md name '$name' is not spec-compliant (lowercase letters, digits and hyphens only)"
-            }
+        # Constraints below are the Agent Skills specification's, verified at
+        # agentskills.io/specification -- not this repo's own preferences.
+        # `skills-ref validate ./<skill>` is the authoritative checker; this is
+        # the subset that can run with no extra dependency.
+        $name = Get-FrontmatterValue -FrontmatterLines $fmLines -Key 'name'
+        if ($null -eq $name -or $name -eq '') {
+            Add-Failure 'skill-md' "$folder/SKILL.md frontmatter has no 'name:'"
         } else {
-            Add-Failure 'skill-md' "$($_.Name)/SKILL.md frontmatter has no 'name:'"
+            if ($name.Length -gt 64) {
+                Add-Failure 'skill-md' "$folder/SKILL.md name is $($name.Length) chars (spec max 64)"
+            }
+            # Lowercase alphanumerics and hyphens; no leading, trailing or
+            # consecutive hyphens. The pattern encodes all four at once.
+            if ($name -cnotmatch '^[a-z0-9]+(-[a-z0-9]+)*$') {
+                Add-Failure 'skill-md' "$folder/SKILL.md name '$name' violates the spec (lowercase a-z/0-9 and single hyphens only; no leading, trailing or consecutive hyphens)"
+            }
+            # The spec requires name == parent directory name. Without this the
+            # two can drift and a tool resolving by name finds nothing.
+            if ($name -cne $folder) {
+                Add-Failure 'skill-md' "$folder/SKILL.md name '$name' does not match its parent directory '$folder' (the spec requires them to be equal)"
+            }
         }
 
-        if ($fm -match '(?m)^description:\s*(.+?)\s*$') {
-            $desc = $Matches[1].Trim()
-            # WARNING, not a failure: an over-long description is a real
-            # portability risk (it is the string every tool matches against, and
-            # some enforce a cap), but no numeric ceiling is stated in the
-            # official Claude Code skill docs, so failing a build on an
-            # unverified threshold would be worse than flagging it. 1024 is a
-            # conservative working limit — raise or drop it if a real spec
-            # number turns up.
-            if ($desc.Length -gt 1024) {
-                Add-Warning 'skill-md' "$($_.Name)/SKILL.md description is $($desc.Length) chars — long enough to risk truncation or rejection by a stricter tool; consider tightening it."
-            }
-        } else {
-            Add-Failure 'skill-md' "$($_.Name)/SKILL.md frontmatter has no 'description:' — without it the model cannot trigger the skill"
+        $desc = Get-FrontmatterValue -FrontmatterLines $fmLines -Key 'description'
+        if ($null -eq $desc -or $desc -eq '') {
+            Add-Failure 'skill-md' "$folder/SKILL.md frontmatter has no non-empty 'description:' — without it the model cannot trigger the skill"
+        } elseif ($desc.Length -gt 1024) {
+            # HARD limit, not a preference: the spec states 1-1024 characters.
+            # This was previously a warning on the grounds that no ceiling could
+            # be found in Claude Code's own docs; the ceiling is in the Agent
+            # Skills spec, which is the document this kit's skills claim to
+            # follow.
+            Add-Failure 'skill-md' "$folder/SKILL.md description is $($desc.Length) chars (spec max 1024)"
         }
     }
     Write-Host "  checked $skillCount SKILL.md file(s)"
@@ -231,26 +307,48 @@ Write-Host ("  on disk: {0} rule(s), {1} skill(s)" -f $realCounts['rule'], $real
 
 $countDocs = @('AGENTS.md', 'README.md', 'README.tr-TR.md', 'docs/proje-haritasi.md',
                '.claude/CLAUDE.md', '.github/copilot-instructions.md', '.gemini/rules/project-rules.md')
+
+# A count claim is only recognized on a line that also NAMES the folder it is
+# counting. The first version of this gate matched any "N rules"/"N skills" in
+# free prose, which was wrong in both directions at once: it missed the real
+# inventory headings, which are written as "`.agents/rules/` — 16 dosya"
+# (Turkish for "files") and so never mentioned the noun it was looking for,
+# while it happily matched narrative sentences about upstream projects that
+# were never claims about this kit at all. Anchoring on the path removes both.
+$countAnchors = @(
+    @{ Pattern = '\.agents/rules/';            Kind = 'rule'  },
+    @{ Pattern = '\.claude/rules/';            Kind = 'rule'  },
+    @{ Pattern = '\.cursor/rules/';            Kind = 'rule'  },
+    @{ Pattern = '\.agents/skills/';           Kind = 'skill' },
+    @{ Pattern = '\.claude/skills/';           Kind = 'skill' },
+    @{ Pattern = '\.claude/commands/<skill';   Kind = 'skill' }   # one wrapper per skill
+)
+# Counted nouns in both languages this workspace writes in. "dosya"/"klasör"
+# are how the map documents actually phrase it.
+$countNoun = '(rules?|skills?|kural|beceri|dosya|klasör|files?|folders?)'
+
 $countMismatches = 0
 foreach ($rel in $countDocs) {
     $full = Join-Path $RepoRoot $rel
     if (-not (Test-Path $full)) { continue }
     $lines = Get-Content $full
     for ($i = 0; $i -lt $lines.Count; $i++) {
-        # "18 rules", "33 skill", "29 kural", "34 beceri" — number immediately
-        # followed by the noun. Deliberately narrow: prose like "one of the 3
-        # databases" is not a claim about this kit's rule/skill inventory.
-        foreach ($m in [regex]::Matches($lines[$i], '(?i)\b(\d{1,3})\s+(rules?|skills?|kural|beceri)\b')) {
-            $claimed = [int]$m.Groups[1].Value
-            $kind = if ($m.Groups[2].Value -match '(?i)^(rule|kural)') { 'rule' } else { 'skill' }
-            if ($claimed -ne $realCounts[$kind]) {
-                Add-Failure 'counts' "$rel`:$($i+1) claims $claimed $kind(s); there are $($realCounts[$kind]) on disk"
-                $countMismatches++
+        $line = $lines[$i]
+        foreach ($anchor in $countAnchors) {
+            if ($line -notmatch $anchor.Pattern) { continue }
+            foreach ($m in [regex]::Matches($line, "(?i)\b(\d{1,3})\s+$countNoun\b")) {
+                $claimed = [int]$m.Groups[1].Value
+                $real = $realCounts[$anchor.Kind]
+                if ($claimed -ne $real) {
+                    Add-Failure 'counts' "$rel`:$($i+1) claims $claimed for $($anchor.Pattern -replace '\\','') ; there are $real $($anchor.Kind)(s) on disk"
+                    $countMismatches++
+                }
             }
+            break   # one anchor per line: the first path named owns the numbers
         }
     }
 }
-if ($countMismatches -eq 0) { Write-Host "  OK — every stated rule/skill count matches disk" }
+if ($countMismatches -eq 0) { Write-Host "  OK — every path-anchored count matches disk" }
 
 # --- 9. Dead repo-relative references -----------------------------------------
 # A backticked repo-relative path in an AI-primary file is a promise that the
@@ -259,6 +357,32 @@ if ($countMismatches -eq 0) { Write-Host "  OK — every stated rule/skill count
 Write-Section "Dead references"
 $refDocs = @('AGENTS.md', '.claude/CLAUDE.md', '.github/copilot-instructions.md',
              '.gemini/rules/project-rules.md', 'docs/ai-ignore-strategy.md', 'docs/proje-haritasi.md')
+
+# Paths this kit declares it borrows from ANOTHER kit are resolved through the
+# machine-wide hub, not against this repo root. Flagging them as dead was a
+# false positive on a correctly-designed cross-kit reference -- Rad-Server
+# citing Rad-DB's .agents/rules/db-schema.md is the real case this hit.
+$crossKitPaths = @{}
+$kitSettings = Join-Path $RepoRoot 'settings.json'
+if (Test-Path $kitSettings) {
+    try {
+        $sj = Get-Content $kitSettings -Raw | ConvertFrom-Json
+        # A kit with no cross-kit references has no `references` property at
+        # all; reaching through it directly throws under StrictMode rather than
+        # yielding $null, which turned "nothing to exempt" into a warning.
+        if ($sj.PSObject.Properties.Name -contains 'references') {
+            foreach ($ref in @($sj.references)) {
+                if ($null -eq $ref) { continue }
+                foreach ($rp in @($ref.paths)) { if ($rp) { $crossKitPaths[$rp] = $ref.kit } }
+            }
+        }
+    } catch {
+        Add-Warning 'dead-ref' "settings.json could not be parsed, so cross-kit reference paths cannot be exempted: $($_.Exception.Message)"
+    }
+}
+if ($crossKitPaths.Count -gt 0) {
+    Write-Host ("  exempting {0} cross-kit path(s) declared in settings.json" -f $crossKitPaths.Count)
+}
 $deadRefs = 0
 foreach ($rel in $refDocs) {
     $full = Join-Path $RepoRoot $rel
@@ -270,6 +394,24 @@ foreach ($rel in $refDocs) {
             # Skip anything with a glob or a placeholder — those are patterns,
             # not paths, and resolving them is not this check's job.
             if ($path -match '[\*\?]' -or $path -match '\[FILL IN' -or $path -match '[<>]') { continue }
+
+            # A declared cross-kit path lives in ANOTHER repo and is resolved
+            # through the hub; it is correct precisely because it is absent here.
+            if ($crossKitPaths.ContainsKey($path)) { continue }
+
+            # A templated path such as src/analysis/{ai_name}_v{n}.md names a
+            # naming convention, not a file. Verify the static parent instead —
+            # that the directory it will be written into exists — and never
+            # demand the example filename itself.
+            if ($path -match '\{[^}]+\}') {
+                $staticParent = ($path -split '/' | Where-Object { $_ -notmatch '\{' }) -join '/'
+                if ($staticParent -and -not (Test-Path (Join-Path $RepoRoot $staticParent))) {
+                    Add-Failure 'dead-ref' "$rel`:$($i+1) references '$path'; its non-templated parent '$staticParent' does not exist"
+                    $deadRefs++
+                }
+                continue
+            }
+
             if (-not (Test-Path (Join-Path $RepoRoot $path))) {
                 Add-Failure 'dead-ref' "$rel`:$($i+1) references '$path', which does not exist"
                 $deadRefs++

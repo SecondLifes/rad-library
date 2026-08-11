@@ -52,6 +52,18 @@ something in `.agents/` isn't mentioned anywhere in `docs/proje-haritasi.md`
 yet. Treat that warning as a checklist item, not something to silence by
 adding the filename without a real description.
 
+**And record it in `CHANGELOG.md`, in the same commit.** Adding, deleting or
+renaming a file under `.agents/rules/`, `.agents/commands/`, `.agents/skills/`
+or `tools/` gets its own line naming the actual path — not a summary like
+"updated the rules". Three things break quietly when that inventory drifts:
+`docs/proje-haritasi.md` states counts that `tools/verify-kit.ps1` compares
+against disk, the generator produces one copy or link per source file, and
+anyone auditing this kit later reconstructs what happened from the CHANGELOG
+plus `git log`. Editing the *contents* of an existing file needs no inventory
+line — describe the behavior that changed instead. See `CHANGELOG.md`'s own
+header for the format.
+
+
 **Why rules are copied, not symlinked:** this kit is distributed via
 `git clone` into arbitrary projects. A symlink *committed to the repo*
 requires Developer Mode/admin on Windows and `core.symlinks=true` in git to

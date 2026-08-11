@@ -264,7 +264,7 @@ Threads are essential for keeping the UI responsive and processing data in paral
 - ❌ `TCriticalSection.Leave` outside `finally`
 
 > **Skills:** `.agents/skills/threading/SKILL.md`
-> **Rules:** `.cursor/rules/threading-patterns.md`
+> **Rules:** `.agents/rules/threading-patterns.md`
 
 ## Naming Conventions — Pascal Guide
 

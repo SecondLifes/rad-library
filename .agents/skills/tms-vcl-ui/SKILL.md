@@ -1,5 +1,5 @@
 ---
-name: "TMS VCL UI"
+name: tms-vcl-ui
 description: "Standards for TMS VCL UI Pack components (TAdvStringGrid family, Adv* editors, panels) in Delphi VCL applications"
 ---
 

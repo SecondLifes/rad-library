@@ -1,5 +1,5 @@
 ---
-name: "Delphi SOLID Patterns"
+name: delphi-patterns
 description: "SOLID implementation patterns for Delphi projects — Repository, Service, Factory, Strategy with constructor injection and interfaces"
 ---
 

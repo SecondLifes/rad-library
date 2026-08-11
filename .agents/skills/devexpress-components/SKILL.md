@@ -1,5 +1,5 @@
 ---
-name: "DevExpress Components"
+name: devexpress-components
 description: "Standards for using DevExpress VCL components (TcxGrid, TdxLayoutControl, skins) in Delphi applications"
 ---
 

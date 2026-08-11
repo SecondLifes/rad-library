@@ -1,5 +1,5 @@
 ---
-name: "Delphi Code Review"
+name: code-review
 description: "Delphi code review checklist — quality, security, performance, SOLID, memory. Use when auditing or reviewing already-written code (e.g. a diff or PR) against these criteria, not when writing new code (see clean-code) or restructuring existing code (see refactoring)."
 ---
 

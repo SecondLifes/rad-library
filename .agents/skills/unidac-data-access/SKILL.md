@@ -1,5 +1,5 @@
 ---
-name: "UniDAC Data Access"
+name: unidac-data-access
 description: "Standards for Devart UniDAC (TUniConnection, TUniQuery, providers, SpecificOptions) as an alternative data-access layer to FireDAC"
 ---
 

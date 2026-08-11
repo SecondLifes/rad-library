@@ -1,5 +1,5 @@
 ---
-name: "Design Patterns GoF — Delphi"
+name: design-patterns
 description: "Implementation of the 23 GoF (Gang of Four) patterns in Object Pascal / Delphi with interfaces, TInterfacedObject and SOLID principles. Covers Creational, Structural and Behavioral patterns."
 ---
 

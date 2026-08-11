@@ -1,5 +1,5 @@
 ---
-name: "Delphi Source Encoding (UTF-8 BOM)"
+name: delphi-encoding
 description: "File encoding for Delphi sources — UTF-8 with BOM for .pas/.dpr/.dpk/.inc, mojibake diagnosis and repair, TEncoding on file I/O, why this matters for this kit's Turkish comments"
 ---
 

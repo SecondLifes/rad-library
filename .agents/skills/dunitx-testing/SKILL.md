@@ -1,5 +1,5 @@
 ---
-name: "DUnitX Testing Patterns"
+name: dunitx-testing
 description: "Unit testing patterns with DUnitX for Delphi — fixtures, mocking, integration tests"
 ---
 

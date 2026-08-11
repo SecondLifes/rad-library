@@ -1,5 +1,5 @@
 ---
-name: "Delphi Clean Code"
+name: clean-code
 description: "Pragmatic clean code standards for Delphi — concise, direct, no over-engineering. Use when writing new code or establishing conventions, not for auditing already-written code (see code-review) or restructuring existing code without changing behavior (see refactoring)."
 ---
 

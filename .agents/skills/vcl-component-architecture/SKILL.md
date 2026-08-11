@@ -1,5 +1,5 @@
 ---
-name: "VCL Component Architecture"
+name: vcl-component-architecture
 description: "Designing runtime and design-time VCL components — TComponent ownership, Notification, streaming/DFM, published properties, property/component editors, Register units, package split"
 ---
 

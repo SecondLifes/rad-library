@@ -1,5 +1,5 @@
 ---
-name: "Threading & Multi-Threading"
+name: threading
 description: "Threading patterns in Delphi — TThread, TTask, TParallel, Synchronize, Queue, thread-safety, Producer-Consumer, pools, cancellation and debugging"
 ---
 

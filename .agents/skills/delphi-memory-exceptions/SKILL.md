@@ -1,5 +1,5 @@
 ---
-name: "Delphi Memory and Exceptions"
+name: delphi-memory-exceptions
 description: Good memory management practices, memory leak prevention and exception handling in Delphi
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: "Delphi Code Refactoring"
+name: refactoring
 description: "Refactoring techniques for Object Pascal focused on improving readability, removing code smells, and preserving behavior through practices like Extract Method, Guard Clauses, and polymorphism. Use when restructuring existing code without changing its behavior, not for a one-off review pass (see code-review) or new-code conventions (see clean-code)."
 ---
 

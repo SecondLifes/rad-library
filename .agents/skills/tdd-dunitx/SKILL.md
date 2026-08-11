@@ -1,5 +1,5 @@
 ---
-name: Delphi Test-Driven Development (TDD) and DUnitX
+name: tdd-dunitx
 description: Guidelines on how the AI ​​should act and code when the user requests TDD, unit tests, DUnitX or fakes/mocks using Interfaces in Delphi.
 ---
 

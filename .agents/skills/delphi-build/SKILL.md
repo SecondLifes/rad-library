@@ -1,5 +1,5 @@
 ---
-name: "Delphi Build (Command Line)"
+name: delphi-build
 description: "Building Delphi library packages and test projects from the command line — rsvars + MSBuild with log-file capture, first-error diagnosis, dcc32 error catalog (E2003/E2065), MSB6003 command-line-too-long fixes"
 ---
 

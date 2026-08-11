@@ -1,5 +1,5 @@
 ---
-name: "FastReport VCL"
+name: fastreport-vcl
 description: "Standards for FastReport VCL reporting — TfrxReport/TfrxDBDataSet wiring, band design, programmatic report generation, exports"
 ---
 

@@ -24,7 +24,153 @@ that break something else in the kit.
 
 ## [Unreleased]
 
+### Added
+
+- `.agents/skills/mormot2-integration/references/verified-api-traps.md` — mORMot2
+  APIs that compile cleanly and fail **silently** at runtime, each entry proven
+  by a probe rather than a read-through. First entries: `AesPkcs7` does not
+  store a GCM authentication tag even when passed `mGcm` (tamper detection
+  silently absent — use `TAesGcm.MacAndCrypt`), its password overload derives
+  the IV from the password so repeated saves reuse the keystream, `TAesGcm`
+  instances are stateful and not thread-safe, and `mormot.crypt.core` needs
+  the separately-downloaded `static/` binaries. `SKILL.md` now points at it and
+  instructs adding to it whenever a probe uncovers another one.
+- `src/core/rad.cipher.pas` — the encryption layer: `IRadCipher` (bytes in,
+  bytes out — no base64, envelope or file-format concerns) and
+  `TRadAesGcmCipher` over `TAesGcm.MacAndCrypt` with a random IV per call.
+  Documented honestly as **at-rest obfuscation** rather than encryption,
+  because the design brief embeds the key in the application: it protects the
+  file from anyone who sees the file but not the binary, and nothing more.
+
+### Changed
+
+- `src/core/rad.config.pas` — encryption now has three modes, chosen with a new
+  `TRadCryptMode` constructor argument. `rcmFile` (the default) wraps the whole
+  document; **`rcmSection` encrypts only sections whose new virtual
+  `TRadOptions.Encrypted` class function returns True**, leaving the rest of the
+  file readable and the section names visible — an encrypted section's value
+  becomes the single string `RADSEC1:aes-gcm-256:<base64url>` (in INI, a one-key
+  `enc=` block). The payload is always the section's JSON, so all three file
+  formats share one decrypt path. `rcmNone` is forced whenever no cipher is
+  supplied, so a file can never claim encryption it is not doing.
+- `TRadOptionsFile` now hashes **its own plaintext serialization** on both save
+  and load, instead of the file text. Two bugs made this necessary: a
+  section-encrypted document contains a marker that changes every save (random
+  IV), so it could never hash equal; and hashing the file text meant any
+  formatting difference between disk and our serializer triggered a pointless
+  write after every load. Both sides now measure the same deterministic thing.
+- `tools/verify-kit.ps1` no longer fails on its own documentation. Excluding the
+  script by name was not enough — any file describing the placeholder check
+  contains the literal marker, so `docs/proje-haritasi.md` and `CHANGELOG.md`
+  were reported as holding unfilled placeholders. Prose writes the marker
+  backticked; a real placeholder never is, so only the backticked form is
+  excluded. A gate that fails on its own docs teaches people to ignore it.
+- **The "dependency-free core" claim is gone — it was false.** `.agents/rules/vendor-integration.md`
+  now states two tiers: mORMot2 is a **base dependency** that `src/core/` calls
+  directly with no adapter, while UniDAC, DevExpress, TMS, FastReport and JEDI
+  remain optional and isolated under `src/vendor/`. The old wording contradicted
+  every core unit that ships (`rad.core`, `rad.cipher`, `rad.config`,
+  `rad.cache`, `rad.utils`, `rad.thread`, `rad.eventbus` all `uses` mORMot), and
+  a rule that contradicts the code teaches the next session either to break
+  working code enforcing it or to stop trusting the rules. Corrected in the same
+  pass across `library-packaging.md`, `component-patterns.md`, the four identity
+  files (`AGENTS.md`, `.claude/CLAUDE.md`, `.github/copilot-instructions.md`,
+  `.gemini/rules/project-rules.md`), `.kiro/steering/product.md`, `src/README.md`,
+  `ACKNOWLEDGMENTS.md` and five vendor skills. Earlier CHANGELOG entries citing
+  the old rule are left as-is: they record what was believed at the time.
+- `.agents/rules/delphi-conventions.md` gained two compile-verified traps: set
+  constructors cannot hold an element above 255 (`in [128, 192, 256]` is
+  `E1012`, and the message points at the whole expression rather than the
+  offending member), and an identifier shadowing a same-named routine
+  case-insensitively (a local `c` hides a procedure `C`, and the compiler
+  reports a missing semicolon that is not there).
+- `src/core/rad.config.pas` — optional whole-file encryption. Passing an
+  `IRadCipher` to the constructor wraps the entire serialized document in a
+  single `data.enc` envelope (base64url, plus `alg` and `v`), so section names
+  are hidden too and per-section encryption is unnecessary. The file stays
+  valid in its own format and keeps its extension. Also drops this unit's
+  duplicate `ERadCore` in favour of `rad.core`'s, so one `except on E: ERadCore`
+  really does catch the whole tree.
+
+### Removed
+
+- `src/core/rad.cache - Kopya.pas` — an 829-line stray copy of
+  `src/core/rad.cache.pas` sitting in the same folder. Two units declaring the
+  same symbols in one compilation shadow each other by `uses` order, which is
+  exactly the defect that had to be removed from `rad.pas` in this same
+  release. Recoverable from git history if it turns out to have been wanted.
+
+### Added
+
+- `TSmartCache` (and `ISmartCache`) gained JSON persistence: `SaveJson`,
+  `LoadJson`, `SaveToFile`, `LoadFromFile`. The format is a versioned envelope
+  that stores an explicit **type tag** per entry, because this cache is
+  type-strict on read — writing `Integer 42` and reading it back as `Int64`
+  would make `Get<Integer>` silently return the default. Values that cannot
+  round-trip (objects, interfaces, records, arrays, sets, non-Boolean enums)
+  are skipped and reported through `SaveJson(out ASkipped)` rather than being
+  written as garbage; `TObject` in particular is a raw unowned pointer here, so
+  persisting it would be meaningless. `LoadJson` parses in full before touching
+  the dictionary, so a malformed document leaves the cache unchanged, and
+  `SaveToFile` writes to a temp file and moves it over the target
+  (`MoveFileEx`/rename) so a crash mid-write cannot destroy the previous state.
+  Persistence uses RTL `System.JSON`, not `rad.json` — the cache must not
+  require a JSON provider to be registered.
+- `rad.json` gained fluent writers (`SetV` overloads plus `SetVar`), fluent
+  `Add` on `IJsonArray`, `Get(AKey, ADefault)` readers, ISO-8601
+  `GetDateTime`/`SetDateTime`, and object/record conversion
+  (`FromObject`/`ToObject`/`FromRecord`/`ToRecord` with the `TJsonRec.Save`/
+  `Load` generic wrapper, since Delphi interfaces cannot carry generic methods).
+  `TDateTime` deliberately stays out of the overload sets: it shares `Double`'s
+  representation and would make numeric literals ambiguous.
+- `src/vendor/rad.json.mormot2.pas` — the first implementation of the
+  `rad.json` contract, built on mORMot2 `IDocDict`/`IDocList`. Registers itself
+  from `initialization`, so adding the unit to `uses` is the whole setup. It
+  lives under `src/vendor/` because `vendor-integration.md` keeps the core
+  dependency-free: `rad.json` still knows nothing about mORMot.
+- `rad.json` gained a real error contract (`EJson` and four descendants),
+  provider registration (`RegisterJsonProvider` / `UnregisterJsonProvider` /
+  `IsJsonProviderRegistered`) replacing the two global factory variables, and
+  `GetDef` overloads on `IJsonArray` plus the missing `Currency` one on `IJson`.
+  Its interface GUIDs were regenerated — the previous pair was hand-written and
+  one of them was not a valid RFC 4122 variant.
+- `GenerateFluentUnit`, `ListFluentRegions` and `PruneFluentRegions` in
+  `src/core/rad.utils.pas`. `GenerateFluentUnit` writes a compile-ready unit to
+  disk (UTF-8 + BOM) instead of returning a fragment to paste by hand: it
+  resolves `uses` from RTTI `QualifiedName`, wraps everything in
+  `{$REGION 'RAD-FLUENT:<Class>:TYPES|IMPL'}` markers, and in `fumMergeRegions`
+  mode updates only its own regions so one unit can carry several classes
+  alongside hand-written code. Re-runs reuse the GUID already in the file, so
+  the operation is idempotent. `PruneFluentRegions` removes orphaned regions
+  (dry-run by default) — nothing else in the kit could detect them.
+- `.agents/rules/delphi-conventions.md` gained two sections, "RTTI blind spots"
+  and "Unit name qualification in generated `uses`". Both document defects that
+  were found by compiling and running probe programs, not by reading docs, and
+  both silently corrupt any RTTI-driven generator/serializer/mapper.
+
 ### Fixed
+
+- **`GenerateFluentCode` silently omitted properties, and silently emitted
+  wrong method signatures.** Delphi produces no RTTI for enumerations with
+  explicitly assigned values (`TAESKeyLength = (kl128 = 128, ...)`), so such a
+  published property is invisible at runtime — confirmed by execution on Delphi
+  37.0. The generator now accepts the declaring `.pas` path, reconciles the
+  source against what RTTI reports, emits the missing members marked
+  `// [KAYNAK]`, and refuses to emit a method whose RTTI signature is provably
+  wrong (a lost parameter, or a function degraded to `mkProcedure`) instead of
+  producing code that fails to compile or drops a return value.
+- **Untyped parameters crashed the generator.** `TRttiParameter.ParamType` is
+  `nil` for `var Buf`; the old code dereferenced `.Name` unconditionally.
+- **Open-array parameters produced a wrong signature.** `pfArray` was ignored,
+  so `const A: array of Integer` was emitted as `const A: Integer`.
+- **Generated `uses` could not compile against legacy sources.** RTTI reports
+  `System.Classes` while an older unit's own `uses` says `Classes`; both in one
+  clause is `E2004`. Bare and namespace-qualified forms of the standard RTL
+  roots are now collapsed to one entry.
+- `src/core/rad.pas` no longer carries a byte-identical duplicate of
+  `GenerateFluentCode` (~350 lines). Two units exporting the same function meant
+  `uses` order silently decided which one a project got. `rad.utils.pas` is the
+  single source; `rad.pas` keeps a pointer comment.
 
 - **Claude Code could not discover any of this kit's skills.** It looks only
   under `.claude/skills/`; `.agents/skills/` is not one of its discovery

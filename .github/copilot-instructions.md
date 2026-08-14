@@ -62,7 +62,8 @@ This is a **Delphi (Object Pascal) library development** project that follows SO
 
 ## General Guidelines
 
-- Target Win32/Win64, VCL and FMX; keep the core dependency-free.
+- Target Win32/Win64, VCL and FMX; the core depends only on the RTL and
+  mORMot2, and no other vendor.
 - Helper units use `help.*`; public helper functions/methods begin with `_`.
 - Component classes begin with `TRAD`; keep runtime/design-time packages
   separate.
@@ -146,7 +147,7 @@ var
 ## Design Patterns
 
 When creating new features, follow the appropriate structure:
-- **Library layout:** `src/core/`, `src/helpers/`, `src/components/`, `src/test/`, `src/vendor/`
+- **Library layout:** `src/core/`, `src/component/`, `src/packages/`, `src/test/`, `src/vendor/` — helper units live in `src/core/` as `help.*.pas`, there is no separate helpers folder
 - **Application layering:** Domain (Entities, Interfaces) / Application (Services, DTOs) / Infrastructure (Repositories — FireDAC/UniDAC) / Presentation (VCL Forms)
 
 ## What NOT to generate

@@ -96,7 +96,8 @@ the user decide.
 - **Language:** Object Pascal (Delphi 13+; current stable preferred)
 - **Native IDE:** RAD Studio / Delphi
 - **Targets/frameworks:** Win32, Win64, VCL and FMX
-- **Core:** dependency-free
+- **Core:** the RTL and mORMot2 only (mORMot is a base dependency, not an
+  optional vendor); every other vendor isolated under `src/vendor/`
 - **Optional integrations:** UniDAC, DevExpress, TMS, FastReport, JEDI JCL/JVCL, mORMot2
 - **Tests:** DUnitX
 - **Build / Tooling:** MSBuild, dcc32/dcc64, Boss (Package Manager)

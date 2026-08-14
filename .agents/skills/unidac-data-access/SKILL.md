@@ -6,7 +6,8 @@ description: "Standards for Devart UniDAC (TUniConnection, TUniQuery, providers,
 # UniDAC Data Access — Skill
 
 Use this skill only for an approved optional RAD Library integration under
-`src/vendor/`. The dependency-free core must not reference UniDAC.
+`src/vendor/`. The core must not reference UniDAC. (The core does depend on
+the RTL and mORMot2 - that is the only exception, see `.agents/rules/vendor-integration.md`.)
 
 > **Commercial dependency:** UniDAC is a paid Devart product. Per this kit's
 > dependency policy, do not introduce it into a project that doesn't already

@@ -7,7 +7,7 @@ this kit's rules were themselves derived from (see `ACKNOWLEDGMENTS.md`).
 
 ```text
 src/
-├── core/        dependency-free reusable library code — help.*.pas units
+├── core/        reusable library code (RTL + mORMot2 only) — help.*.pas units
 │                (help.date, help.rtti, help.str, Help.DB, Help.uni, Help.vcl)
 │                plus rad.*.pas core units (rad.cache, rad.cmd, rad.eventbus,
 │                rad.permission, rad.thread, rad.utils, rad.worker, ...)

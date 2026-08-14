@@ -6,7 +6,8 @@ description: "Standards for FastReport VCL reporting — TfrxReport/TfrxDBDataSe
 # FastReport VCL — Skill
 
 Use this skill for an approved optional **FastReport VCL** integration under
-`src/vendor/`. The dependency-free core must not reference FastReport.
+`src/vendor/`. The core must not reference FastReport. (The core does depend
+on the RTL and mORMot2 - that is the only exception, see `.agents/rules/vendor-integration.md`.)
 
 > **Commercial dependency:** FastReport VCL is a paid product (an embedded
 > edition has shipped with some RAD Studio SKUs — verify what the project's

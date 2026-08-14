@@ -118,7 +118,9 @@ absent. Don't add the improvement silently; let the user decide.
 - **Native IDE:** RAD Studio / Delphi
 - **Targets:** Win32 and Win64
 - **UI Frameworks:** VCL and FMX
-- **Core dependency stance:** dependency-free; vendor integrations are optional modules
+- **Core dependency stance:** the RTL and mORMot2 only - mORMot is a base
+  dependency, not an optional vendor; every other vendor integration is an
+  optional module under `src/vendor/`
 - **Optional integrations (only where licensed/available):** UniDAC, DevExpress, TMS, FastReport, JEDI JCL/JVCL, mORMot2
 - **Tests:** DUnitX
 - **Build:** MSBuild / Delphi Compiler (dcc32/dcc64), Boss (package manager)

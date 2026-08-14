@@ -6,7 +6,8 @@ description: "Standards for using DevExpress VCL components (TcxGrid, TdxLayoutC
 # DevExpress Components — Skill
 
 Use this skill for an approved optional DevExpress adapter/component under
-`src/vendor/`. The dependency-free core must not reference DevExpress.
+`src/vendor/`. The core must not reference DevExpress. (The core does depend
+on the RTL and mORMot2 - that is the only exception, see `.agents/rules/vendor-integration.md`.)
 
 ## When to Use
 

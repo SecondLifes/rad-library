@@ -70,7 +70,8 @@ silently; user decides.
   separate.
 - Use `src/test/` for `.test.pas` units and `src/vendor/` for optional
   UniDAC, DevExpress, TMS, FastReport, JEDI and mORMot2 adapters.
-- Target Win32/Win64 with VCL/FMX; keep the core dependency-free.
+- Target Win32/Win64 with VCL/FMX; the core depends only on the RTL and
+  mORMot2, and no other vendor.
 - Examples never authorize invented APIs. JEDI/mORMot2 remain conditional
   until Delphi 13+ compilation succeeds.
 

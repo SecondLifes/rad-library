@@ -248,7 +248,22 @@ $placeholderHits = @(
         # '\[FILL IN' it was first written with searched for an actual backslash
         # and matched nothing -- the check reported a clean scaffold that is in
         # fact full of placeholders. Literal pattern, literal match.
-        Select-String -Pattern '[FILL IN' -SimpleMatch
+        Select-String -Pattern '[FILL IN' -SimpleMatch |
+        Where-Object {
+            # Excluding this script by name was not enough: any file that
+            # DESCRIBES this check also contains the literal marker, so
+            # docs/proje-haritasi.md and CHANGELOG.md were reported as holding
+            # unfilled placeholders they do not have. A gate that fails on its
+            # own documentation trains people to ignore it, which costs more
+            # than the check is worth.
+            #
+            # Prose always writes the marker inside backticks -- `[FILL IN` --
+            # while a real placeholder is bare text meant to be replaced.
+            # Excluding only the backticked form is the conservative cut: it
+            # can never hide an actual placeholder, because an actual
+            # placeholder is never backticked.
+            $_.Line -notmatch '`\[FILL IN'
+        }
 )
 if ($placeholderHits.Count -gt 0) {
     $shown = $placeholderHits | Select-Object -First 20 | ForEach-Object {

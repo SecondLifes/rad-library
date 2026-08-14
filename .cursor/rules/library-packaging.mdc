@@ -9,7 +9,8 @@ alwaysApply: false
 Use these rules when structuring, versioning, or releasing a reusable
 Delphi library or component package.
 
-RAD Library targets Delphi 13+ Win32/Win64. Keep the core dependency-free.
+RAD Library targets Delphi 13+ Win32/Win64. The core depends only on the RTL
+and mORMot2; every OTHER vendor stays optional and isolated.
 All project packages belong under `src/`; optional vendor packages belong
 under `src/vendor/`. VCL and FMX component packages follow
 `component-patterns.md`.
@@ -64,7 +65,7 @@ under `src/vendor/`. VCL and FMX component packages follow
 
 For every proposed external dependency state: why it's needed, why
 RTL/VCL isn't enough, its license, maintenance status, vendor lock-in
-impact, and the dependency-free alternative.
+impact, and the alternative that uses only the RTL and mORMot2.
 
 ## Open-source license compliance
 

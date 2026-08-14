@@ -18,5 +18,5 @@ alwaysApply: true
   `csDesigning`, `csLoading` and `csDestroying`.
 - VCL/FMX UI state is main-thread-only. Marshal background callbacks.
 - Compile-check applicable runtime/design-time package pairs for Win32 and
-  Win64. Treat framework-specific code as separate from the dependency-free
-  core.
+  Win64. Treat framework-specific code as separate from the core (which
+  depends on the RTL and mORMot2, and nothing else).

@@ -6,7 +6,8 @@ description: "Standards for TMS VCL UI Pack components (TAdvStringGrid family, A
 # TMS VCL UI — Skill
 
 Use this skill for an approved optional **TMS VCL UI Pack** integration under
-`src/vendor/`. The dependency-free core must not reference TMS. Aurelius and
+`src/vendor/`. The core must not reference TMS - the RTL and mORMot2 are the
+only things it may depend on, see `.agents/rules/vendor-integration.md`. Aurelius and
 FlexCel are outside this kit; do not route to removed skills.
 
 > **Commercial dependency:** TMS VCL UI Pack is a paid product. Do not

@@ -26,6 +26,17 @@ that break something else in the kit.
 
 ### Added
 
+- `.agents/skills/rad-code-fix/` — bundled copy of the workspace's own
+  `rad-code-fix` skill: `SKILL.md`, `agents/openai.yaml`,
+  `references/finding-taxonomy.md`, `references/probe-patterns.md`,
+  `references/toolchain-map.md`. Language- and toolchain-agnostic whole-file
+  code auditing — it measures a baseline before changing anything, reports
+  findings with evidence, applies approved repairs leaf-first from a dependency
+  DAG, implements requested enhancements against acceptance criteria, and
+  applies a findings report written elsewhere by re-verifying every entry
+  against the code as it stands now rather than trusting it. Now part of the workspace's default skill
+  bundle.
+
 - `.agents/skills/mormot2-integration/references/verified-api-traps.md` — mORMot2
   APIs that compile cleanly and fail **silently** at runtime, each entry proven
   by a probe rather than a read-through. First entries: `AesPkcs7` does not

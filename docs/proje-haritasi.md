@@ -42,6 +42,7 @@ moving or re-cloning the kit.
 | `powershell-master`, `python` | Supporting language/tool skills |
 | `rad-prompt-studio`, `rad-repo-scaffold` | System analysis and repository setup |
 | `rad-skill-finder`, `rad-web-scraping` | Capability discovery/research |
+| `rad-code-fix` | Measured whole-file audit, approved repair, enhancement, and application of an existing findings report |
 
 ## Commands and identities
 

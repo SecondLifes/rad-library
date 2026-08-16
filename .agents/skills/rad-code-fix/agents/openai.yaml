@@ -1,0 +1,4 @@
+interface:
+  display_name: "RAD Code Fix"
+  short_description: "Audit, repair, enhance, or apply a findings report — with measured proof"
+  default_prompt: "Use $rad-code-fix to audit this code, apply approved fixes in dependency order, and verify the result. If a findings report already exists, give it the report instead."

@@ -34,34 +34,28 @@ Neden önemli: `default` ile constructor ayrışırsa değer sessizce kaybolur y
 gereksiz yere streamlenir. Kitin bileşen kuralının özellikle uyardığı hata.
 Yeri: `src/test/scratch/rad_dev_repolisteners/DfmRoundTripTest.dpr`.
 
-### Ö-02 · "A" öneki sonrası tam regresyon — KISMEN ÖLÇÜLDÜ
-Property adları değişti (`AComponent1`, `ACascadeField`, `ASearchDelay`, …).
+### Ö-02 · "A" öneki sonrası tam regresyon — ÖLÇÜLDÜ, KAPANDI
+Beş kaskad sondası "A" önekine güncellendi; hepsi **Win32 ve Win64'te sıfır
+tanıyla derliyor**. Sondalar artık gerçek kapı (RADDEV-008): assert ediyorlar
+ve hatada non-zero çıkıyorlar.
 
-**Ölçüldü (2026-08-30):** beş kaskad sondası da "A" önekine güncellendi ve
-**Win32'de beşi de derliyor**; `RepoListenerTest`, `PullTest`,
-`PerConsumerTest`, `DfmRoundTripTest` koşuyor ve yeşil. `PullTest` +
-`RepoListenerTest` ayrıca **Win64**'te de derlendi ve koştu.
-`DfmRoundTripTest` çıktısı `Properties.ACascadeField = 'kolon_yuku'`
-gösteriyor — yeni adlar DFM'e yazılıp geri okunuyor.
+| Sonda | Sonuç |
+|---|---|
+| `PullTest` | 73/73, iki platform |
+| `DestructorTest` (yeni) | 6/6, iki platform |
+| `RepoListenerTest` | 14/14, iki platform |
+| `PerConsumerTest` | 6/6, iki platform |
+| `DfmRoundTripTest` | 7/7, iki platform |
+| `RuntimeTest` | 8 geçti, **1 atlandı** (Ö-04 — aşağıya bakın), görünür pencereyle koştu |
+| `LiveLookupTest` | 18/18, canlı PostgreSQL, iki platform |
 
-**Güncelleme:** altı sondanın hepsi artık **Win32 ve Win64'te derliyor**;
-`PullTest` (28/28), `RepoListenerTest`, `PerConsumerTest`, `DfmRoundTripTest`
-**iki platformda da** koşuyor ve yeşil.
-
-**Bekleyen:**
-1. `RuntimeTest` — görünür pencere + mesaj döngüsü şart, çalıştırılmadı.
-2. `LiveLookupTest` — PostgreSQL kimlik bilgisi şart, çalıştırılmadı.
-3. `Rad.Dev.pas` + `help.Dev.pas` **uyarısız** derleme iddiası hâlâ
-   ölçülmedi; bugünkü derlemelerde `rad.config.pas` W1055 ve `help.uni`/
-   `rad.db` kaynaklı bir dizi W1057/H2164 var (hepsi bu işten önce vardı).
-
-> **Bu ölçümler bir KÜTÜKLE yapıldı.** `rad.pas`, çalışma ağacında
-> `JclBase`/`JclSysInfo` (JEDI JCL) ve `Dext.Types.UUID` kullanıyor; üçü de
-> bu makinede **yok** (`Dext.Types.UUID` hiçbir yerde, JCL yalnızca ilgisiz
-> bir projenin çıktı klasöründe ve orada eski bir `SysUtils.dcu` gerçek
-> RTL'i gölgeliyor). Sondalar geçici kütüklerle derlendi. **Gerçek
-> bağımlılıklarla tekrar ölçülmeli** — `build_and_run.bat` artık `%EXTRAU%`
-> ile ek birim yolu kabul ediyor.
+> **Kalan tek kısıt: kütükler.** `rad.pas` çalışma ağacında `JclBase`,
+> `JclSysInfo` (JEDI JCL) ve `Dext.Types.UUID` kullanıyor; üçü de bu makinede
+> yok. Bütün ölçümler geçici kütüklerle yapıldı. Kütükler yalnızca boş klasör
+> yolu döndüren fonksiyonlar ve bir tip takma adı içeriyor; bu sondaların
+> hiçbiri onları kullanmıyor — ama **gerçek bağımlılıklarla tekrar
+> ölçülmelidir**. `build_and_run.bat` `%EXTRAU%` ile ek birim yolu kabul
+> ediyor.
 
 ### Ö-03 · Tasarım zamanı davranışı — hiç ölçülmedi
 IDE dışından yapılamıyor, kullanıcı tarafında:
@@ -80,10 +74,22 @@ IDE dışından yapılamıyor, kullanıcı tarafında:
   rapor doğru mu? **Bu birim bu araç zincirinde hiç derlenmedi**
   (`DesignEditors.dcu` yok); yalnızca okunarak doğrulandı.
 
-### Ö-04 · Gerçek klavye teslimi
+### Ö-04 · Gerçek klavye teslimi — ÖLÇÜLDÜ ve DOĞRULANDI (açık kalıyor)
 `DoEditKeyPress` doğrudan çağrıldı; Windows'un tuşu iç edit kontrolüne
-ilettiği yol ölçülmedi. Çalışan bir formda yazıp debounce'un hissedildiğini
-görmek gerek.
+ilettiği yol ölçülmedi.
+
+**Artık kanıtı var.** `RuntimeTest`'in A1 durumu (`ASearchDelay = 0`, altı tuş
+→ altı arama) **sıfır** ölçüyor ve sonda var olduğundan beri öyle. Sebep
+bulundu: gecikme kapalıyken arama `TRadLookupEditLookupData.Locate`
+dikişinden tetikleniyor, oraya varmak için tuşun **gerçek pencereli bir iç
+edit kontrolüne** teslim edilmesi gerekiyor; sonda `DoEditKeyPress`'i
+doğrudan çağırdığı için taban sınıfın tuş işleme yolu hiç koşmuyor.
+Geciktirici yolu (A2/A3) etkilenmiyor — orada arama `TTimer`'dan,
+`EditingText` ile geliyor, ve o iddialar **geçiyor**.
+
+Sonda bunu artık `[ATLA]` olarak bildiriyor: ne yeşil yalanı ne de bileşen
+hatası ima eden kırmızı. Gerçek ölçüm, bir kullanıcının klavyeden yazdığı
+canlı bir formda yapılabilir.
 
 ### Ö-05 · `PermissionTest.dpr` kırık — karar bekliyor
 `IsFieldLinked`, `DataSet`, `TreeField` çağırıyor; `TRadPermission` artık
@@ -140,32 +146,38 @@ yazmıyordu:
 
 İkisi de Ö-09 ile birlikte ele alınmalı.
 
-### Ö-11 · Pull yönü — popup yolu (görünür pencere şart)
-`AMaster`/`AOnFilter` başsız ölçüldü (`PullTest`, 22/22, Win32+Win64) ama pull
-**elle** (`FilterNow`) tetiklenerek. Gerçek popup yolu başsız ölçülemez:
-`TcxCustomDropDownEdit.DropDown`, `if not IsWindowVisible(Handle) then Exit`
-ile başlıyor (`cxDropDownEdit.pas:3252`). Görünür bir formda ölçülecek:
+### Ö-11 · Pull yönü — popup yolu — ÖLÇÜLDÜ, KAPANDI
+`PullPopupTest.dpr` (yeni, görünür pencere), 9/9, Win32 **ve** Win64:
 
-1. `DroppedDown := True` → `AOnFilter` **bir kez** tetikleniyor mu?
-2. **Sıra kanıtı:** `AOnFilter` içinde liste dataset'inin filtresi
-   değiştirilince, açılan popup **yeni** filtrenin satırlarını mı gösteriyor?
-   Bu, `LockDataChanged`'in (`cxLookupEdit.pas:309`) değişikliği
-   bastırmadığını — yani pull'un `inherited`'dan **önce** durmasının doğru
-   olduğunu — kanıtlayan tek ölçüm.
-3. Grid inplace: `AMaster` bir **kolon** iken, odaklı satır değişince
-   `AMasterValue` onu takip ediyor mu? `ASource._Host` kolonu veriyor mu?
-4. `AFilterOnPopup := False` iken açılır listeyi açmak hiçbir şey
-   tetiklemiyor mu?
+1. `DroppedDown := True` → `AOnFilter` **tam bir kez** tetikleniyor; `AMaster`
+   ve `AMasterValue` doğru.
+2. **SIRA KANITI.** İşleyici tam o anda listeyi `ulke_id = 2`'ye süzüyor;
+   popup açıldıktan **sonra** filtre ayakta ve liste 2 satır (6 olsaydı
+   `LockDataChanged` değişikliği bastırmış olurdu). Pull'un `inherited`'dan
+   **önce** durmasının tek gerçek ölçümü budur — daha önce yalnızca kaynak
+   okumasına dayanıyordu.
+3. `AFilterOnPopup := False` iken açılır listeyi açmak hiçbir şey
+   tetiklemiyor.
+4. Master bir grid **kolonu** iken `AMasterValue` odaklı satırın değerini
+   veriyor (2) ve `ASource`'tan `_Host` ile `colSehir`'e ulaşılıyor.
 
-### Ö-12 · Pull yönü — canlı veritabanı
-`rad_test_ulke` / `rad_test_sehir` ile (`LiveLookupTest` deseni):
+> Bu sondayı yazarken kitin kendi `helper-patterns` kuralındaki tuzağa
+> düşüldü ve orada da kayıtlı: **yalnızca EN YAKIN class helper görünür.**
+> `uses`'ta `Help.Dev`'i `Rad.Dev`'den önce yazmak `_Host`'u gizliyor ve hata
+> `E2029 ')' expected but identifier '_Host' found` olarak çıkıyor — sebebi
+> hiç belli olmayan cinsten. `Help.Dev` en sonda olmalı.
 
-1. Popup açılışında **gerçek parametreli sorgu** koşuyor ve liste ülkeye göre
-   süzülüyor mu — `AOnCascade` **atanmadan**?
-2. Ülke değişip şehir listesi **hiç açılmadığında**, şehrin değeri
-   `AClearTargetsOnCascade` ile temizleniyor mu? (Başsız ölçüldü ama gerçek
-   veriyle değil.)
-3. `FLookupList` bayatlığı: `GridMode := True` ile bir anahtar çözülüp
-   önbelleğe girdikten sonra liste değişince, `ResetDisplayCache` olmadan eski
-   metin dönüyor mu? Bu, `CheckLookupList` çağrısının gerekçesini ölçen tek
-   test — şu an yalnızca kaynak okumasına dayanıyor.
+### Ö-12 · Pull yönü — canlı veritabanı — ÖLÇÜLDÜ, KAPANDI
+`LiveLookupTest` M5b + M6-M9, yerel PostgreSQL, Win32 **ve** Win64, 18/18:
+
+- **M6** bir açılışta **tek** sorgu; `ulke_id` kurulu, arama nötr değerle
+  açılmış, Türkiye için 4 satır.
+- **M7** üç harf yazınca ikinci sorgu koşuyor ve `ulke_id` **hâlâ** doğru —
+  parametreler birbirinin `Close`/`Open`'ını atlatıyor.
+- **M8** master değişip liste açılınca eski arama metni **etkisiz**; Almanya 2
+  satır (eski metin kalsaydı 0 olurdu).
+- **M9** 40 şehirli ülkede SQL'in `limit 15`'i tutuyor.
+- **M5b** `SQL.Text`'i baştan atayan bir işleyicinin master parametresini yok
+  ettiği canlıda ölçüldü (`Parameter 'ulke_id' not found`).
+
+Yalnızca `rad_test_*` tabloları yaratıldı ve çıkarken silindi.

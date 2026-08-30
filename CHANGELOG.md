@@ -26,6 +26,21 @@ that break something else in the kit.
 
 ### Added
 
+- `src/test/scratch/rad_dev_repolisteners/PullPopupTest.dpr` — the pull's real
+  popup path, which needs a visible window because
+  `TcxCustomDropDownEdit.DropDown` returns immediately on an invisible one
+  (`cxDropDownEdit.pas:3252`). Nine assertions, green on Win32 and Win64. The
+  one that matters is the **ordering proof**: the handler re-filters the list
+  at the moment it is called, and after the popup opens that filter is still
+  standing with two rows instead of six. Placing the pull before `inherited`
+  was until now justified only by reading the vendor source; this measures it.
+  Also covers `AFilterOnPopup := False` silencing the automatic path, and a
+  grid column as master resolving to the focused row's value with `_Host`
+  finding the column.
+- `src/test/scratch/rad_dev_repolisteners/DestructorTest.dpr` — the RADDEV-001
+  regression, measuring the call order deterministically rather than relying
+  on a crash.
+
 - `src/test/scratch/rad_dev_repolisteners/PullTest.dpr` —
   46 assertions covering the new pull direction (event fires exactly once with
   the right source/master/value, re-entrancy guard, `DoAssign` carries the pull
@@ -79,6 +94,26 @@ that break something else in the kit.
 - `src/component/Rad.Dev.pas` — `ERadDev`, the unit's first exception class.
 
 ### Changed
+
+- `src/test/scratch/rad_dev_repolisteners/*.dpr`,
+  `src/test/scratch/rad_dev_livedb/LiveLookupTest.dpr` — every probe now
+  asserts and exits non-zero on failure instead of printing its expectations
+  as prose (RADDEV-008). Writing the assertions immediately exposed **three
+  dead measurements** that had been passing by printing: `LiveLookupTest` M1
+  searched two characters and M5 searched one, both against the default
+  `AMinSearchLength` of 3, so no query ever ran; and `RuntimeTest`'s
+  zero-delay case has never produced a search, because that path needs a key
+  delivered to a real windowed edit and the probe calls `DoEditKeyPress`
+  directly. The first two are fixed; the third is now reported as `[ATLA]` —
+  a third outcome, counted separately, never silent, never a false green.
+
+- `src/test/scratch/rad_dev_livedb/LiveLookupTest.dpr` — M5b and M6-M9 measure
+  the composition against local PostgreSQL: one query per dropdown opening
+  with both parameters set, the master parameter surviving the search's own
+  reopen, the search text cleared when the master changes, and a 40-row
+  country returning the SQL's 15. M5b measures the hazard the header warns
+  about — a handler that reassigns `SQL.Text` destroys the master parameter,
+  because the collection is rebuilt from the new text.
 
 - `src/component/Rad.Dev.pas` — `AMaster` now rejects anything that is not a
   `TcxCustomEdit` or a `TcxCustomGridTableItem`. The Object Inspector's
@@ -146,6 +181,38 @@ that break something else in the kit.
   `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.
 
 ### Fixed
+
+- `src/component/Rad.Dev.pas` — **a repository item deleted while consumers
+  were still attached raised an access violation, every time.** The destructor
+  freed its consumer list before calling `inherited`, and
+  `TcxEditRepositoryItem.Destroy` removes its listeners through a *virtual*
+  `RemoveListener` (`cxEdit.pas:6745-6755`, `:260`) — which lands back in the
+  override that touches the list just freed. Deleting an item in the designer
+  while columns still reference it is enough. The list is now freed after
+  `inherited`, and every reader tolerates nil. Reported by Codex as
+  RADDEV-001; reproduced before fixing, green after (`DestructorTest.dpr`).
+
+- `src/component/Rad.Dev.pas` — `TRadEditSlots.Get`/`Put` did no bounds
+  checking while the package compiles with `{$RANGECHECKS OFF}`
+  (`RadKon.dpk:17`), so `Get(0)` read and `Put(5, X)` **wrote** outside the
+  array, silently. Measured, then guarded with `ERadDev` (RADDEV-006).
+
+- `src/component/Rad.Dev.pas` — `DoSearch` cleared its caches outside the
+  `try/finally`, so a search handler that raised left a stale resolved key
+  behind; measured as `AOnLocate` failing to re-fire for a key whose list had
+  just changed (RADDEV-004). And `Leave` now sits in its own innermost
+  `finally` in both `DoSearch` and `DoFilter`: if `ResetCaches` itself raised
+  — it calls into vendor code — the dataset stayed permanently busy and every
+  later search and filter was swallowed in silence (RADDEV-003).
+
+- `src/component/Rad.Dev.pas` — the resolved-key and display-text caches are
+  now disabled when Properties is owned by a repository item with more than
+  one consumer. The kit's own documented pattern (one handler, shared item, a
+  type per consumer) makes the same key mean different records for different
+  consumers, and the shared cache served the first consumer's answer to the
+  second. Per-consumer caching is impossible — the paint path has no consumer
+  — so the cache is switched off exactly where identity is ambiguous, and kept
+  everywhere else (RADDEV-002).
 
 - `src/test/scratch/rad_dev_repolisteners/RuntimeTest.dpr` — the probe passed a
   `for..in` loop variable straight into `DoEditKeyPress(var Key: Char)` (W1015,

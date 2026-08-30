@@ -26,6 +26,30 @@ that break something else in the kit.
 
 ### Added
 
+- `src/share/k.setting.pas` + `src/share/k.setting.dfm` — the searchable
+  settings panel. `TdxNavBar` on the left (group = category, item = sub-group),
+  one `TcxVerticalGrid` holding **every** setting on the right, a search box on
+  top, and a Delphi-Object-Inspector-style description strip below it. Values
+  live in an `IDocDict` with `PathDelim` set to `'.'`, keyed by the full dotted
+  path (`fatura.satis.vade_asim_uyar`); the grid row is only the view. A
+  setting class is a `TRadOptions` descendant whose published properties are
+  the settings and whose nested published `TRadSetting` fields become
+  sub-categories — `TSynAutoCreateFields` already creates, owns and serializes
+  that tree, so it is not declared a second time anywhere. Registration and
+  presentation come from one fluent chain (`AddMenu` / `AddSubMenu` /
+  `Register` / `Title` / `Repository` / `Choices` / …); `Register` builds a row
+  for every published property on its own, so the chain only names the ones
+  that differ from the default. Rows are created once and filtered by
+  `Visible`, which is what lets search span categories.
+- `src/test/scratch/rad_setting/` — the panel's probe: `SettingTest.dpr`,
+  `SettingModel.pas` (the test setting classes, deliberately in their own unit
+  rather than the `.dpr`), `build_and_run.bat` (takes `Win32`/`Win64`).
+  52 assertions, green on both platforms: key generation, the `default`
+  directive read back through RTTI, the JSON actually being a tree, unknown
+  keys surviving a load/save round trip, duplicate/missing `index` raising,
+  search crossing category boundaries, and the property accessors reaching the
+  store in both directions.
+
 - `.agents/skills/rad-code-fix/` — bundled copy of the workspace's own
   `rad-code-fix` skill: `SKILL.md`, `agents/openai.yaml`,
   `references/finding-taxonomy.md`, `references/probe-patterns.md`,
@@ -54,6 +78,22 @@ that break something else in the kit.
   file from anyone who sees the file but not the binary, and nothing more.
 
 ### Changed
+
+- `.agents/skills/mormot2-integration/references/verified-api-traps.md` — eight
+  more measured traps, taking the file from four entries to twelve. Six come
+  from the JSON-layer work and were sitting uncommitted: `DocDict`/`DocList`
+  accept invalid JSON silently, `DocDict()` erases the real `Kind`,
+  `FlattenFromNestedObjects` does not add the counter it promises,
+  `AddOrUpdateObject(..., RecursiveUpdate := True)` corrupts the target,
+  `TDocVariantData` is not thread-safe and `IDocDict` cannot be subclassed, and
+  a nested `IDocDict` dangles after **one** insertion into its parent. Two are
+  new, found while building the settings panel: `mormot.core.base` brings
+  `RawUtf8` overloads of `LowerCase`, `Pos` and `Trim` that shadow the RTL
+  ones, so unqualified calls on `string` silently round-trip through UTF-8 —
+  seven occurrences in one unit that never mentions `RawUtf8`, reported only as
+  W1057 warnings a hidden-warning build would drop; and `IDocDict.PathDelim`
+  defaults to `#0`, so dotted keys are written as one flat key and no JSON tree
+  is ever built. Measured both ways; neither raises.
 
 - `src/core/rad.core.pas` - `TAbstractLockable` routes every lock method through
   a now-**virtual** `GetSafe`, so a descendant that shares another object's data

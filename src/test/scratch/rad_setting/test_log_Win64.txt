@@ -1,0 +1,89 @@
+Embarcadero Delphi for Win64 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pas(107) Warning: W1055 PUBLISHED caused RTTI ($M+) to be added to type 'TRadConfig'
+158817 lines, 1.25 seconds, 20758760 bytes code, 1984080 bytes data.
+=== k.setting sondasi ===
+
+01 - anahtar uretimi (PascalCase -> snake_case)
+  [OK]   VadeAsimUyar
+  [OK]   Vade
+  [OK]   KdvDahil
+  [OK]   Fatura
+  [OK]   Satis (TR)
+  [OK]   Odeme (TR)
+  [OK]   Bosluk
+
+02 - kayit, kategori agaci, tam anahtar
+  [OK]   4 ayar kuruldu
+  [OK]   tam anahtar
+  [OK]   uyari yok
+
+03 - default direktifi RTTI'den okunuyor mu
+  [OK]   Vade default 30
+  [OK]   KdvDahil default False
+  [OK]   VadeAsimUyar default True
+  [OK]   Depo (default yok) bos
+
+04 - PathDelim: JSON gercekten AGAC mi
+       {"fatura":{"satis":{"vade":45,"kdv_dahil":true}}}
+  [OK]   duz anahtar YOK
+  [OK]   fatura dugumu var
+  [OK]   satis dugumu var
+  [OK]   vade dugumu var
+  [OK]   yol ile geri okuma
+
+05 - PathDelim VERILMEZSE ne oluyor (belgelenen varsayilan #0)
+  [OK]   #0 iken anahtar duz kaliyor
+       {"a.b.c":7}
+       -> bu yuzden AfterConstruction PathDelim'i acikca ayarliyor
+
+06 - ic ice sinif = alt kategori (TSynAutoCreateFields)
+  [OK]   alis alt kategorisi 2 ayar
+  [OK]   satis alt kategorisi 4 ayar
+  [OK]   toplam 6
+  [OK]   uyari yok
+
+07 - savunma denetimleri
+  [OK]   cakisan index ERadSetting firlatiyor
+       ERadSetting: TCakisanAyar: "Bir" ve "Iki" ayni index'i (0) paylasiyor. Ikisi tek bir degeri okur/yazar ve bu calisma zamaninda hicbir uyari uretmez.
+  [OK]   index'siz property ERadSetting firlatiyor
+       ERadSetting: TIndeksizAyar.Bir: index direktifi yok. Ayar property'leri ortak erisimciyi kullanir; index olmadan hangi yuvaya yazacagi belirsizdir.
+  [OK]   AddMenu'suz Register firlatiyor
+  [OK]   AddMenu'suz AddSubMenu firlatiyor
+  [OK]   bilinmeyen property suslemesi firlatiyor
+       ERadSetting: "YokBoyleBirSey" adinda bir ayar yok. Adi property adiyla ayni yazin (ornek: 'Vade'), ya da tam anahtari verin ('fatura.satis.vade').
+
+08 - fluent susleme var olan satiri degistiriyor
+  [OK]   Vade bulundu
+  [OK]   baslik
+  [OK]   satir basligi
+  [OK]   yol
+  [OK]   aciklama satir hint'ine gitti
+  [OK]   DefaultValue okunuyor
+  [OK]   ReadOnly satiri duzenlemeye kapatti
+
+09 - arama (kategoriler ARASINDA)
+  [OK]   iki kategoriden 6 ayar
+  [OK]   "vade" 2 eslesme (Vade + VadeAsimUyar)
+  [OK]   "sirket" farkli kategoride bulundu
+  [OK]   eslesmeyen arama 0
+  [OK]   bos arama gezinmeye donuyor
+
+10 - JSON gidis-donus + BILINMEYEN anahtar korunuyor mu
+  [OK]   bilinmeyen anahtar JSON'da
+  [OK]   yuklenen deger okunuyor
+  [OK]   satir da tazelendi
+  [OK]   bilinmeyen anahtar HALA duruyor
+  [OK]   LoadJson sonrasi Modified False
+       {"fatura":{"satis":{"vade":90,"kdv_dahil":true,"gelecek_surum_ayari":"korunmali"}}}
+
+11 - property erisimcileri depoya baglaniyor mu
+  [OK]   sahip TSatisAyar
+  [OK]   property -> depo
+  [OK]   property geri okuma
+  [OK]   depo -> property
+  [OK]   string erisimci
+  [OK]   boolean erisimci
+
+=========================================
+GECTI: 52    KALDI: 0

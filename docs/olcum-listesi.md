@@ -93,3 +93,16 @@ Panel `LoadJson` / `SaveJson` / `Doc` dikişlerini veriyor; DB tarafı henüz
 bağlı değil. `radcore.ayar` tablosu ve `kullanici` ile eşleme yapıldığında
 ölçülecek: aynı şirkette iki kullanıcının ayarları birbirine karışmıyor mu,
 kullanıcıda olmayan bir anahtar şirket seviyesinden düşüyor mu.
+
+### Ö-10 · Ayar paneli — iki görsel karar (ölçüm değil, karar)
+Tasarım konuşmasında soruldu, cevaplanmadı, bugüne kadar hiçbir dosyada
+yazmıyordu:
+
+1. **Katman rozeti kalsın mı?** Maketlerde her satırın yanında değerin hangi
+   katmandan geldiğini gösteren bir rozet vardı (Şirket / Kullanıcı).
+   Panelde şu an **yok**. Rozet ancak katmanlama gerçekleşince (Ö-09) anlamlı.
+2. **Uygula düğmesi mi, anlık kayıt mı?** Şu an **anlık**: değişiklik hemen
+   `IDocDict`'e yazılıyor, `Modified` işaretleniyor, DB'ye yazma anı çağırana
+   bırakılıyor. Bu bilinçli bir varsayılan, onaylanmış bir karar değil.
+
+İkisi de Ö-09 ile birlikte ele alınmalı.

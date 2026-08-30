@@ -401,6 +401,39 @@ begin
   Writeln;
 end;
 
+procedure Test13_Instance(const S: ISetting);
+var
+  LSatis : TSatisAyar;
+  LAlis  : TAlisAyar;
+begin
+  Writeln('13 - Instance: kaydedilen nesneye tipli erisim');
+
+  S.Clear
+   .AddMenu('Fatura')
+     .Register(TFaturaAyar);
+
+  // TFaturaAyar kok olarak kaydedildi
+  Ok('kok sinif bulundu', S.Instance(TFaturaAyar) is TFaturaAyar);
+
+  // TSatisAyar / TAlisAyar FList''te DEGIL - onlari TSynAutoCreateFields
+  // yaratti. Yuvalar uzerinden bulunmalilar.
+  LSatis := TSatisAyar(S.Instance(TSatisAyar));
+  LAlis  := TAlisAyar (S.Instance(TAlisAyar));
+  Ok('ic ice sinif bulundu (satis)', LSatis is TSatisAyar);
+  Ok('ic ice sinif bulundu (alis)',  LAlis  is TAlisAyar);
+
+  // Tipli yazma dogru anahtara gitmeli
+  LSatis.Vade := 75;
+  Ok('tipli yazma dogru anahtara gitti', S.Doc.I['fatura.satis.vade'] = 75,
+     VarToStr(S.Doc.I['fatura.satis.vade']));
+
+  LAlis.OtomatikOnay := True;
+  Ok('alt grup ayrimi korunuyor', S.Doc.B['fatura.alis.otomatik_onay'] = True);
+
+  Ok('kayitli olmayan sinif nil doner', S.Instance(TGenelAyar) = nil);
+  Writeln;
+end;
+
 // ---------------------------------------------------------------------------
 
 var
@@ -434,6 +467,7 @@ begin
       Test10_GidisDonus(LSet);
       Test11_ErisimciKopruleri(LSet);
       Test12_DogrudanCagri(LFrame);
+      Test13_Instance(LSet);
 
       LSet := nil;
     finally

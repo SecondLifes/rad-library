@@ -199,6 +199,15 @@ type
     function  Warnings: string;
     function  ItemCount: Integer;
     function  Item(AIndex: Integer): TRadSettingItem;
+    /// <summary>
+    ///   Register ile kaydedilmis ornegi SINIFINDAN bulur. Register nesneyi
+    ///   kendi yaratip sahiplendigi icin cagirana bir referans donmuyor;
+    ///   tipli erisim buradan alinir:
+    ///     TSatisAyar(Panel.Instance(TSatisAyar)).Vade
+    ///   Ic ice (alt kategori) siniflar da bulunur. En az bir ayari olmayan
+    ///   ve kok olarak kaydedilmemis bir sinif icin nil doner.
+    /// </summary>
+    function  Instance(ASettingClass: TRadSettings): TRadSetting;
   end;
 
   /// <summary>
@@ -348,6 +357,7 @@ type
     function  Warnings: string;
     function  ItemCount: Integer;
     function  Item(AIndex: Integer): TRadSettingItem;
+    function  Instance(ASettingClass: TRadSettings): TRadSetting;
 
     procedure AfterConstruction; override;
     procedure BeforeDestruction; override;
@@ -1109,6 +1119,28 @@ begin
     Result := nil
   else
     Result := FItems[AIndex];
+end;
+
+function TfrmSetting.Instance(ASettingClass: TRadSettings): TRadSetting;
+var
+  LObj  : TRadSetting;
+  LItem : TRadSettingItem;
+begin
+  Result := nil;
+  if ASettingClass = nil then
+    Exit;
+
+  // Once kok olarak kaydedilenler - ayari hic olmayan bir sinif da bulunsun.
+  for LObj in FList do
+    if LObj.ClassType = ASettingClass then
+      Exit(LObj);
+
+  // Sonra ic ice (alt kategori) ornekleri: bunlar FList'te DEGIL, cunku
+  // onlari TSynAutoCreateFields yaratti; sahipleri yalnizca yuvalar
+  // uzerinden gorunuyor.
+  for LItem in FItems do
+    if (LItem.Owner <> nil) and (LItem.Owner.ClassType = ASettingClass) then
+      Exit(LItem.Owner);
 end;
 
 function TfrmSetting.Warnings: string;

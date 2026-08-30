@@ -1,7 +1,7 @@
 Embarcadero Delphi for Win32 compiler version 37.0
 Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
 E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pas(107) Warning: W1055 PUBLISHED caused RTTI ($M+) to be added to type 'TRadConfig'
-158513 lines, 0.89 seconds, 13885652 bytes code, 326508 bytes data.
+158579 lines, 0.64 seconds, 13887276 bytes code, 326508 bytes data.
 === k.setting sondasi ===
 
 01 - anahtar uretimi (PascalCase -> snake_case)
@@ -89,5 +89,13 @@ E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pa
   [OK]   dogrudan zincir calisti
   [OK]   baslik atandi
 
+13 - Instance: kaydedilen nesneye tipli erisim
+  [OK]   kok sinif bulundu
+  [OK]   ic ice sinif bulundu (satis)
+  [OK]   ic ice sinif bulundu (alis)
+  [OK]   tipli yazma dogru anahtara gitti
+  [OK]   alt grup ayrimi korunuyor
+  [OK]   kayitli olmayan sinif nil doner
+
 =========================================
-GECTI: 54    KALDI: 0
+GECTI: 60    KALDI: 0

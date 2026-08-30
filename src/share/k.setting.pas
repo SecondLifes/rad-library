@@ -318,7 +318,11 @@ type
     procedure DoRowChanged(Sender: TObject; AOldRow: TcxCustomRow; AOldCellIndex: Integer);
     procedure DoSearchChanged(Sender: TObject);
     procedure DoNavClick(Sender: TObject; ALink: TdxNavBarItemLink);
-  protected
+  public
+    (* ISetting yuzeyi PUBLIC olmak zorunda. Protected birakilinca cerceve
+       degiskeni uzerinden dogrudan cagrilamiyor - her cagri (frm as ISetting)
+       donusumu istiyor. Bunlar cercevenin ASIL API'si; hem frm.AddMenu(...)
+       hem de arayuz uzerinden calismalilar. *)
     // -- ISetting ---------------------------------------------------------
     function Clear: ISetting;
     function FindMenuIdx(const aName: string): Integer;
@@ -345,7 +349,6 @@ type
     function  ItemCount: Integer;
     function  Item(AIndex: Integer): TRadSettingItem;
 
-  public
     procedure AfterConstruction; override;
     procedure BeforeDestruction; override;
   end;

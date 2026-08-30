@@ -1,7 +1,7 @@
 Embarcadero Delphi for Win32 compiler version 37.0
 Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
 E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pas(107) Warning: W1055 PUBLISHED caused RTTI ($M+) to be added to type 'TRadConfig'
-158493 lines, 0.64 seconds, 13883404 bytes code, 326508 bytes data.
+158513 lines, 0.89 seconds, 13885652 bytes code, 326508 bytes data.
 === k.setting sondasi ===
 
 01 - anahtar uretimi (PascalCase -> snake_case)
@@ -85,5 +85,9 @@ E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pa
   [OK]   string erisimci
   [OK]   boolean erisimci
 
+12 - zincir cerceve degiskeni uzerinden DOGRUDAN cagrilabiliyor mu
+  [OK]   dogrudan zincir calisti
+  [OK]   baslik atandi
+
 =========================================
-GECTI: 52    KALDI: 0
+GECTI: 54    KALDI: 0

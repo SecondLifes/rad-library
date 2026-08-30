@@ -385,6 +385,22 @@ begin
   Writeln;
 end;
 
+procedure Test12_DogrudanCagri(AFrame: TfrmSetting);
+begin
+  Writeln('12 - zincir cerceve degiskeni uzerinden DOGRUDAN cagrilabiliyor mu');
+
+  // ISetting metotlari protected birakilsaydi bu satir DERLENMEZDI ve her
+  // kullanim (AFrame as ISetting) donusumu istemek zorunda kalirdi.
+  AFrame.Clear
+        .AddMenu('Genel')
+          .Register(TGenelAyar)
+            .Title('SirketAdi', 'Sirket adi');
+
+  Ok('dogrudan zincir calisti', AFrame.ItemCount = 2, IntToStr(AFrame.ItemCount));
+  Esit('baslik atandi', 'Sirket adi', AFrame.Item(0).Title);
+  Writeln;
+end;
+
 // ---------------------------------------------------------------------------
 
 var
@@ -417,6 +433,7 @@ begin
       Test09_Arama(LSet);
       Test10_GidisDonus(LSet);
       Test11_ErisimciKopruleri(LSet);
+      Test12_DogrudanCagri(LFrame);
 
       LSet := nil;
     finally

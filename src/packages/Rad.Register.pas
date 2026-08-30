@@ -15,7 +15,7 @@ implementation
  uses SqlClassesUni
  ,rad.rtl
  ,rad.db, Permission.Edit
- //, Dev.Extra
+ ,Rad.Dev
  //,Aksa.Collections,Aksa.BoundLabel
  //,Aksa.Vcl
 
@@ -40,7 +40,7 @@ implementation
   TRadActionList
   ,TRadPermission//TAksaPropertiesStore,TAksaActionList,TAksaCmdList
   ,TRadConnection,TRadQuery,TRadEventHandler,TRadUnitOfWork
-  //,TAkDBComboBox,TAksaLookupComboBox,TAksaDBLookupComboBox
+  ,TRadLookupComboBox,TRadDBLookupComboBox,TRadComboBox,TRadDBComboBox
   {
   TDepoValue,TStickyLabel
   //TCommadList,
@@ -61,11 +61,12 @@ implementation
   end;
 
 
+
 initialization
 
   //RegisterEditRepositoryItem(TEditRepositoryFilterLookupEditItem, 'TEditRepositoryFilterLookupEditItem');//   ayraç |
-  //*RegisterEditRepositoryItem(TAksaComboBoxRepository, 'ComboBox Aksa');//   ayraç |
-  //*RegisterEditRepositoryItem(TAksaLookupComboBoxRepository, 'LookupComboBox Aksa');//   ayraç |
+  RegisterEditRepositoryItem(TRadComboBoxRepository, 'Rad ComboBox');//   ayraç |
+  RegisterEditRepositoryItem(TRadLookupComboBoxRepository, 'Rad LookupComboBox');//   ayraç |
 
   //GetRegisteredEditProperties.Register(TAkComboBoxDBProperties, 'TcxEditRepositoryComboBoxDBItem');
   //FilterEditsController.Register(TAkComboBoxDBProperties, TcxFilterComboBoxHelper);
@@ -74,11 +75,10 @@ initialization
 finalization
 
   //UnRegisterEditRepositoryItem(TEditRepositoryFilterLookupEditItem);
-  //*UnRegisterEditRepositoryItem(TAksaComboBoxRepository);
-  //*UnRegisterEditRepositoryItem(TAksaLookupComboBoxRepository);
+  UnRegisterEditRepositoryItem(TRadComboBoxRepository);
+  UnRegisterEditRepositoryItem(TRadLookupComboBoxRepository);
 
   //FilterEditsController.Unregister(TcxComboBoxProperties, TcxFilterComboBoxHelper);
   //dxUnitsLoader.RemoveUnit(SysInit.HInstance, dxThisUnitName, TcxInplaceComboBoxCustomDrawHelper.Finalize);
 
-end.
 end.

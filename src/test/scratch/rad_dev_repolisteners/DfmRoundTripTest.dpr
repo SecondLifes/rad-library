@@ -24,6 +24,37 @@ type
   TDenemeForm = class(TForm)
   end;
 
+var
+  GBasari: Integer = 0;
+  GHata: Integer = 0;
+
+(* RADDEV-008: bu sonda eskiden yalnizca YAZDIRIYORDU. Beklenen degerler
+   parantez icinde metin olarak duruyordu; yanlis bir sonuc hicbir sey
+   bozmuyor, cikis kodu 0 kaliyordu - yani sonda bir KAPI degildi. *)
+procedure Kontrol(const AAd: string; ABasarili: Boolean; const ADetay: string = '');
+begin
+  if ABasarili then
+  begin
+    Inc(GBasari);
+    Writeln('  [OK]   ', AAd);
+  end
+  else
+  begin
+    Inc(GHata);
+    Writeln('  [HATA] ', AAd);
+  end;
+  if ADetay <> '' then
+    Writeln('         ', ADetay);
+end;
+
+procedure Sonuc;
+begin
+  Writeln;
+  Writeln(Format('=== SONUC: %d basarili, %d hata ===', [GBasari, GHata]));
+  if GHata > 0 then
+    Halt(1);
+end;
+
 function Kur(out ARepo: TcxEditRepository; out AItem: TRadComboBoxRepository;
   out AMarka, ATip: TRadComboBox): TDenemeForm;
 begin
@@ -84,6 +115,10 @@ begin
         LMarka.Properties.ACascadeField, '"');
       Writeln('                 cbTip.Properties.ACascadeField   = "',
         LTip.Properties.ACascadeField, '"');
+      Kontrol('item atamasi tuketicinin KENDI Properties''ini EZMIYOR',
+        (Pos('MARKA-A', LMarka.Properties.Items.Text) > 0) and
+        (LMarka.Properties.ACascadeField = 'marka') and
+        (LTip.Properties.ACascadeField = 'musteri_tipi'));
 
       Writeln;
       Writeln('  -> item''in Properties''i degisince kendi Properties bozuluyor mu?');
@@ -92,6 +127,10 @@ begin
         StringReplace(LMarka.Properties.Items.Text, #13#10, '|', [rfReplaceAll]));
       Writeln('     cbMarka.ActiveProperties.Items = ',
         StringReplace(LMarka.ActiveProperties.Items.Text, #13#10, '|', [rfReplaceAll]));
+      Kontrol('item degisince KENDI Properties bozulmuyor',
+        Pos('MARKA-A', LMarka.Properties.Items.Text) > 0);
+      Kontrol('ActiveProperties item''in yeni degerini gosteriyor',
+        Pos('ORTAK-DEGISTI', LMarka.ActiveProperties.Items.Text) > 0);
 
       Writeln;
       Writeln('=== 2) DFM''e yaziliyor mu? ===');
@@ -183,7 +222,15 @@ begin
               StringReplace(LYeniMarka.Properties.Items.Text, #13#10, '|', [rfReplaceAll]));
             Writeln('  cbMarka.ActiveProperties.Items  : ',
               StringReplace(LYeniMarka.ActiveProperties.Items.Text, #13#10, '|', [rfReplaceAll]));
+            Kontrol('DFM geri okununca RepositoryItem yeniden bagli',
+              LYeniMarka.RepositoryItem = LYeniItem);
+            Kontrol('DFM geri okununca kendi ACascadeField korunmus',
+              LYeniMarka.Properties.ACascadeField = 'marka',
+              '"' + LYeniMarka.Properties.ACascadeField + '"');
+            Kontrol('DFM geri okununca kendi Items korunmus',
+              Pos('MARKA-A', LYeniMarka.Properties.Items.Text) > 0);
           end;
+          Kontrol('cbMarka DFM''den geri okunabildi', LYeniMarka <> nil);
         finally
           LFrm2.Free;
         end;
@@ -195,8 +242,12 @@ begin
     finally
       LFrm.Free;
     end;
+    Sonuc;
   except
     on E: Exception do
+    begin
       Writeln('HATA: ', E.ClassName, ': ', E.Message);
+      Halt(2);
+    end;
   end;
 end.

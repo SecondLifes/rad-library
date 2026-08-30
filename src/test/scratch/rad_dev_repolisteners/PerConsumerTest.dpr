@@ -21,6 +21,37 @@ uses
   cxGraphics, cxControls, cxLookAndFeels, cxContainer, cxClasses,
   Rad.Dev, Help.Dev;
 
+var
+  GBasari: Integer = 0;
+  GHata: Integer = 0;
+
+(* RADDEV-008: bu sonda eskiden yalnizca YAZDIRIYORDU. Beklenen degerler
+   parantez icinde metin olarak duruyordu; yanlis bir sonuc hicbir sey
+   bozmuyor, cikis kodu 0 kaliyordu - yani sonda bir KAPI degildi. *)
+procedure Kontrol(const AAd: string; ABasarili: Boolean; const ADetay: string = '');
+begin
+  if ABasarili then
+  begin
+    Inc(GBasari);
+    Writeln('  [OK]   ', AAd);
+  end
+  else
+  begin
+    Inc(GHata);
+    Writeln('  [HATA] ', AAd);
+  end;
+  if ADetay <> '' then
+    Writeln('         ', ADetay);
+end;
+
+procedure Sonuc;
+begin
+  Writeln;
+  Writeln(Format('=== SONUC: %d basarili, %d hata ===', [GBasari, GHata]));
+  if GHata > 0 then
+    Halt(1);
+end;
+
 function AyniMi(A, B: TObject): string;
 begin
   if Pointer(A) = Pointer(B) then
@@ -74,6 +105,11 @@ begin
         AyniMi(LMarka.ActiveProperties, LItem.Properties));
       Writeln('  cbMarka.Properties vs cbMusteriTipi.Prop: ',
         AyniMi(LMarka.Properties, LTip.Properties));
+      Kontrol('aktif Properties item''in ornegidir (paylasilan)',
+        Pointer(LMarka.ActiveProperties) = Pointer(LItem.Properties));
+      Kontrol('her tuketicinin KENDI Properties''i ayri ornektir',
+        (Pointer(LMarka.Properties) <> Pointer(LItem.Properties)) and
+        (Pointer(LMarka.Properties) <> Pointer(LTip.Properties)));
 
       Writeln;
       Writeln('  -> kendi Properties''ine yazip okuyabiliyor muyuz?');
@@ -88,9 +124,20 @@ begin
           LItem.Properties.ACascadeField, '" (bozulmamis olmali)');
         Writeln('     cbMarka.ActiveProperties.ACascadeField = "',
           LMarka.ActiveProperties.ACascadeField, '" (item''inki gelmeli)');
+        Kontrol('tuketici-basina yuk KENDI Properties''inde tutuluyor',
+          (LMarka.Properties.ACascadeField = 'marka') and
+          (LTip.Properties.ACascadeField = 'musteri_tipi'));
+        Kontrol('paylasilan item''in yuku BOZULMADI',
+          LItem.Properties.ACascadeField = 'ORTAK',
+          'item.ACascadeField = "' + LItem.Properties.ACascadeField + '"');
+        Kontrol('ActiveProperties item''in yukunu veriyor',
+          LMarka.ActiveProperties.ACascadeField = LItem.Properties.ACascadeField);
       except
         on E: Exception do
+        begin
           Writeln('     YAZILAMADI: ', E.ClassName, ': ', E.Message);
+          Kontrol('kendi Properties''ine yazilabiliyor', False, E.Message);
+        end;
       end;
 
       Writeln;
@@ -105,6 +152,8 @@ begin
       LCol.RepositoryItem := LItem;
       Writeln('  kolon.Properties nil mi   : ', BoolToStr(LCol.Properties = nil, True));
       Writeln('  kolon.GetProperties vs item: ', AyniMi(LCol.GetProperties, LItem.Properties));
+      Kontrol('kolonun ETKIN Properties''i item''inkidir',
+        Pointer(LCol.GetProperties) = Pointer(LItem.Properties));
 
       Writeln;
       Writeln('=== c) Tuketici uzerindeki diger tasiyicilar ===');
@@ -150,8 +199,12 @@ begin
     finally
       LForm.Free;
     end;
+    Sonuc;
   except
     on E: Exception do
+    begin
       Writeln('HATA: ', E.ClassName, ': ', E.Message);
+      Halt(2);
+    end;
   end;
 end.

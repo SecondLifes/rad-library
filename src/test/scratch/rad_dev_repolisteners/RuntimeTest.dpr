@@ -81,6 +81,49 @@ begin
 end;
 
 { Mesaj dongusunu ADilisecek kadar dondur - TTimer ancak boyle atesler. }
+var
+  GBasari: Integer = 0;
+  GHata: Integer = 0;
+  GAtlanan: Integer = 0;
+
+(* RADDEV-008: bu sonda eskiden yalnizca YAZDIRIYORDU. Beklenen degerler
+   parantez icinde metin olarak duruyordu; yanlis bir sonuc hicbir sey
+   bozmuyor, cikis kodu 0 kaliyordu - yani sonda bir KAPI degildi. *)
+procedure Kontrol(const AAd: string; ABasarili: Boolean; const ADetay: string = '');
+begin
+  if ABasarili then
+  begin
+    Inc(GBasari);
+    Writeln('  [OK]   ', AAd);
+  end
+  else
+  begin
+    Inc(GHata);
+    Writeln('  [HATA] ', AAd);
+  end;
+  if ADetay <> '' then
+    Writeln('         ', ADetay);
+end;
+
+(* ATLANAN: bu ortamda OLCULEMEYEN bir iddia. Basarisizliktan AYRI tutulur -
+   yesil gostermek yalan, kirmizi gostermek de yanlis olurdu: olcum yapilmadi.
+   Sebebi her zaman yazilir ve olcum listesine islenir. *)
+procedure Atla(const AAd, ASebep: string);
+begin
+  Inc(GAtlanan);
+  Writeln('  [ATLA] ', AAd);
+  Writeln('         ', ASebep);
+end;
+
+procedure Sonuc;
+begin
+  Writeln;
+  Writeln(Format('=== SONUC: %d basarili, %d hata, %d atlanan ===',
+    [GBasari, GHata, GAtlanan]));
+  if GHata > 0 then
+    Halt(1);
+end;
+
 procedure Bekle(AMs: Cardinal);
 var
   LBitis: UInt64;
@@ -144,6 +187,21 @@ begin
       Bekle(600);
       Writeln(Format('  SearchDelay=0   : 6 tus -> OnSearch %d kez  (geciktirici yok)',
         [LSayac.Arama]));
+      (* OLCULEMIYOR - ve bu sondanin kendi kisiti, bilesenin hatasi degil.
+         ASearchDelay=0 yolunda arama TRadLookupEditLookupData.Locate
+         dikisinden tetiklenir; oraya varmak icin tusun GERCEK bir pencereli
+         ic edit kontroluna teslim edilmesi gerekir. Sonda DoEditKeyPress i
+         DOGRUDAN cagirdigi icin taban sinifin tus isleme yolu hic kosmuyor
+         ve sayac 0 kaliyor. Olcum listesinde O-04 olarak duruyor.
+         Geciktirici yolu (A2) ayni kisittan etkilenmiyor: orada arama
+         TTimer den, EditingText ile tetikleniyor. *)
+      if LSayac.Arama = 6 then
+        Kontrol('ASearchDelay=0 -> her tus bir arama (6)', True)
+      else
+        Atla('ASearchDelay=0 -> her tus bir arama',
+          Format('olculen %d. Tus taban sinifin Locate dikisine ulasmiyor: ' +
+                 'DoEditKeyPress dogrudan cagrildi, gercek klavye teslimi ' +
+                 'olculmedi (O-04).', [LSayac.Arama]));
 
       { A2: geciktirici ACIK }
       LEdit.Properties.ASearchDelay := 250;
@@ -156,9 +214,13 @@ begin
       end;
       Writeln(Format('  SearchDelay=250 : tuslar bitti, hemen -> OnSearch %d kez  (0 olmali)',
         [LSayac.Arama]));
+      Kontrol('geciktirici acikken tuslar biter bitmez arama YOK',
+        LSayac.Arama = 0, Format('olculen: %d', [LSayac.Arama]));
       Bekle(500);
       Writeln(Format('                    500 ms sonra   -> OnSearch %d kez  (1 olmali)',
         [LSayac.Arama]));
+      Kontrol('gecikme dolunca TEK arama kosuyor', LSayac.Arama = 1,
+        Format('olculen: %d', [LSayac.Arama]));
 
       { A3: MinSearchLength geciktirici yolunda da gecerli mi? }
       LEdit.Properties.AMinSearchLength := 4;
@@ -167,8 +229,12 @@ begin
       LEdit.Properties.TimedSearch(LEdit, 'ab');
       Bekle(50);
       Writeln(Format('  MinSearchLength=4, "ab" -> OnSearch %d kez  (0 olmali)', [LSayac.Arama]));
+      Kontrol('kisa metin geciktirici yolunda da bastiriliyor',
+        LSayac.Arama = 0, Format('olculen: %d', [LSayac.Arama]));
       LEdit.Properties.TimedSearch(LEdit, 'abcd');
       Writeln(Format('                     "abcd" -> OnSearch %d kez  (1 olmali)', [LSayac.Arama]));
+      Kontrol('yeterli uzunlukta arama kosuyor', LSayac.Arama = 1,
+        Format('olculen: %d', [LSayac.Arama]));
       LEdit.Properties.AMinSearchLength := 0;
 
       { ══ B + C) Grid inplace ═════════════════════════════════════════ }
@@ -224,7 +290,12 @@ begin
       end;
       Writeln('  EditingItem             : ', Ad(LView.Controller.EditingItem));
       if LInplace = nil then
-        Writeln('  !! inplace editor acilmadi - B ve C olculemedi')
+      begin
+        Writeln('  !! inplace editor acilmadi - B ve C olculemedi');
+        Kontrol('gridde inplace editor acildi', False,
+          'DevExpress gorunmeyen/odaksiz izgarada inplace editor acmiyor - ' +
+          'bu sonda GORUNUR pencere ister');
+      end
       else
       begin
         Writeln('  inplace editor sinifi   : ', LInplace.ClassName,
@@ -234,12 +305,20 @@ begin
         LInplace.EditValue := 'IST';
         Bekle(200);
         Writeln('  EditValue atandi -> kaskad ', LSayac.Kaskad, ' kez  (1 olmali)');
+        Kontrol('gridde inplace editor acildi', True);
+        Kontrol('inplace editor bizim sinifimiz',
+          LInplace is TRadLookupComboBox, LInplace.ClassName);
+        Kontrol('inplace duzenleme kaskadi TEK kez tetikliyor',
+          LSayac.Kaskad = 1, Format('olculen: %d', [LSayac.Kaskad]));
         Writeln('    ASource : ', Ad(LSayac.SonKaynak));
         Writeln('    ATarget : ', Ad(LSayac.SonHedef));
         Writeln;
         Writeln('=== C) _Host inplace editorden KOLONU buluyor mu? ===');
         Writeln('    _Host   : ', LSayac.SonHostSinif,
           '   (TcxGridColumn/colSehir olmali)');
+        Kontrol('_Host inplace editorden KOLONU buluyor',
+          Pos('TcxGridColumn', LSayac.SonHostSinif) > 0,
+          'bulunan: ' + LSayac.SonHostSinif);
       end;
 
       LView.Controller.EditingController.HideEdit(True);
@@ -248,8 +327,12 @@ begin
       LForm.Free;
       LSayac.Free;
     end;
+    Sonuc;
   except
     on E: Exception do
+    begin
       Writeln('HATA: ', E.ClassName, ': ', E.Message);
+      Halt(2);
+    end;
   end;
 end.

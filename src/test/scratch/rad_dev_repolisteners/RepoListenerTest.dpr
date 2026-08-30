@@ -45,6 +45,39 @@ begin
   else
     Result := '<' + AC.ClassName + '>';
 end;
+var
+  GBasari: Integer = 0;
+  GHata: Integer = 0;
+
+(* RADDEV-008: bu sonda eskiden yalnizca YAZDIRIYORDU. Beklenen degerler
+   parantez icinde metin olarak duruyordu; yanlis bir sonuc hicbir sey
+   bozmuyor, cikis kodu 0 kaliyordu - yani sonda bir KAPI degildi.
+   Kontrol, her iddiayi gercek bir assert'e cevirir ve hata varsa program
+   non-zero ile biter. *)
+procedure Kontrol(const AAd: string; ABasarili: Boolean; const ADetay: string = '');
+begin
+  if ABasarili then
+  begin
+    Inc(GBasari);
+    Writeln('  [OK]   ', AAd);
+  end
+  else
+  begin
+    Inc(GHata);
+    Writeln('  [HATA] ', AAd);
+  end;
+  if ADetay <> '' then
+    Writeln('         ', ADetay);
+end;
+
+procedure Sonuc;
+begin
+  Writeln;
+  Writeln(Format('=== SONUC: %d basarili, %d hata ===', [GBasari, GHata]));
+  if GHata > 0 then
+    Halt(1);
+end;
+
 
 constructor TIzleyici.Create;
 begin
@@ -101,6 +134,7 @@ var
   LCol: TcxGridColumn;
   LIzle: TIzleyici;
   i: Integer;
+  LDizi: string;
   LC: TComponent;
 
 begin
@@ -132,6 +166,8 @@ begin
       LCol.Caption := 'SehirKolonu';
       LCol.RepositoryItem := LItem;
       Writeln('kolon da baglandi  : ', LItem.ConsumerCount);
+      Kontrol('editor + kolon -> iki tuketici', LItem.ConsumerCount = 2,
+        Format('ConsumerCount = %d', [LItem.ConsumerCount]));
       for i := 0 to LItem.ConsumerCount - 1 do
       begin
         LC := LItem.Consumers(i);
@@ -150,9 +186,16 @@ begin
       Writeln('kolon.GetProperties     vs item.Properties : ',
         AyniMi(LCol.GetProperties, LItem.Properties));
 
+      Kontrol('editor ve kolon Properties ORNEGINI paylasiyor',
+        (LUlke.ActiveProperties = LItem.Properties) and
+        (LCol.GetProperties = LItem.Properties));
+      Kontrol('kolonun published Properties i nil (item bagliyken)',
+        LCol.Properties = nil);
       { Bundan sonrasi repository'siz, dogrudan editor Properties'i uzerinden }
       LUlke.RepositoryItem := nil;
       Writeln('item koparildi, kalan tuketici             : ', LItem.ConsumerCount);
+      Kontrol('kopma sonrasi tek tuketici kaldi', LItem.ConsumerCount = 1,
+        Format('ConsumerCount = %d', [LItem.ConsumerCount]));
 
       Writeln;
       Writeln('=== 3) Kaskad tetikleniyor mu? ===');
@@ -163,6 +206,8 @@ begin
       LIzle.Kayit.Clear;
       LUlke.EditValue := 'TR';
       Writeln('olay sayisi: ', LIzle.Kayit.Count, ' (beklenen 2)');
+      Kontrol('iki dolu yuva -> iki kaskad olayi', LIzle.Kayit.Count = 2,
+        Format('olay = %d', [LIzle.Kayit.Count]));
       for i := 0 to LIzle.Kayit.Count - 1 do
         Writeln('  ', LIzle.Kayit[i]);
 
@@ -175,6 +220,10 @@ begin
       LIzle.Kayit.Clear;
       LUlke.EditValue := 'X';
       Writeln('olay sayisi: ', LIzle.Kayit.Count, ' (sonlu ise koruma calisti)');
+      Kontrol('A->B->A dongusu kirildi (sonlu olay sayisi)',
+        (LIzle.Kayit.Count > 0) and (LIzle.Kayit.Count <= 4),
+        Format('olay = %d; sinirsiz olsaydi yigin tukenirdi',
+          [LIzle.Kayit.Count]));
       for i := 0 to LIzle.Kayit.Count - 1 do
         Writeln('  ', LIzle.Kayit[i]);
 
@@ -191,6 +240,9 @@ begin
       LSehir.Free;                               { hedefi yok et }
       Writeln('Sehir yok edildi -> yuva2 = ', Ad(LUlke.Properties.AComponent2),
               '   (nil olmali; degilse sarkan isaretci)');
+      Kontrol('hedef yok edilince KALAN yuva da nil-lendi',
+        LUlke.Properties.AComponent2 = nil,
+        'nil degilse sarkan isaretci - ilk erisimde erisim ihlali');
       Writeln;
       Writeln('=== 6) DoAssign: zincir yuku kopyalaniyor mu? ===');
       var LKaynak := TRadLookupComboBox.Create(LForm);
@@ -220,6 +272,14 @@ begin
       Writeln('     kaynak.AComponent1 = ', Ad(LKaynak.Properties.AComponent1),
               '   kopya.AComponent1 = ', Ad(LKopya.Properties.AComponent1),
               '   (ikisi de <nil> olmali)');
+      Kontrol('DoAssign zincir yukunu tasidi',
+        (LKopya.Properties.ACascadeField = 'ulke_id') and
+        (LKopya.Properties.ACascadeTag = 7) and
+        (LKopya.Properties.ASearchDelay = 350) and
+        Assigned(LKopya.Properties.AOnCascade));
+      Kontrol('kopyanin yuvasi da serbest-birakma korumali',
+        (LKaynak.Properties.AComponent1 = nil) and
+        (LKopya.Properties.AComponent1 = nil));
 
       Writeln;
       Writeln('=== 7) ChainWarning ===');
@@ -236,8 +296,11 @@ begin
       Writeln('  iki tuketici : ', Copy(LRepo2.ChainWarning, 1, 90), '...');
       LRepo2.Properties.AComponent1 := nil;
       Writeln('  zincir bosalt: "', LRepo2.ChainWarning, '"  (bos olmali)');
+      Kontrol('zincir bosalinca ChainWarning susuyor',
+        LRepo2.ChainWarning = '', '"' + LRepo2.ChainWarning + '"');
       Writeln;
       Writeln('=== 8) MinSearchLength (E-01) ===');
+      LDizi := '';
       var LArama := TRadLookupComboBox.Create(LForm);
       LArama.Name := 'Arama'; LArama.Parent := LForm;
       LArama.Properties.AOnSearch := LIzle.Arama;
@@ -249,8 +312,13 @@ begin
         LArama.Properties.TimedSearch(LArama, Metin);
         Writeln(Format('  "%s" (%d harf) -> OnSearch %d kez',
           [Metin, Length(Metin), LIzle.AramaSayisi]));
+        if LDizi <> '' then
+          LDizi := LDizi + ',';
+        LDizi := LDizi + IntToStr(LIzle.AramaSayisi);
       end;
       Writeln('  beklenen: 0,0,1,1,1  (bos metin "hepsini goster" demek, gecer)');
+      Kontrol('AMinSearchLength dizisi 0,0,1,1,1',
+        LDizi = '0,0,1,1,1', 'olculen: ' + LDizi);
 
       Writeln;
       Writeln('=== 9) ClearTargetsOnCascade (E-02) ===');
@@ -262,11 +330,15 @@ begin
       Writeln('  kapaliyken:');
       LKay.EditValue := 'TR';
       Writeln('    hedef.EditValue = "', VarToStr(LHed.EditValue), '"  (ESKI-SEHIR kalmali)');
+      Kontrol('kapaliyken hedefin degeri KORUNUYOR',
+        VarToStr(LHed.EditValue) = 'ESKI-SEHIR');
       LKay.Properties.AClearTargetsOnCascade := True;
       LHed.EditValue := 'ESKI-SEHIR';
       Writeln('  aciksa:');
       LKay.EditValue := 'DE';
       Writeln('    hedef.EditValue = "', VarToStr(LHed.EditValue), '"  (bos olmali)');
+      Kontrol('aciksa hedefin degeri TEMIZLENIYOR',
+        VarToStr(LHed.EditValue) = '');
 
       Writeln;
       Writeln('=== 10) CascadeNow (E-03) ===');
@@ -274,14 +346,20 @@ begin
       LKay.Properties.AClearTargetsOnCascade := False;
       LKay.CascadeNow;
       Writeln('  CascadeNow -> olay sayisi: ', LIzle.Kayit.Count, ' (1 beklenir)');
+      Kontrol('CascadeNow tam bir olay uretiyor', LIzle.Kayit.Count = 1,
+        Format('olay = %d', [LIzle.Kayit.Count]));
       for i := 0 to LIzle.Kayit.Count - 1 do
         Writeln('    ', LIzle.Kayit[i]);
     finally
       LIzle.Free;
       LForm.Free;
     end;
+    Sonuc;
   except
     on E: Exception do
+    begin
       Writeln('HATA: ', E.ClassName, ': ', E.Message);
+      Halt(2);
+    end;
   end;
 end.

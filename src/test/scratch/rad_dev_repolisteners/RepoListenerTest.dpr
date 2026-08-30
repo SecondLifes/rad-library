@@ -62,7 +62,7 @@ procedure TIzleyici.Kaskad(Sender: TRadLookupComboBoxProperties;
   ASource, ATarget: TComponent; const AValue: Variant);
 begin
   Kayit.Add(Format('kaynak=%s hedef=%s deger=%s alan=%s',
-    [Ad(ASource), Ad(ATarget), VarToStr(AValue), Sender.CascadeField]));
+    [Ad(ASource), Ad(ATarget), VarToStr(AValue), Sender.ACascadeField]));
 end;
 
 procedure TIzleyici.DonguKaskad(Sender: TRadLookupComboBoxProperties;
@@ -156,10 +156,10 @@ begin
 
       Writeln;
       Writeln('=== 3) Kaskad tetikleniyor mu? ===');
-      LUlke.Properties.CascadeField := 'ulke_id';
+      LUlke.Properties.ACascadeField := 'ulke_id';
       LUlke.Properties.AComponent1 := LSehir;
       LUlke.Properties.AComponent2 := LIlce;
-      LUlke.Properties.OnCascade := LIzle.Kaskad;
+      LUlke.Properties.AOnCascade := LIzle.Kaskad;
       LIzle.Kayit.Clear;
       LUlke.EditValue := 'TR';
       Writeln('olay sayisi: ', LIzle.Kayit.Count, ' (beklenen 2)');
@@ -169,9 +169,9 @@ begin
       Writeln;
       Writeln('=== 4) A -> B -> A dongusu ===');
       LUlke.Properties.AComponent2 := nil;
-      LUlke.Properties.OnCascade := LIzle.DonguKaskad;
+      LUlke.Properties.AOnCascade := LIzle.DonguKaskad;
       LSehir.Properties.AComponent1 := LUlke;          { geri baglanti }
-      LSehir.Properties.OnCascade := LIzle.DonguKaskad;
+      LSehir.Properties.AOnCascade := LIzle.DonguKaskad;
       LIzle.Kayit.Clear;
       LUlke.EditValue := 'X';
       Writeln('olay sayisi: ', LIzle.Kayit.Count, ' (sonlu ise koruma calisti)');
@@ -180,8 +180,8 @@ begin
 
       Writeln;
       Writeln('=== 5) Ayni bilesen iki yuvada ===');
-      LUlke.Properties.OnCascade := nil;
-      LSehir.Properties.OnCascade := nil;
+      LUlke.Properties.AOnCascade := nil;
+      LSehir.Properties.AOnCascade := nil;
       LSehir.Properties.AComponent1 := nil;
       LUlke.Properties.AComponent1 := LSehir;
       LUlke.Properties.AComponent2 := LSehir;   { AYNI bilesen, iki yuva }
@@ -197,21 +197,21 @@ begin
       LKaynak.Name := 'Kaynak'; LKaynak.Parent := LForm;
       var LHedefE := TRadLookupComboBox.Create(LForm);
       LHedefE.Name := 'HedefE'; LHedefE.Parent := LForm;
-      LKaynak.Properties.CascadeField := 'ulke_id';
-      LKaynak.Properties.CascadeTag := 7;
-      LKaynak.Properties.SearchDelay := 350;
+      LKaynak.Properties.ACascadeField := 'ulke_id';
+      LKaynak.Properties.ACascadeTag := 7;
+      LKaynak.Properties.ASearchDelay := 350;
       LKaynak.Properties.AComponent1 := LHedefE;
-      LKaynak.Properties.OnCascade := LIzle.Kaskad;
+      LKaynak.Properties.AOnCascade := LIzle.Kaskad;
 
       var LKopya := TRadLookupComboBox.Create(LForm);
       LKopya.Name := 'Kopya'; LKopya.Parent := LForm;
       LKopya.Properties := LKaynak.Properties;   { -> Assign -> DoAssign }
 
-      Writeln('  CascadeField : "', LKopya.Properties.CascadeField, '"  (ulke_id)');
-      Writeln('  CascadeTag   : ', LKopya.Properties.CascadeTag, '  (7)');
-      Writeln('  SearchDelay  : ', LKopya.Properties.SearchDelay, '  (350)');
+      Writeln('  CascadeField : "', LKopya.Properties.ACascadeField, '"  (ulke_id)');
+      Writeln('  CascadeTag   : ', LKopya.Properties.ACascadeTag, '  (7)');
+      Writeln('  SearchDelay  : ', LKopya.Properties.ASearchDelay, '  (350)');
       Writeln('  AComponent1  : ', Ad(LKopya.Properties.AComponent1), '  (HedefE)');
-      Writeln('  OnCascade    : ', BoolToStr(Assigned(LKopya.Properties.OnCascade), True));
+      Writeln('  OnCascade    : ', BoolToStr(Assigned(LKopya.Properties.AOnCascade), True));
       Writeln('  ChainSlotCount: ', LKopya.Properties.ChainSlotCount, '  (1)');
 
       Writeln;
@@ -240,8 +240,8 @@ begin
       Writeln('=== 8) MinSearchLength (E-01) ===');
       var LArama := TRadLookupComboBox.Create(LForm);
       LArama.Name := 'Arama'; LArama.Parent := LForm;
-      LArama.Properties.OnSearch := LIzle.Arama;
-      LArama.Properties.MinSearchLength := 3;
+      LArama.Properties.AOnSearch := LIzle.Arama;
+      LArama.Properties.AMinSearchLength := 3;
       { Genel giris noktasi TimedSearch (public); DoSearch protected. }
       for var Metin in ['a', 'an', 'ank', 'anka', ''] do
       begin
@@ -257,12 +257,12 @@ begin
       var LKay := TRadLookupComboBox.Create(LForm); LKay.Name := 'Kay'; LKay.Parent := LForm;
       var LHed := TRadLookupComboBox.Create(LForm); LHed.Name := 'Hed'; LHed.Parent := LForm;
       LKay.Properties.AComponent1 := LHed;
-      LKay.Properties.OnCascade := LIzle.Kaskad;
+      LKay.Properties.AOnCascade := LIzle.Kaskad;
       LHed.EditValue := 'ESKI-SEHIR';
       Writeln('  kapaliyken:');
       LKay.EditValue := 'TR';
       Writeln('    hedef.EditValue = "', VarToStr(LHed.EditValue), '"  (ESKI-SEHIR kalmali)');
-      LKay.Properties.ClearTargetsOnCascade := True;
+      LKay.Properties.AClearTargetsOnCascade := True;
       LHed.EditValue := 'ESKI-SEHIR';
       Writeln('  aciksa:');
       LKay.EditValue := 'DE';
@@ -271,7 +271,7 @@ begin
       Writeln;
       Writeln('=== 10) CascadeNow (E-03) ===');
       LIzle.Kayit.Clear;
-      LKay.Properties.ClearTargetsOnCascade := False;
+      LKay.Properties.AClearTargetsOnCascade := False;
       LKay.CascadeNow;
       Writeln('  CascadeNow -> olay sayisi: ', LIzle.Kayit.Count, ' (1 beklenir)');
       for i := 0 to LIzle.Kayit.Count - 1 do

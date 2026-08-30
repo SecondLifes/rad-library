@@ -36,7 +36,7 @@ begin
   AItem.Name := 'OrtakTanim';
   AItem.Repository := ARepo;
   AItem.Properties.Items.Text := 'ORTAK-1'#13#10'ORTAK-2';
-  AItem.Properties.CascadeField := 'ORTAK';
+  AItem.Properties.ACascadeField := 'ORTAK';
 
   AMarka := TRadComboBox.Create(Result);
   AMarka.Name := 'cbMarka';
@@ -67,9 +67,9 @@ begin
     try
       Writeln('=== 1) Item atamasi kendi Properties''i eziyor mu? ===');
       LMarka.Properties.Items.Text := 'MARKA-A'#13#10'MARKA-B';
-      LMarka.Properties.CascadeField := 'marka';
+      LMarka.Properties.ACascadeField := 'marka';
       LTip.Properties.Items.Text := 'TIP-A';
-      LTip.Properties.CascadeField := 'musteri_tipi';
+      LTip.Properties.ACascadeField := 'musteri_tipi';
       Writeln('  atamadan ONCE  cbMarka.Properties.Items = ',
         StringReplace(LMarka.Properties.Items.Text, #13#10, '|', [rfReplaceAll]));
 
@@ -80,10 +80,10 @@ begin
         StringReplace(LMarka.Properties.Items.Text, #13#10, '|', [rfReplaceAll]));
       Writeln('                 cbMarka.ActiveProperties.Items = ',
         StringReplace(LMarka.ActiveProperties.Items.Text, #13#10, '|', [rfReplaceAll]));
-      Writeln('                 cbMarka.Properties.CascadeField = "',
-        LMarka.Properties.CascadeField, '"');
-      Writeln('                 cbTip.Properties.CascadeField   = "',
-        LTip.Properties.CascadeField, '"');
+      Writeln('                 cbMarka.Properties.ACascadeField = "',
+        LMarka.Properties.ACascadeField, '"');
+      Writeln('                 cbTip.Properties.ACascadeField   = "',
+        LTip.Properties.ACascadeField, '"');
 
       Writeln;
       Writeln('  -> item''in Properties''i degisince kendi Properties bozuluyor mu?');
@@ -130,9 +130,9 @@ begin
         Writeln('    kolon.Properties nil mi : ', BoolToStr(LCol.Properties = nil, True));
         if LCol.Properties <> nil then
         begin
-          TRadComboBoxProperties(LCol.Properties).CascadeField := 'kolon_yuku';
-          Writeln('    kolon.Properties.CascadeField = "',
-            TRadComboBoxProperties(LCol.Properties).CascadeField, '"');
+          TRadComboBoxProperties(LCol.Properties).ACascadeField := 'kolon_yuku';
+          Writeln('    kolon.Properties.ACascadeField = "',
+            TRadComboBoxProperties(LCol.Properties).ACascadeField, '"');
           Writeln('    kolon.GetProperties vs item   : ',
             BoolToStr(Pointer(LCol.GetProperties) = Pointer(LItem.Properties), True),
             '  (True ise etkin olan HALA item''inki)');
@@ -177,8 +177,8 @@ begin
           begin
             Writeln('  cbMarka.RepositoryItem bagli mi : ',
               BoolToStr(LYeniMarka.RepositoryItem = LYeniItem, True));
-            Writeln('  cbMarka.Properties.CascadeField : "',
-              LYeniMarka.Properties.CascadeField, '"  (beklenen "marka")');
+            Writeln('  cbMarka.Properties.ACascadeField : "',
+              LYeniMarka.Properties.ACascadeField, '"  (beklenen "marka")');
             Writeln('  cbMarka.Properties.Items        : ',
               StringReplace(LYeniMarka.Properties.Items.Text, #13#10, '|', [rfReplaceAll]));
             Writeln('  cbMarka.ActiveProperties.Items  : ',

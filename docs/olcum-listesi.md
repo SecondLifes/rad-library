@@ -34,11 +34,31 @@ Neden önemli: `default` ile constructor ayrışırsa değer sessizce kaybolur y
 gereksiz yere streamlenir. Kitin bileşen kuralının özellikle uyardığı hata.
 Yeri: `src/test/scratch/rad_dev_repolisteners/DfmRoundTripTest.dpr`.
 
-### Ö-02 · "A" öneki sonrası tam regresyon
+### Ö-02 · "A" öneki sonrası tam regresyon — KISMEN ÖLÇÜLDÜ
 Property adları değişti (`AComponent1`, `ACascadeField`, `ASearchDelay`, …).
-Ölçülecek: `Rad.Dev.pas` + `help.Dev.pas` Win32/Win64 uyarısız; 22 sondanın
-hepsi derleniyor; canlı sondalar (`LiveLookupTest`, `RuntimeTest`,
-`RepoListenerTest`) beklenen çıktıyı veriyor.
+
+**Ölçüldü (2026-08-30):** beş kaskad sondası da "A" önekine güncellendi ve
+**Win32'de beşi de derliyor**; `RepoListenerTest`, `PullTest`,
+`PerConsumerTest`, `DfmRoundTripTest` koşuyor ve yeşil. `PullTest` +
+`RepoListenerTest` ayrıca **Win64**'te de derlendi ve koştu.
+`DfmRoundTripTest` çıktısı `Properties.ACascadeField = 'kolon_yuku'`
+gösteriyor — yeni adlar DFM'e yazılıp geri okunuyor.
+
+**Bekleyen:**
+1. `RuntimeTest` — görünür pencere + mesaj döngüsü şart, çalıştırılmadı.
+2. `LiveLookupTest` — PostgreSQL kimlik bilgisi şart, çalıştırılmadı.
+3. Kalan üç sondanın Win64 koşusu.
+4. `Rad.Dev.pas` + `help.Dev.pas` **uyarısız** derleme iddiası hâlâ
+   ölçülmedi; bugünkü derlemelerde `rad.config.pas` W1055 ve `help.uni`/
+   `rad.db` kaynaklı bir dizi W1057/H2164 var (hepsi bu işten önce vardı).
+
+> **Bu ölçümler bir KÜTÜKLE yapıldı.** `rad.pas`, çalışma ağacında
+> `JclBase`/`JclSysInfo` (JEDI JCL) ve `Dext.Types.UUID` kullanıyor; üçü de
+> bu makinede **yok** (`Dext.Types.UUID` hiçbir yerde, JCL yalnızca ilgisiz
+> bir projenin çıktı klasöründe ve orada eski bir `SysUtils.dcu` gerçek
+> RTL'i gölgeliyor). Sondalar geçici kütüklerle derlendi. **Gerçek
+> bağımlılıklarla tekrar ölçülmeli** — `build_and_run.bat` artık `%EXTRAU%`
+> ile ek birim yolu kabul ediyor.
 
 ### Ö-03 · Tasarım zamanı davranışı — hiç ölçülmedi
 IDE dışından yapılamıyor, kullanıcı tarafında:
@@ -106,3 +126,33 @@ yazmıyordu:
    bırakılıyor. Bu bilinçli bir varsayılan, onaylanmış bir karar değil.
 
 İkisi de Ö-09 ile birlikte ele alınmalı.
+
+### Ö-11 · Pull yönü — popup yolu (görünür pencere şart)
+`AMaster`/`AOnFilter` başsız ölçüldü (`PullTest`, 22/22, Win32+Win64) ama pull
+**elle** (`FilterNow`) tetiklenerek. Gerçek popup yolu başsız ölçülemez:
+`TcxCustomDropDownEdit.DropDown`, `if not IsWindowVisible(Handle) then Exit`
+ile başlıyor (`cxDropDownEdit.pas:3252`). Görünür bir formda ölçülecek:
+
+1. `DroppedDown := True` → `AOnFilter` **bir kez** tetikleniyor mu?
+2. **Sıra kanıtı:** `AOnFilter` içinde liste dataset'inin filtresi
+   değiştirilince, açılan popup **yeni** filtrenin satırlarını mı gösteriyor?
+   Bu, `LockDataChanged`'in (`cxLookupEdit.pas:309`) değişikliği
+   bastırmadığını — yani pull'un `inherited`'dan **önce** durmasının doğru
+   olduğunu — kanıtlayan tek ölçüm.
+3. Grid inplace: `AMaster` bir **kolon** iken, odaklı satır değişince
+   `AMasterValue` onu takip ediyor mu? `ASource._Host` kolonu veriyor mu?
+4. `AFilterOnPopup := False` iken açılır listeyi açmak hiçbir şey
+   tetiklemiyor mu?
+
+### Ö-12 · Pull yönü — canlı veritabanı
+`rad_test_ulke` / `rad_test_sehir` ile (`LiveLookupTest` deseni):
+
+1. Popup açılışında **gerçek parametreli sorgu** koşuyor ve liste ülkeye göre
+   süzülüyor mu — `AOnCascade` **atanmadan**?
+2. Ülke değişip şehir listesi **hiç açılmadığında**, şehrin değeri
+   `AClearTargetsOnCascade` ile temizleniyor mu? (Başsız ölçüldü ama gerçek
+   veriyle değil.)
+3. `FLookupList` bayatlığı: `GridMode := True` ile bir anahtar çözülüp
+   önbelleğe girdikten sonra liste değişince, `ResetDisplayCache` olmadan eski
+   metin dönüyor mu? Bu, `CheckLookupList` çağrısının gerekçesini ölçen tek
+   test — şu an yalnızca kaynak okumasına dayanıyor.

@@ -130,10 +130,10 @@ begin
       LEdit.Name := 'Arama';
       LEdit.Parent := LForm;
       LEdit.Left := 20; LEdit.Top := 60; LEdit.Width := 200;
-      LEdit.Properties.OnSearch := LSayac.OnArama;
+      LEdit.Properties.AOnSearch := LSayac.OnArama;
 
       { A1: geciktirici KAPALI }
-      LEdit.Properties.SearchDelay := 0;
+      LEdit.Properties.ASearchDelay := 0;
       LSayac.Arama := 0;
       for LKey in 'ankara' do
         TEditAccess(LEdit).DoEditKeyPress(LKey);
@@ -142,7 +142,7 @@ begin
         [LSayac.Arama]));
 
       { A2: geciktirici ACIK }
-      LEdit.Properties.SearchDelay := 250;
+      LEdit.Properties.ASearchDelay := 250;
       LSayac.Arama := 0;
       for LKey in 'ankara' do
       begin
@@ -156,15 +156,15 @@ begin
         [LSayac.Arama]));
 
       { A3: MinSearchLength geciktirici yolunda da gecerli mi? }
-      LEdit.Properties.MinSearchLength := 4;
-      LEdit.Properties.SearchDelay := 200;
+      LEdit.Properties.AMinSearchLength := 4;
+      LEdit.Properties.ASearchDelay := 200;
       LSayac.Arama := 0;
       LEdit.Properties.TimedSearch(LEdit, 'ab');
       Bekle(50);
       Writeln(Format('  MinSearchLength=4, "ab" -> OnSearch %d kez  (0 olmali)', [LSayac.Arama]));
       LEdit.Properties.TimedSearch(LEdit, 'abcd');
       Writeln(Format('                     "abcd" -> OnSearch %d kez  (1 olmali)', [LSayac.Arama]));
-      LEdit.Properties.MinSearchLength := 0;
+      LEdit.Properties.AMinSearchLength := 0;
 
       { ══ B + C) Grid inplace ═════════════════════════════════════════ }
       Writeln;
@@ -185,7 +185,7 @@ begin
       LCol.PropertiesClass := TRadLookupComboBoxProperties;
       LProps := TRadLookupComboBoxProperties(LCol.Properties);
       LProps.AComponent1 := LHedef;
-      LProps.OnCascade := LSayac.OnKaskad;
+      LProps.AOnCascade := LSayac.OnKaskad;
       LView.OptionsData.Editing := True;
       LView.OptionsSelection.CellSelect := True;
 

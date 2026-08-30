@@ -50,7 +50,7 @@ begin
       LItem := TRadComboBoxRepository.Create(LForm);
       LItem.Repository := LRepo;
       LItem.Name := 'OrtakTanimItem';
-      LItem.Properties.CascadeField := 'ORTAK';
+      LItem.Properties.ACascadeField := 'ORTAK';
 
       LMarka := TRadComboBox.Create(LForm);
       LMarka.Name := 'cbMarka';
@@ -78,16 +78,16 @@ begin
       Writeln;
       Writeln('  -> kendi Properties''ine yazip okuyabiliyor muyuz?');
       try
-        LMarka.Properties.CascadeField := 'marka';
-        LTip.Properties.CascadeField := 'musteri_tipi';
-        Writeln('     cbMarka.Properties.CascadeField       = "',
-          LMarka.Properties.CascadeField, '"');
-        Writeln('     cbMusteriTipi.Properties.CascadeField = "',
-          LTip.Properties.CascadeField, '"');
-        Writeln('     item.Properties.CascadeField          = "',
-          LItem.Properties.CascadeField, '" (bozulmamis olmali)');
-        Writeln('     cbMarka.ActiveProperties.CascadeField = "',
-          LMarka.ActiveProperties.CascadeField, '" (item''inki gelmeli)');
+        LMarka.Properties.ACascadeField := 'marka';
+        LTip.Properties.ACascadeField := 'musteri_tipi';
+        Writeln('     cbMarka.Properties.ACascadeField       = "',
+          LMarka.Properties.ACascadeField, '"');
+        Writeln('     cbMusteriTipi.Properties.ACascadeField = "',
+          LTip.Properties.ACascadeField, '"');
+        Writeln('     item.Properties.ACascadeField          = "',
+          LItem.Properties.ACascadeField, '" (bozulmamis olmali)');
+        Writeln('     cbMarka.ActiveProperties.ACascadeField = "',
+          LMarka.ActiveProperties.ACascadeField, '" (item''inki gelmeli)');
       except
         on E: Exception do
           Writeln('     YAZILAMADI: ', E.ClassName, ': ', E.Message);
@@ -127,9 +127,9 @@ begin
 
       Writeln;
       Writeln('=== e) Bilesen-bagimsiz erisimciler ===');
-      LMarka.Properties.CascadeField := 'marka';
+      LMarka.Properties.ACascadeField := 'marka';
       LCol.PropertiesClass := TRadComboBoxProperties;
-      TRadComboBoxProperties(LCol.Properties).CascadeField := 'kolon_marka';
+      TRadComboBoxProperties(LCol.Properties).ACascadeField := 'kolon_marka';
       LCol.Caption := 'Tanim Kolonu';
       LMarka.EditValue := 'M-1';
 
@@ -139,7 +139,7 @@ begin
         var LOwn := _OwnProperties(c);
         var LAct := _ActiveProperties(c);
         Writeln('    _OwnProperties    : ', BoolToStr(LOwn <> nil, True),
-          '  CascadeField="', TRadComboBoxProperties(LOwn).CascadeField, '"');
+          '  CascadeField="', TRadComboBoxProperties(LOwn).ACascadeField, '"');
         Writeln('    _ActiveProperties : ', BoolToStr(LAct <> nil, True),
           '  = item.Properties mi: ', BoolToStr(Pointer(LAct) = Pointer(LItem.Properties), True));
         Writeln('    _ValueOf          : ', VarToStr(_ValueOf(c)));

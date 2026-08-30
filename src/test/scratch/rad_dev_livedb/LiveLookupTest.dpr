@@ -112,11 +112,11 @@ begin
   LAd := ASource.Name;
   LOwn := _OwnProperties(ASource);
   if LOwn is TRadLookupComboBoxProperties then
-    LTur := TRadLookupComboBoxProperties(LOwn).CascadeField
+    LTur := TRadLookupComboBoxProperties(LOwn).ACascadeField
   else
     LTur := '<kendi Properties yok>';
-  OrtakKayit.Add(Format('kaynak=%s tur=%s paylasilan(Sender).CascadeField=%s',
-    [LAd, LTur, Sender.CascadeField]));
+  OrtakKayit.Add(Format('kaynak=%s tur=%s paylasilan(Sender).ACascadeField=%s',
+    [LAd, LTur, Sender.ACascadeField]));
 end;
 
 procedure TSenaryo.UlkeArama(Sender: TRadLookupComboBoxProperties;
@@ -263,9 +263,9 @@ begin
       LEdUlke.Properties.ListSource := LDsUlke;
       LEdUlke.Properties.KeyFieldNames := 'id';
       LEdUlke.Properties.ListFieldNames := 'ad';
-      LEdUlke.Properties.OnSearch := LS.UlkeArama;
+      LEdUlke.Properties.AOnSearch := LS.UlkeArama;
       LEdUlke.Properties.AComponent1 := LSehir;
-      LEdUlke.Properties.OnCascade := LS.UlkeKaskad;
+      LEdUlke.Properties.AOnCascade := LS.UlkeKaskad;
 
       { ══ M1) OnSearch gercek SQL ile suzuyor mu? ═════════════════════ }
       Writeln('=== M1) OnSearch -> gercek parametreli sorgu ===');
@@ -298,7 +298,7 @@ begin
       { ══ M3) OnLocate: listede OLMAYAN anahtari cozme ════════════════ }
       Writeln;
       Writeln('=== M3) OnLocate -> listede olmayan anahtarin metni ===');
-      LSehir.Properties.OnLocate := LS.SehirLocate;
+      LSehir.Properties.AOnLocate := LS.SehirLocate;
       LSehir.Properties.ResetLocateCache;
       Writeln('  liste su an Almanya sehirleri (', LS.QSehir.RecordCount, ' satir)');
       LS.LocateSayaci := 0;
@@ -343,17 +343,17 @@ begin
         var LItem := TRadLookupComboBoxRepository.Create(LForm);
         LItem.Repository := LRepo;
         LItem.Name := 'riTanim';
-        LItem.Properties.CascadeField := 'ORTAK';        { paylasilan yuk }
-        LItem.Properties.OnSearch := LS.OrtakTanimArama; { TEK isleyici }
+        LItem.Properties.ACascadeField := 'ORTAK';        { paylasilan yuk }
+        LItem.Properties.AOnSearch := LS.OrtakTanimArama; { TEK isleyici }
 
         var LMarka := TRadLookupComboBox.Create(LForm);
         LMarka.Name := 'cbMarka'; LMarka.Parent := LForm;
-        LMarka.Properties.CascadeField := 'marka';       { yere ozel yuk }
+        LMarka.Properties.ACascadeField := 'marka';       { yere ozel yuk }
         LMarka.RepositoryItem := LItem;
 
         var LTip := TRadLookupComboBox.Create(LForm);
         LTip.Name := 'cbMusteriTipi'; LTip.Parent := LForm;
-        LTip.Properties.CascadeField := 'musteri_tipi';
+        LTip.Properties.ACascadeField := 'musteri_tipi';
         LTip.RepositoryItem := LItem;
 
         Writeln('  iki combo, tek item. Her birinden arama tetikleniyor:');

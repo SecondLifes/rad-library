@@ -26,6 +26,81 @@ that break something else in the kit.
 
 ### Added
 
+- `src/test/scratch/rad_dev_repolisteners/PullTest.dpr` —
+  22 assertions covering the new pull direction (event fires exactly once with
+  the right source/master/value, re-entrancy guard, `DoAssign` carries the pull
+  payload, free-notification nils `AMaster`, `PullWarning` reports each silent
+  trap). One assertion is red-first: with the old `DoCascade` gate restored it
+  fails, proving the invalidation defect below was real. Green 22/22 on Win32
+  and Win64.
+- `src/test/scratch/rad_dev_repolisteners/build_and_run.bat` and
+  `src/test/scratch/rad_dev_livedb/build_and_run.bat` — these two probe
+  directories were the only ones in the kit with no build script, which is a
+  large part of why their probes rotted unnoticed. Both take a platform
+  argument (`Win32` default, `Win64`) and an optional probe name, and both
+  honour `%EXTRAU%` for unit paths this repo does not ship.
+
+### Changed
+
+- `src/component/Rad.Dev.pas` — **the cascade's main direction is inverted.**
+  A dependent lookup now declares its own master (`AMaster`) and filters its own
+  list when its dropdown opens (`AOnFilter`), instead of the source pushing a
+  filter into up to four target slots. The dependent knows what it depends on,
+  the way a foreign key does; adding one no longer means editing the source, and
+  the query runs only when someone actually opens the list — a four-deep chain
+  used to fire three queries nobody was looking at.
+
+  Push is kept, deliberately, but reduced to an **invalidation signal**: pure
+  pull cannot fix a stale value, because if nobody ever opens the dependent's
+  dropdown nothing pulls, and an inconsistent key reaches the database still
+  displaying its old text. `AOnCascade` is not deprecated — it still has jobs
+  pull cannot do (refreshing a target that has no popup at all).
+
+  The pull fires from a `DoInitPopup` override on `TRadCustomLookupComboBox`,
+  before `inherited`. Measured from the vendor source: `DoInitPopup` runs at
+  `cxDropDownEdit.pas:3256`, its `OnInitPopup` calls at `:3150`, and
+  `ILookupData.DropDown` only at `:3159` — so a filter applied there affects
+  *this* opening, and it lands before `Properties.LockDataChanged`
+  (`cxLookupEdit.pas:309`) would have suppressed it. The published
+  `OnInitPopup` event was rejected for the seam: it belongs to the application,
+  and `DoInitPopup` fires it **twice** when a repository item is present
+  (`:3150` and `:3152`) — two filter queries per popup, silently.
+
+- `src/component/Rad.Dev.pas` — `FilterNow` added next to `CascadeNow`. Not
+  symmetry for its own sake: `TcxCustomDropDownEdit.DropDown` begins with
+  `if not IsWindowVisible(Handle) then Exit` (`cxDropDownEdit.pas:3252`), so
+  `DoInitPopup` never runs in an invisible window and the pull path would
+  otherwise be unmeasurable without a visible form.
+
+- `src/component/Rad.Dev.pas` — `ResetLocateCache` was only clearing the kit's
+  own resolved-key cache. DevExpress keeps a second one, `FLookupList`
+  (`cxDBLookupEdit.pas:71`), which `GetDisplayLookupText` both reads and writes
+  in its `GridMode` branch — and which closing and reopening the list dataset
+  does **not** clear; only `CheckLookupList` (`:419-425`) does. A target whose
+  list had just been re-filtered therefore kept showing the old text. New
+  `ResetDisplayCache` / `ResetCaches` clear both layers, and every place that
+  invalidates a target now uses `ResetCaches`.
+
+- `docs/olcum-listesi.md` — Ö-02 partially closed (all five cascade probes
+  renamed to the `A`-prefixed API and compiling; four running green), and Ö-11 /
+  Ö-12 added for the pull measurements that need a visible window and a live
+  database. Also records that today's runs used **stub units** for `JclBase`,
+  `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.
+
+### Fixed
+
+- `src/component/Rad.Dev.pas` — `DoCascade` exited early when no `AOnCascade`
+  handler was assigned, which also killed the target invalidation that runs
+  alongside it. Harmless while every cascade had a handler; a silent
+  data-integrity bug the moment pull makes an unassigned `AOnCascade` the norm —
+  the master changed, the target kept its now-invalid key **and** its stale
+  display text, and nothing warned. The gate is now "is there any target",
+  the event call is conditional, and `PullTest` asserts it (red-first verified).
+  Both families fixed; `TRadComboBoxProperties.CascadeOne` additionally never
+  invalidated its targets' caches at all.
+
+### Added
+
 - `src/share/k.setting.pas` + `src/share/k.setting.dfm` — the searchable
   settings panel. `TdxNavBar` on the left (group = category, item = sub-group),
   one `TcxVerticalGrid` holding **every** setting on the right, a search box on

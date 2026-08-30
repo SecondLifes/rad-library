@@ -329,6 +329,41 @@ type
     TRadCascadeEvent = procedure (Sender:TRadLookupComboBoxProperties;
       ASource, ATarget: TComponent; const AValue: Variant) of object;
 
+    (* PULL yonu - kaskadin TERSI ve artik TERCIH EDILEN yon.
+
+       Bu editorun acilir listesi ACILMADAN HEMEN ONCE, kendi MASTER'inin o
+       anki degeriyle bir kez tetiklenir. Filtreyi/SQL'i uygulamak yine
+       UYGULAMANIN isidir; bilesen yalnizca "kim soruyor / kimin degeri /
+       hangi deger" ucgenini tasir.
+
+       NEDEN PUSH DEGIL: bagimli olan, neye bagli oldugunu bilir - yabanci
+       anahtar gibi. Yeni bir bagimli editor eklemek icin KAYNAGI duzenlemek
+       gerekmez ve dort yuva siniri yoktur. Ayrica sorgu, liste GERCEKTEN
+       acilinca kosar: ulke->sehir->ilce->mahalle zincirinde push, kimsenin
+       bakmadigi uc sorgu calistiriyordu.
+
+       PUSH YINE DE DURUYOR, ama artik yalnizca GECERSIZ KILMA sinyali olarak
+       (bkz. CascadeOne). Saf pull bayat degeri duzeltemez: master degisir,
+       kullanici bagimlinin listesini HIC acmazsa hicbir sey "pull" edilmez ve
+       tutarsiz anahtar kayda gider.
+
+       ASource: soruyu SORAN tuketici - bu editorun kendisi. Gridde inplace
+         EDITORDUR, kolon degil (AOnCascade/AOnSearch/AOnLocate ile AYNI
+         sozlesme). Kolona ulasmak icin help.Dev'deki hazir yol:
+         TcxCustomTextEdit(ASource)._Host.
+       AMaster: AMaster property'sine atanmis bilesen - bir editor ya da bir
+         grid KOLONU.
+       AMasterValue: _ValueOf(AMaster). Kolonda ODAKLI kaydin degeridir;
+         odakli kayit yoksa Unassigned gelir - Null DEGIL. Isleyici hem
+         VarIsNull hem VarIsEmpty durumunu gozetmelidir.
+
+       Sender NEDEN AYIRT ETMEZ: AOnCascade'dekiyle ayni gerekce - bir
+       RepositoryItem'a bagli tum tuketiciler AYNI Properties ORNEGINI
+       paylasir. Yere ozel yuk ASource'un KENDI Properties'inden okunur:
+       help.Dev'deki _OwnProperties(ASource). *)
+    TRadLookupFilterEvent = procedure (Sender:TRadLookupComboBoxProperties;
+      ASource, AMaster: TComponent; const AMasterValue: Variant) of object;
+
     TRadLookupComboBoxProperties = class(TcxLookupComboBoxProperties)
     private
       FStr: string;
@@ -368,12 +403,30 @@ type
         parametre koymak yerine alanda tutuluyor: ForEach geri cagirimi
         TRadSlotNotify imzasina bagli. }
       FCascadeSource: TComponent;
+      (* PULL tarafi. FMasterSlot AYRI bir tutucudur, AComponent1..4'un
+         yuvalarindan biri DEGIL: TRadEditSlots'un FilledCount/ForEach'i
+         "push hedefleri" demektir ve master oraya konsaydi kaynak KENDI
+         master'ina push yapardi (A->B->A dongusu), ChainSlotCount da
+         pull-only bir editor icin dolu zincir bildirirdi. Ayri tutucu
+         bedava degil ama BEDELSIZ: TcxFreeNotificator ORNEK BASINA yaratilir
+         (GetNotificator) ve RemoveSender yalnizca KENDI bildiricisini siler
+         (dxCoreClasses.pas, TcxFreeNotificator.RemoveSender), dolayisiyla iki
+         tutucu birbirinin serbest-birakma kaydini bozamaz. *)
+      FMasterSlot: TRadEditSlots;
+      FFilterEvent: TRadLookupFilterEvent;
+      FFilterOnPopup: Boolean;
+      (* PULL icin AYRI bayrak - FCascading ile BIRLESTIRILEMEZ. Push ve pull
+         ters yonlerdir: A'nin push'u B'yi temizler, B'nin acilan listesi pull
+         yapar. Tek bayragi paylassalardi ikinci adim sessizce atlanirdi ve bu
+         ozellikle paylasilan bir Properties ornegi uzerinde gorunmez olurdu. *)
+      FFiltering: Boolean;
+      function  GetMaster: TComponent;
+      procedure SetMaster(const AValue: TComponent);
       function  GetSlot(AIndex: Integer): TComponent;
       procedure SetSlot(AIndex: Integer; const AValue: TComponent);
       procedure CascadeOne(ATarget: TComponent; const AValue: Variant);
       function  ListDataSet: TDataSet;
       procedure ClearTarget(ATarget: TComponent);
-      class function TargetProperties(ATarget: TComponent): TRadLookupComboBoxProperties; static;
     protected
         class function GetLookupDataClass: TcxInterfacedPersistentClass; override;
         (* Ozel alanlarimizi KOPYALAMAK ZORUNDAYIZ. TcxCustomEditProperties.Assign
@@ -411,33 +464,73 @@ type
       procedure ResetLocateCache;
       /// <summary>Dolu zincir yuvasi sayisi (ChainWarning icin).</summary>
       function ChainSlotCount: Integer;
+      (* PUBLIC oldu: combo ailesi de hedefinin onbelleklerini gecersiz
+         kilabilsin diye. Govdesi degismedi. *)
+      class function TargetProperties(ATarget: TComponent): TRadLookupComboBoxProperties; static;
+      /// <summary>PULL: master'in degerini okur ve AOnFilter'i BIR kez
+      /// tetikler. ASource soruyu soran tuketicidir.</summary>
+      procedure DoFilter(ASource: TComponent);
+      /// <summary>DevExpress'in anahtar->metin onbellegini bosaltir
+      /// (FLookupList; GridMode=True iken dolar).</summary>
+      procedure ResetDisplayCache;
+      /// <summary>Her iki katmani birden bosaltir: kitin cozulmus-anahtar
+      /// onbellegi + DevExpress'in FLookupList'i.</summary>
+      procedure ResetCaches;
+      /// <summary>Master yuvasi dolu mu.</summary>
+      function HasMaster: Boolean;
+      /// <summary>Pull yapilandirmasindaki SESSIZ tuzaklar. Bos string =
+      /// sorun yok. ChainWarning gibi bir SORGUDUR - kendiliginden uyari
+      /// vermez, cunku DFM yuklenirken her yapilandirma bir an eksik
+      /// gorunur.</summary>
+      function PullWarning: string;
     published
       property AComponent1:TComponent index 1 read GetSlot write SetSlot;
       property AComponent2:TComponent index 2 read GetSlot write SetSlot;
       property AComponent3:TComponent index 3 read GetSlot write SetSlot;
       property AComponent4:TComponent index 4 read GetSlot write SetSlot;
+      (* PULL: bu editor KIMIN degerine bagli. Doldurulunca acilir liste
+         acilmadan once AOnFilter bu bilesenin degeriyle tetiklenir. Bir
+         editor ya da bir grid KOLONU olabilir; kolonda ODAKLI kaydin degeri
+         okunur.
+
+         Serbest-birakma korumasi AComponent1..4 ile ayni desendendir, ama
+         AYRI bir tutucudan gelir - gerekcesi FMasterSlot'un yaninda. *)
+      property AMaster:TComponent read GetMaster write SetMaster;
       /// <summary>Zincirde hedefe suzme icin gecirilecek alan adi
       /// (ornegin "ulke_id"). Bileseni ilgilendirmez; OnCascade isleyicisine
       /// tasinan serbest yuktur.</summary>
-      property CascadeField:string  read FStr write FStr;
+      property ACascadeField:string  read FStr write FStr;
       /// <summary>Zincir icin serbest tamsayi yuku (seviye no, tur kodu, ...).</summary>
-      property CascadeTag:Integer read FInt write FInt;
-      property Buttons;
-      property OnButtonClick;
-      property Images;
-      property OnSearch:TRadLookupSearchEvent read FSearchEvent write FSearchEvent;
-      property OnLocate:TRadLookupLocateEvent read FLocateEvent write FLocateEvent;
-      (* 0 = kapali (varsayilan, eski davranis): OnSearch her tus vurusunda,
-         Locate seam'inden tetiklenir.
-         >0 = milisaniye cinsinden GECIKTIRME: tuslar durduktan bu kadar sonra
-         OnSearch BIR kez tetiklenir. Sunucu tarafli aramada fark buyuk -
-         "Istanbul" yazmak 8 sorgu yerine 1 sorgu eder. *)
-      property SearchDelay:Cardinal read FSearchDelay write FSearchDelay default 0;
-      (* OnSearch, yazilan metin BU UZUNLUGA erisene kadar hic tetiklenmez.
-         0 = kapali (varsayilan). Sunucu tarafli aramada onemli: tek harflik
-         bir arama tablonun buyuk bolumunu doner, hem sunucuyu hem agi bosa
-         yorar. Tipik deger 2-3. *)
-      property MinSearchLength:Integer read FMinSearchLength write FMinSearchLength default 0;
+      property ACascadeTag:Integer read FInt write FInt;
+      property AOnSearch:TRadLookupSearchEvent read FSearchEvent write FSearchEvent;
+      property AOnLocate:TRadLookupLocateEvent read FLocateEvent write FLocateEvent;
+      /// <summary>Tuslar durduktan sonra OnSearch'un tetiklenmesi icin
+      /// beklenen sure (ms). 0 = geciktirme yok, OnSearch her tus vurusunda
+      /// Locate seam'inden tetiklenir.</summary>
+      /// <remarks>Sunucu tarafli aramada fark buyuk: "Istanbul" yazmak
+      /// geciktirme kapaliyken 8 sorgu, acikken 1 sorgu eder.
+      /// Varsayilan 500 ms. Constructor da 500 atar - default direktifi ile
+      /// constructor AYNI olmak zorunda, yoksa deger ya sessizce kaybolur ya
+      /// da gereksiz yere DFM'e yazilir.</remarks>
+      property ASearchDelay:Cardinal read FSearchDelay write FSearchDelay default 500;
+
+      (* Yazilan metin BU UZUNLUGA erisene kadar OnSearch hic tetiklenmez.
+         Bos metin her zaman gecer - "hepsini goster" anlamina gelir, yani
+         acilir listeyi acmak calismaya devam eder.
+
+         VARSAYILAN 3 - bilincli bir karar. Buyuk listelerde (cari, stok) tek
+         harflik arama tablonun buyuk bolumunu doner; 3 harf makul bir alt
+         sinir.
+
+         ! KISA KODLU LISTELERDE ELLE 0 VERIN. ERP'de kisa kodlar var:
+             birim  kg, lt, m, ad      (1-2)
+             doviz  TL                 (2)
+             ulke   TR, DE             (2)
+           Varsayilan 3 iken kullanici "TL" yazdiginda liste BOS gelir ve
+           HICBIR uyari cikmaz - ne istisna, ne log. Belirti "arama calismiyor"
+           olur, sebebi burasidir. Bu listelerde AMinSearchLength := 0 yapin.
+           (Kullanicinin karari: bu tur listeler az, elle verilecek.) *)
+      property AMinSearchLength:Integer read FMinSearchLength write FMinSearchLength default 3;
       (* True iken, bir hedefe OnCascade gonderilmeden ONCE hedefin degeri
          temizlenir. Klasik kaskad hatasini kapatir: ulke degisir, sehir
          listesi yenilenir, ama eski sehir DEGERI editorde kalir ve yeni
@@ -446,8 +539,22 @@ type
          Yalnizca TcxCustomEdit hedeflerinde islem yapar - bir grid KOLONUNUN
          "degeri" satira gore degisir, kolon duzeyinde temizlemek anlamsizdir.
          Varsayilan False: davranis degisikligi opt-in. *)
-      property ClearTargetsOnCascade:Boolean read FClearTargets write FClearTargets default False;
-      property OnCascade:TRadCascadeEvent read FCascadeEvent write FCascadeEvent;
+      property AClearTargetsOnCascade:Boolean read FClearTargets write FClearTargets default False;
+      property AOnCascade:TRadCascadeEvent read FCascadeEvent write FCascadeEvent;
+
+      (* True iken acilir liste her acilisinda AOnFilter kendiliginden
+         tetiklenir (TRadCustomLookupComboBox.DoInitPopup). False iken pull
+         YALNIZCA FilterNow ile tetiklenir - listeyi kendi zamanlamasiyla
+         suzmek isteyen uygulamalar icindir.
+         Varsayilan True; constructor da True atar - default direktifi ile
+         constructor AYNI olmak zorunda, yoksa deger ya sessizce kaybolur ya
+         da gereksiz yere DFM'e yazilir. *)
+      property AFilterOnPopup:Boolean read FFilterOnPopup write FFilterOnPopup default True;
+      property AOnFilter:TRadLookupFilterEvent read FFilterEvent write FFilterEvent;
+
+      property Buttons;
+      property OnButtonClick;
+      property Images;
     end;
 
     TRadLookupComboBoxRepository = class(TRadEditRepositoryItem)
@@ -488,6 +595,27 @@ type
          Gridde de calisir, cunku Properties.GetContainerClass asagidaki
          non-DB sinifi donduruyor. *)
       procedure DoEditValueChanged; override;
+      (* PULL DIKISI. Neden BURASI ve neden inherited'DAN ONCE:
+
+         1. Cagri sirasi (kaynaktan okundu, cxDropDownEdit.pas):
+            SetDroppedDown -> DropDown (:3251) -> StorePosition ->
+            DoInitPopup (:3256) -> DropDownAllowed -> SetupPopupWindow.
+            DoInitPopup, acilir listenin verisi okunmadan ONCE calisir:
+            govdesinde once OnInitPopup'lar (:3150), SONRA
+            ILookupData.DropDown (:3159) var. Yani burada degistirilen
+            ListSource.DataSet BU acilisi etkiler.
+
+         2. ILookupData.DropDown, Properties.LockDataChanged yapiyor
+            (cxLookupEdit.pas:309). Kilit ALINDIKTAN sonra dataset'i acip
+            kapamak degisikligin BASTIRILMASI demektir. Bu yuzden pull
+            inherited'dan ONCE.
+
+         3. Published OnInitPopup olayini KULLANMIYORUZ, cunku (a) o
+            kullanicinin olayidir, tuketmek DoEditValueChanged icin de
+            reddettigimiz sey (asagidaki nota bakin), (b) DoInitPopup onu
+            RepositoryItem varken IKI KEZ cagiriyor (:3150 ve :3152) -
+            acilis basina iki filtre sorgusu, sessizce. *)
+      procedure DoInitPopup; override;
     public
       destructor Destroy; override;
       (* Kaskadi ELLE tetikler. Gerekli, cunku DoEditValueChanged
@@ -496,6 +624,12 @@ type
          DataSet'ten doldurmak) hedefler HIC haber almazdi. Yukleme bittikten
          sonra bunu cagirin. *)
       procedure CascadeNow;
+      (* Pull'u ELLE tetikler; CascadeNow'in pull karsiligi. GEREKLI, cunku
+         TcxCustomDropDownEdit.DropDown "if not IsWindowVisible(Handle) then
+         Exit" ile BASLIYOR (cxDropDownEdit.pas:3252): GORUNMEYEN bir
+         pencerede DoInitPopup HIC calismaz. Bassiz bir sonda pull mantigini
+         ancak buradan olcebilir. AFilterOnPopup=False iken de tek giristir. *)
+      procedure FilterNow;
       class function GetPropertiesClass: TcxCustomEditPropertiesClass; override;
       property ActiveProperties: TRadLookupComboBoxProperties read GetActiveProperties;
       property Properties: TRadLookupComboBoxProperties read GetProperties write SetProperties;
@@ -641,11 +775,9 @@ type
     property AComponent2:TComponent index 2 read GetSlot write SetSlot;
     property AComponent3:TComponent index 3 read GetSlot write SetSlot;
     property AComponent4:TComponent index 4 read GetSlot write SetSlot;
-    /// <summary>Bkz. TRadLookupComboBoxProperties.CascadeField.</summary>
-    property CascadeField:string  read FStr write FStr;
-    /// <summary>Bkz. TRadLookupComboBoxProperties.CascadeTag.</summary>
-    property CascadeTag:Integer read FInt write FInt;
-    property OnCascade:TRadComboCascadeEvent read FCascadeEvent write FCascadeEvent;
+    property ACascadeField:string  read FStr write FStr;
+    property ACascadeTag:Integer read FInt write FInt;
+    property AOnCascade:TRadComboCascadeEvent read FCascadeEvent write FCascadeEvent;
 
     property AllowDropDownWhenReadOnly default True;
     property Buttons;
@@ -841,19 +973,43 @@ end;
 function TRadEditRepositoryItem.ChainWarning: string;
 var
   LFilled, LUsers: Integer;
+  LMaster: Boolean;
 begin
   Result := '';
   LFilled := 0;
+  LMaster := False;
   if Properties is TRadLookupComboBoxProperties then
-    LFilled := TRadLookupComboBoxProperties(Properties).ChainSlotCount
+  begin
+    LFilled := TRadLookupComboBoxProperties(Properties).ChainSlotCount;
+    LMaster := TRadLookupComboBoxProperties(Properties).HasMaster;
+  end
   else if Properties is TRadComboBoxProperties then
     LFilled := TRadComboBoxProperties(Properties).ChainSlotCount;
-  if LFilled = 0 then
+  if (LFilled = 0) and not LMaster then
     Exit;
 
   LUsers := ConsumerCount;
-  if LUsers > 1 then
+  if LUsers <= 1 then
+    Exit;
+
+  (* PULL yonu de push ile AYNI sekilde katlanir, ama duzeltmesi FARKLI
+     oldugu icin ayri bir mesaj: item'in KENDI Properties'inde bir AMaster
+     varsa, o item'i kullanan HER tuketici AYNI master'a bakar. "Her tuketici
+     kendi master'ini gorsun" istegi sessizce kaybolur. *)
+  if LMaster then
     Result := Format(
+      '%s: AMaster bu RepositoryItem''in KENDI Properties''inde kurulu, ama ' +
+      'item %d tuketici tarafindan paylasiliyor. Hepsi ayni master''in ' +
+      'degerine gore suzulur. Master''i her tuketicinin KENDI Properties''ine ' +
+      'tasiyin.',
+      [Name, LUsers]);
+
+  if LFilled = 0 then
+    Exit;
+  if Result <> '' then
+    Result := Result + sLineBreak;
+
+  Result := Result + Format(
       '%s: zincir bu RepositoryItem''in KENDI Properties''inde kurulu ' +
       '(%d hedef), ama item %d tuketici tarafindan paylasiliyor. Tuketiciler ' +
       'ayni Properties ornegini gorur, dolayisiyla hepsi ayni hedeflere haber ' +
@@ -1021,14 +1177,31 @@ begin
 end;
 
 procedure TRadComboBoxProperties.CascadeOne(ATarget: TComponent; const AValue: Variant);
+var
+  LTarget: TRadLookupComboBoxProperties;
 begin
-  FCascadeEvent(Self, FCascadeSource, ATarget, AValue);
+  (* Lookup ailesindekiyle AYNI gecersiz kilma. Eskiden yalnizca olay
+     cagriliyordu: bir combo'nun AComponent1'i bir lookup editorunu
+     gosteriyorsa, o hedefin cozulmus-anahtar ve metin onbellekleri HIC
+     bosaltilmiyordu - hedef, artik gecerli olmayan bir anahtari eski
+     metniyle gostermeye devam ediyordu.
+
+     AClearTargetsOnCascade karsiligi BILINCLI olarak yok: combo'nun degeri
+     bir yabanci anahtar degil, gosterilen metindir; "degerin artik gecersiz"
+     iddiasi orada cok daha zayif. *)
+  LTarget := TRadLookupComboBoxProperties.TargetProperties(ATarget);
+  if LTarget <> nil then
+    LTarget.ResetCaches;
+
+  if Assigned(FCascadeEvent) then
+    FCascadeEvent(Self, FCascadeSource, ATarget, AValue);
 end;
 
 procedure TRadComboBoxProperties.DoCascade(ASource: TComponent; const AValue: Variant);
 begin
-  { Tekrar-giris korumasi: bkz. TRadLookupComboBoxProperties.DoCascade. }
-  if FCascading or not Assigned(FCascadeEvent) then
+  { Tekrar-giris korumasi ve isleyici kapisinin NEDEN kalktigi:
+    bkz. TRadLookupComboBoxProperties.DoCascade. }
+  if FCascading or (FSlots.FilledCount = 0) then
     Exit;
   FCascading := True;
   FCascadeSource := ASource;
@@ -1190,7 +1363,7 @@ procedure TRadCustomLookupComboBox.RestartSearchTimer;
 var
   LDelay: Cardinal;
 begin
-  LDelay := ActiveProperties.SearchDelay;
+  LDelay := ActiveProperties.ASearchDelay;
   if LDelay = 0 then
     Exit;
   if FSearchTimer = nil then
@@ -1236,6 +1409,26 @@ begin
   ActiveProperties.DoCascade(Self, EditValue);
 end;
 
+procedure TRadCustomLookupComboBox.FilterNow;
+begin
+  if csDestroying in ComponentState then
+    Exit;
+  ActiveProperties.DoFilter(Self);
+end;
+
+procedure TRadCustomLookupComboBox.DoInitPopup;
+begin
+  { Tasarim zamaninda IDE icinde sorgu calistirmayiz - DoEditValueChanged ile
+    ayni gerekce. csLoading BILINCLI olarak listede yok: yukleme sirasinda
+    acilir liste zaten acilmaz.
+    ActiveProperties, Properties DEGIL: repository item uzerinden paylasilan
+    Properties kullaniliyorsa dogru ornek odur. }
+  if ActiveProperties.AFilterOnPopup and
+     ([csDestroying, csDesigning] * ComponentState = []) then
+    ActiveProperties.DoFilter(Self);
+  inherited DoInitPopup;
+end;
+
 procedure TRadCustomLookupComboBox.DoEditValueChanged;
 begin
   inherited DoEditValueChanged;
@@ -1278,12 +1471,34 @@ constructor TRadLookupComboBoxProperties.Create(AOwner: TPersistent);
 begin
   inherited Create(AOwner);
   FSlots := TRadEditSlots.Create(Self);
+  { Master AYRI tutucuda - gerekcesi FMasterSlot alaninin yaninda. }
+  FMasterSlot := TRadEditSlots.Create(Self);
+  FSearchDelay      := 500;
+  FMinSearchLength  := 3;
+  { default direktifi ile AYNI olmak zorunda. }
+  FFilterOnPopup    := True;
 end;
 
 destructor TRadLookupComboBoxProperties.Destroy;
 begin
+  FreeAndNil(FMasterSlot);
   FreeAndNil(FSlots);
   inherited Destroy;
+end;
+
+function TRadLookupComboBoxProperties.GetMaster: TComponent;
+begin
+  Result := FMasterSlot.Get(1);
+end;
+
+procedure TRadLookupComboBoxProperties.SetMaster(const AValue: TComponent);
+begin
+  FMasterSlot.Put(1, AValue);
+end;
+
+function TRadLookupComboBoxProperties.HasMaster: Boolean;
+begin
+  Result := FMasterSlot.Get(1) <> nil;
 end;
 
 function TRadLookupComboBoxProperties.GetSlot(AIndex: Integer): TComponent;
@@ -1331,14 +1546,24 @@ begin
      onbellegi ARTIK GECERSIZ. Temizlemezsek bastirilmis bir OnLocate yuzunden
      hedef, yeni listede bulunmayan eski bir anahtar icin bos metin gosterir.
      Hedef bizim ailemizden degilse yapacak bir sey yok. *)
+  (* PUSH ARTIK BIR GECERSIZ KILMA SINYALIDIR, FILTRE DEGIL.
+     "Degerim degisti, seninki artik gecersiz" - suzme isini hedefin KENDI
+     pull'u yapar (AOnFilter, acilir liste acilirken).
+
+     Push neden tamamen kaldirilmadi: saf pull, hedefin acilir listesi HIC
+     acilmazsa bayat degeri duzeltemez - hedef tutarsiz bir anahtari eski
+     metniyle gostermeye devam eder. Bu deligi ancak kaynaktan gonderilen bir
+     sinyal kapatir. *)
   LTarget := TargetProperties(ATarget);
   if LTarget <> nil then
-    LTarget.ResetLocateCache;
+    LTarget.ResetCaches;   { iki katman: kitin + DevExpress'in }
 
   if FClearTargets then
     ClearTarget(ATarget);
 
-  FCascadeEvent(Self, FCascadeSource, ATarget, AValue);
+  { Olay ARTIK KOSULLU: atanmamis olmasi NORMALDIR - pull dunyasinda kural. }
+  if Assigned(FCascadeEvent) then
+    FCascadeEvent(Self, FCascadeSource, ATarget, AValue);
 end;
 
 procedure TRadLookupComboBoxProperties.ClearTarget(ATarget: TComponent);
@@ -1347,6 +1572,110 @@ begin
      kolon duzeyinde "temizlemek" tum sutunu bozmak olurdu. *)
   if ATarget is TcxCustomEdit then
     TcxCustomEdit(ATarget).EditValue := Null;
+end;
+
+procedure TRadLookupComboBoxProperties.ResetDisplayCache;
+begin
+  (* DevExpress'in anahtar->metin onbellegi: FLookupList
+     (cxDBLookupEdit.pas:71). YALNIZCA GridMode=True iken vardir ve
+     GetDisplayLookupText'in GridMode dalinda hem OKUNUR hem YAZILIR
+     (:604-605 ve :621).
+
+     ! LISTE DATASET'INI KAPATIP ACMAK BU ONBELLEGI BOSALTMAZ. Tek bosaltan
+       CheckLookupList (:419-425). Yani pull listeyi yeni bir master
+       degeriyle yeniden yuklese bile, hedef ESKI metni gostermeye devam
+       ederdi - sessiz, hicbir uyari uretmeyen bir hata.
+
+     CheckLookupList protected ve virtual DEGIL; torun oldugumuz icin
+     dogrudan cagirabiliyoruz. RefreshNonShareable de ona ulasir ama ayrica
+     CheckLookup + CheckLookupColumn kosturur - gecersiz kilmanin ihtiyaci
+     olmayan is. GridMode=False iken FLookupList nil'dir ve cagri ucuz bir
+     islemsizliktir; DataController nil denetimi saticinin kendi govdesinde. *)
+  CheckLookupList;
+end;
+
+procedure TRadLookupComboBoxProperties.ResetCaches;
+begin
+  ResetLocateCache;    { kitin kendi FHasLastKey / FHasText onbellekleri }
+  ResetDisplayCache;   { DevExpress'in FLookupList'i }
+end;
+
+procedure TRadLookupComboBoxProperties.DoFilter(ASource: TComponent);
+var
+  LMaster: TComponent;
+  LValue: Variant;
+  LDS: TDataSet;
+begin
+  LMaster := FMasterSlot.Get(1);
+  if FFiltering or (LMaster = nil) or not Assigned(FFilterEvent) then
+    Exit;
+
+  (* Master'in degeri: help.Dev'deki _ValueOf HER IKI sekli de kabul eder -
+     editor ise EditValue, grid KOLONU ise ODAKLI kaydin degeri. Kolonda
+     odakli kayit yoksa Unassigned doner (Null DEGIL); isleyiciye oldugu gibi
+     geciyoruz, uydurma bir deger uretmiyoruz. *)
+  LValue := _ValueOf(LMaster);
+
+  { Isleyici liste dataset'ini kapatip acacak. Ayni dataset'i paylasan baska
+    bir editorun cizim yolundan yeniden girmesini kesen mevcut mekanizma bu -
+    bkz. DoSearch/DoLocate'teki ayni desen. }
+  LDS := ListDataSet;
+  if TRadBusyDataSets.IsBusy(LDS) then
+    Exit;
+
+  { Enter/try eslesmesi icin bkz. DoLocate'teki not. }
+  TRadBusyDataSets.Enter(LDS);
+  FFiltering := True;
+  try
+    FFilterEvent(Self, ASource, LMaster, LValue);
+  finally
+    FFiltering := False;
+    TRadBusyDataSets.Leave(LDS);
+  end;
+  { Liste yeni bir filtreyle acildi - IKI katman onbellek de bayat. }
+  ResetCaches;
+end;
+
+function TRadLookupComboBoxProperties.PullWarning: string;
+
+  procedure Ekle(const AText: string);
+  begin
+    if Result <> '' then
+      Result := Result + sLineBreak;
+    Result := Result + AText;
+  end;
+
+begin
+  Result := '';
+  if not HasMaster then
+    Exit;
+
+  if not Assigned(FFilterEvent) then
+    Ekle('AMaster atanmis ama AOnFilter yok: acilir liste hic suzulmez, ' +
+         'kaskad sessizce YOKTUR.');
+
+  if ListSource = nil then
+    Ekle('AMaster atanmis ama ListSource yok: pull suzecek bir dataset ' +
+         'bulamaz.');
+
+  (* Bu ucuncu madde en sinsisi ve OLCULMUS bir davranisa dayaniyor.
+     Pull, listeyi master'a gore SUZER. Saklanan anahtar o filtrenin disinda
+     kaldigi anda:
+       GridMode=False -> GetRecordIndexByKey -1 doner ve metin '' olur
+                         (cxDBLookupEdit.pas:626-632)
+       GridMode=True  -> ADataSet.Locate AYNI SUZULMUS dataset'e bakar,
+                         bulamaz, '' uretir ve bunu FLookupList'e YAPISTIRIR
+                         (:609-621) - yani GridMode acmak COZUM DEGIL, daha
+                         kotusu: bos cevap artik yapiskan.
+     Tek gercek cozum AOnLocate: uygulama O ANAHTARIN satirini sunucudan
+     ceker. Yan fayda: AOnLocate'in klasik kusuru (listeyi tek satira
+     daraltmak) pull altinda kayboluyor, cunku acilis her seferinde
+     AOnFilter ile listeyi yeniden genisletiyor. *)
+  if not Assigned(FLocateEvent) then
+    Ekle('AMaster atanmis ama AOnLocate yok: liste master''a gore ' +
+         'suzuldugu icin, suzulmus listede bulunmayan bir anahtarin metni ' +
+         'BOS gosterilir. GridMode=True bunu COZMEZ - Locate ayni suzulmus ' +
+         'dataset''e bakar ve bos cevabi onbellege yazar.');
 end;
 
 procedure TRadLookupComboBoxProperties.ResetLocateCache;
@@ -1426,18 +1755,31 @@ begin
   FSearchDelay := LSrc.FSearchDelay;
   FMinSearchLength := LSrc.FMinSearchLength;
   FClearTargets := LSrc.FClearTargets;
+  FFilterOnPopup := LSrc.FFilterOnPopup;
   FSlots.Assign(LSrc.FSlots);
+  FMasterSlot.Assign(LSrc.FMasterSlot);
   FSearchEvent := LSrc.FSearchEvent;
   FLocateEvent := LSrc.FLocateEvent;
   FCascadeEvent := LSrc.FCascadeEvent;
+  FFilterEvent := LSrc.FFilterEvent;
+  { FFiltering/FCascading KOPYALANMAZ - gecici durum. }
   { Kopya, kaynagin cozdugu anahtari devralmaz. }
-  ResetLocateCache;
+  ResetCaches;
 end;
 
 procedure TRadLookupComboBoxProperties.DoCascade(ASource: TComponent;
   const AValue: Variant);
 begin
-  if FCascading or not Assigned(FCascadeEvent) then
+  (* DEGISTI - eskiden "not Assigned(FCascadeEvent)" ile de cikiliyordu.
+     PULL dunyasinda uygulamalarin cogunda AOnCascade HIC ATANMAZ; eski kosul
+     GECERSIZ KILMA sinyalini de birlikte oldururdu: master degisir, hedefin
+     degeri ve onbellekleri oldugu gibi kalir, hedef yeni master'a ait olmayan
+     bir anahtari eski metniyle gostermeye devam ederdi. Ne derleyici ne test
+     yakalar; yalnizca tutarsiz kaydedilmis bir satir gorunur.
+
+     Cikis kosulu artik "yapacak is var mi": dolu hedef yoksa hicbir sey
+     yapmayiz. *)
+  if FCascading or (FSlots.FilledCount = 0) then
     Exit;
   FCascading := True;
   FCascadeSource := ASource;
@@ -1524,8 +1866,9 @@ begin
   finally
     TRadBusyDataSets.Leave(LDS);
   end;
-  { Arama listeyi degistirmis olabilir - onbellekteki anahtar artik gecersiz. }
-  ResetLocateCache;
+  { Arama listeyi degistirmis olabilir - onbellekteki anahtar artik gecersiz.
+    DevExpress'in FLookupList'i de ayni sekilde bayat (bkz. ResetDisplayCache). }
+  ResetCaches;
 end;
 
 function TRadLookupComboBoxProperties.GetDisplayLookupText(const AKey: TcxEditValue): string;
@@ -1557,7 +1900,7 @@ begin
   LProps := TRadLookupComboBoxProperties(Self.Properties);
   { SearchDelay > 0 ise aramanin sahibi kontroldeki geciktiricidir; burada
     tetiklemek geciktirmeyi anlamsiz kilardi. }
-  if LProps.SearchDelay = 0 then
+  if LProps.ASearchDelay = 0 then
     (* Kaynak BURADA var: lookup-data'nin Edit'i kendi Owner'idir
        (cxLookupEdit.pas, TcxCustomLookupEditLookupData.GetEdit). Ata sinifta
        protected; torun oldugumuz icin erisebiliyoruz. *)

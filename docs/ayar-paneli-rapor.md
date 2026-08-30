@@ -1,7 +1,13 @@
 # Ayar Paneli — yapılan iş (2026-08-30)
 
-Commit: **`f505989`** · Sonda: **52/52 yeşil, Win32 + Win64, sızıntı yok**
-Sen dışarıdayken yapıldı; push **edilmedi** (kural: AI commit'ler, push kullanıcının).
+Sonda: **71/71 yeşil, Win32 + Win64, sızıntı yok.**
+Push **edilmedi** (kural: AI commit'ler, push kullanıcının).
+
+**Sonradan eklenen iki düzeltme** — kullanım örneğini yazarken çıktılar:
+`ISetting` metotları `protected`ti, yani `FPanel.AddMenu(...)` **derlenmiyordu**;
+public yapıldı. Ve `Register` nesneyi sahiplendiği halde tipli referans
+dönmüyordu; `Instance(TSatisAyar)` eklendi. İkisi de sondaya bağlandı, sessizce
+geri gelemezler.
 
 ---
 
@@ -82,7 +88,18 @@ beklenen durum.
 
 ## Örnek kullanım
 
+> Aşağıdakinin tamamı `src/test/scratch/rad_setting` içinde **Test 14** olarak
+> birebir koşuyor — belge ile kodun sessizce ayrışmaması için.
+
+**1 · Ayar sınıfları (kendi biriminde)**
+
 ```pascal
+unit App.Ayarlar;
+
+interface
+
+uses k.setting;
+
 type
   TSatisAyar = class(TRadSetting)
   published
@@ -92,7 +109,23 @@ type
     property VadeAsimUyar : Boolean index 3 read GetB write SetB default True;
   end;
 
-  TFaturaAyar = class(TRadSetting)     // alt gruplar: iç içe published alanlar
+  TAlisAyar = class(TRadSetting)
+  published
+    property IskontoOrani : Double  index 0 read GetF write SetF;
+    property OtomatikOnay : Boolean index 1 read GetB write SetB default False;
+  end;
+
+  TGenelAyar = class(TRadSetting)
+  published
+    property SirketKodu     : string  index 0 read GetS write SetS;
+    property SirketAdi      : string  index 1 read GetS write SetS;
+    property ParaBirimi     : string  index 2 read GetS write SetS;
+    property OndalikBasamak : Integer index 3 read GetI write SetI default 2;
+  end;
+
+  // ALT GRUPLAR = iç içe published alanlar.
+  // TSynAutoCreateFields bunları kendisi yaratır, yok eder ve JSON'lar.
+  TFaturaAyar = class(TRadSetting)
   private
     FAlis  : TAlisAyar;
     FSatis : TSatisAyar;
@@ -101,21 +134,77 @@ type
     property Satis : TSatisAyar read FSatis;
   end;
 
-// kayıt
-frmSetting
-  .AddMenu('Fatura')
-    .AddSubMenu('Satis')
-      .Register(TSatisAyar)
-        .Title('Vade', 'Vade (gun)', 'Musteriye taninan odeme suresi')
-        .Repository('Depo', DM.riDepo)
-        .ReadOnly('KdvDahil');
-
-// veri
-frmSetting.LoadJson(DbdenGelenJson);
-...
-if frmSetting.Modified then
-  DbyeYaz(frmSetting.SaveJson);
+implementation
+end.
 ```
+
+`index` **zorunlu** ve sınıf içinde tek — yoksa `Register` istisna atar.
+`GetI/GetB/GetS/GetF/GetDt` hazır ortak erişimciler, hepsi depoya gider.
+
+**2 · Kayıt**
+
+```pascal
+FPanel := TfrmSetting.Create(Self);
+FPanel.Parent := Self;
+FPanel.Align  := alClient;
+
+FPanel
+  .AddMenu('Fatura')                              // NavBar GRUBU
+    .AddSubMenu('Satis')                          // NavBar ÖĞESİ
+      .Register(TSatisAyar)
+        .Title('Vade',         'Vade (gun)', 'Musteriye taninan odeme suresi')
+        .Title('KdvDahil',     'KDV dahil')
+        .Title('VadeAsimUyar', 'Vade asiminda uyar')
+        .Repository('Depo', dm.riDepo)            // DevExpress lookup
+    .AddSubMenu('Alis')
+      .Register(TAlisAyar)
+        .Title('IskontoOrani', 'Iskonto %')
+  .AddMenu('Genel')
+    .Register(TGenelAyar)
+      .Choices('ParaBirimi', ['TL', 'USD', 'EUR'])
+      .ReadOnly('SirketKodu');
+
+FPanel.LoadJson(DbdenAyarJsonuOku);
+```
+
+`Register` **her published property için satırı kendi kurar** — zincirde
+yalnızca varsayılandan farklı olanları söylersin. Hiç `Title` yazmasan da panel
+çalışır, başlıklar property adı olur.
+
+**3 · Koddan okuma/yazma (tipli)**
+
+```pascal
+var
+  LSatis: TSatisAyar;
+begin
+  // Register nesneyi kendi yaratıp sahiplenir; tipli referans buradan alınır.
+  // İç içe (alt kategori) sınıflar da bulunur.
+  LSatis := TSatisAyar(FPanel.Instance(TSatisAyar));
+
+  if LSatis.VadeAsimUyar and (GunSayisi > LSatis.Vade) then
+    Uyar;
+
+  LSatis.Depo := 'MERKEZ';   // depoya yazar, ızgara satırını da tazeler
+end;
+```
+
+**4 · Kaydetme**
+
+```pascal
+if FPanel.Modified then
+  DbyeYaz(FPanel.SaveJson);
+```
+
+Üretilen JSON gerçek ağaç (Test 14 çıktısından):
+
+```json
+{"fatura":{"satis":{"vade":75,"kdv_dahil":true,"depo":"ANKARA"},
+           "alis":{"otomatik_onay":true}},
+ "genel":{"para_birimi":"USD","ondalik_basamak":4}}
+```
+
+Anahtar `VadeAsimUyar` → `fatura.satis.vade_asim_uyar` — DFM'deki `lblID`
+örneğinin birebir aynısı.
 
 ---
 

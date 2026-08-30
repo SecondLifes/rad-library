@@ -15,6 +15,7 @@ uses
   System.Classes,
   Vcl.Forms,
   Vcl.Controls,
+  cxDropDownEdit,
   mormot.core.variants,
   k.setting in '..\..\..\share\k.setting.pas',
   SettingModel in 'SettingModel.pas';
@@ -300,7 +301,7 @@ begin
      .Register(TGenelAyar);
 
   LTum := S.ItemCount;
-  Ok('iki kategoriden 6 ayar', LTum = 6, IntToStr(LTum));
+  Ok('iki kategoriden 8 ayar', LTum = 8, IntToStr(LTum));
 
   LVade     := S.Search('vade');
   LKategori := S.Search('sirket');
@@ -308,7 +309,8 @@ begin
 
   Ok('"vade" 2 eslesme (Vade + VadeAsimUyar)', LVade = 2, IntToStr(LVade));
   // 'sirket' YALNIZCA Genel kategorisinde; arama kategori sinirini asmali
-  Ok('"sirket" farkli kategoride bulundu', LKategori = 1, IntToStr(LKategori));
+  Ok('"sirket" farkli kategoride bulundu (2 ayar)', LKategori = 2,
+     IntToStr(LKategori));
   Ok('eslesmeyen arama 0', LYok = 0, IntToStr(LYok));
   Ok('bos arama gezinmeye donuyor', S.Search('') = LTum, IntToStr(S.Search('')));
   Writeln;
@@ -386,6 +388,9 @@ begin
 end;
 
 procedure Test12_DogrudanCagri(AFrame: TfrmSetting);
+var
+  LIdx : Integer;
+  LIt  : TRadSettingItem;
 begin
   Writeln('12 - zincir cerceve degiskeni uzerinden DOGRUDAN cagrilabiliyor mu');
 
@@ -396,8 +401,14 @@ begin
           .Register(TGenelAyar)
             .Title('SirketAdi', 'Sirket adi');
 
-  Ok('dogrudan zincir calisti', AFrame.ItemCount = 2, IntToStr(AFrame.ItemCount));
-  Esit('baslik atandi', 'Sirket adi', AFrame.Item(0).Title);
+  Ok('dogrudan zincir calisti', AFrame.ItemCount = 4, IntToStr(AFrame.ItemCount));
+  // Konuma gore DEGIL ada gore ara: property eklenince Item(0) kayar.
+  LIt := nil;
+  for LIdx := 0 to AFrame.ItemCount - 1 do
+    if SameText(AFrame.Item(LIdx).Name, 'SirketAdi') then
+      LIt := AFrame.Item(LIdx);
+  Ok('SirketAdi bulundu', LIt <> nil);
+  Esit('baslik atandi', 'Sirket adi', LIt.Title);
   Writeln;
 end;
 
@@ -431,6 +442,66 @@ begin
   Ok('alt grup ayrimi korunuyor', S.Doc.B['fatura.alis.otomatik_onay'] = True);
 
   Ok('kayitli olmayan sinif nil doner', S.Instance(TGenelAyar) = nil);
+  Writeln;
+end;
+
+procedure Test14_BelgelenenOrnek(const S: ISetting);
+(* Belgelerde verilen zincirin BIREBIR kendisi. Ornekte gecen her property
+   gercekten var mi, her susleme metodu gercekten calisiyor mu - orneklerin
+   koddan ayrisip sessizce yanlislasmasini engellemek icin. *)
+var
+  LGenel : TGenelAyar;
+  LCombo : TcxComboBoxProperties;
+  LIdx   : Integer;
+  LIt    : TRadSettingItem;
+begin
+  Writeln('14 - belgelenen ornek zinciri birebir calisiyor mu');
+
+  S.Clear
+   .AddMenu('Fatura')
+     .AddSubMenu('Satis')
+       .Register(TSatisAyar)
+         .Title('Vade',         'Vade (gun)', 'Musteriye taninan odeme suresi')
+         .Title('KdvDahil',     'KDV dahil')
+         .Title('VadeAsimUyar', 'Vade asiminda uyar')
+     .AddSubMenu('Alis')
+       .Register(TAlisAyar)
+         .Title('IskontoOrani', 'Iskonto %')
+   .AddMenu('Genel')
+     .Register(TGenelAyar)
+       .Choices('ParaBirimi', ['TL', 'USD', 'EUR'])
+       .ReadOnly('SirketKodu');
+
+  Ok('zincir bastan sona calisti', S.Warnings = '', S.Warnings);
+  Ok('toplam 4+2+4 = 10 ayar', S.ItemCount = 10, IntToStr(S.ItemCount));
+
+  LIt := nil;
+  for LIdx := 0 to S.ItemCount - 1 do
+    if SameText(S.Item(LIdx).Name, 'ParaBirimi') then
+      LIt := S.Item(LIdx);
+  Ok('ParaBirimi satiri var', LIt <> nil);
+  Ok('Choices combo kurdu',
+     LIt.Row.Properties.EditProperties is TcxComboBoxProperties);
+  LCombo := LIt.Row.Properties.EditProperties as TcxComboBoxProperties;
+  Ok('3 secenek', LCombo.Items.Count = 3, IntToStr(LCombo.Items.Count));
+  Esit('ilk secenek', 'TL', LCombo.Items[0]);
+
+  LIt := nil;
+  for LIdx := 0 to S.ItemCount - 1 do
+    if SameText(S.Item(LIdx).Name, 'SirketKodu') then
+      LIt := S.Item(LIdx);
+  Ok('ReadOnly satiri kapatti',
+     (LIt <> nil) and (not LIt.Row.Properties.Options.Editing));
+
+  LGenel := TGenelAyar(S.Instance(TGenelAyar));
+  Ok('Instance TGenelAyar dondu', LGenel is TGenelAyar);
+  LGenel.ParaBirimi := 'USD';
+  Esit('tipli yazma depoya gitti', 'USD', S.Doc.S['genel.para_birimi']);
+  LGenel.OndalikBasamak := 4;
+  Ok('integer erisimci', S.Doc.I['genel.ondalik_basamak'] = 4,
+     VarToStr(S.Doc.I['genel.ondalik_basamak']));
+
+  Writeln('       ', S.SaveJson);
   Writeln;
 end;
 
@@ -468,6 +539,7 @@ begin
       Test11_ErisimciKopruleri(LSet);
       Test12_DogrudanCagri(LFrame);
       Test13_Instance(LSet);
+      Test14_BelgelenenOrnek(LSet);
 
       LSet := nil;
     finally

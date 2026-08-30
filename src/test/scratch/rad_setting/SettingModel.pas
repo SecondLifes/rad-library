@@ -42,8 +42,10 @@ type
   /// Duz kategori, ic ice yok.
   TGenelAyar = class(TRadSetting)
   published
-    property SirketAdi   : string  index 0 read GetS write SetS;
-    property OndalikBasamak : Integer index 1 read GetI write SetI default 2;
+    property SirketKodu     : string  index 0 read GetS write SetS;
+    property SirketAdi      : string  index 1 read GetS write SetS;
+    property ParaBirimi     : string  index 2 read GetS write SetS;
+    property OndalikBasamak : Integer index 3 read GetI write SetI default 2;
   end;
 
   // ---- kasitli hatali siniflar (savunma testleri icin) --------------------

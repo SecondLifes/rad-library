@@ -1,7 +1,7 @@
 Embarcadero Delphi for Win32 compiler version 37.0
 Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
 E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pas(107) Warning: W1055 PUBLISHED caused RTTI ($M+) to be added to type 'TRadConfig'
-158579 lines, 0.64 seconds, 13887276 bytes code, 326508 bytes data.
+158653 lines, 0.64 seconds, 13890136 bytes code, 326500 bytes data.
 === k.setting sondasi ===
 
 01 - anahtar uretimi (PascalCase -> snake_case)
@@ -63,9 +63,9 @@ E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pa
   [OK]   ReadOnly satiri duzenlemeye kapatti
 
 09 - arama (kategoriler ARASINDA)
-  [OK]   iki kategoriden 6 ayar
+  [OK]   iki kategoriden 8 ayar
   [OK]   "vade" 2 eslesme (Vade + VadeAsimUyar)
-  [OK]   "sirket" farkli kategoride bulundu
+  [OK]   "sirket" farkli kategoride bulundu (2 ayar)
   [OK]   eslesmeyen arama 0
   [OK]   bos arama gezinmeye donuyor
 
@@ -87,6 +87,7 @@ E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pa
 
 12 - zincir cerceve degiskeni uzerinden DOGRUDAN cagrilabiliyor mu
   [OK]   dogrudan zincir calisti
+  [OK]   SirketAdi bulundu
   [OK]   baslik atandi
 
 13 - Instance: kaydedilen nesneye tipli erisim
@@ -97,5 +98,18 @@ E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pa
   [OK]   alt grup ayrimi korunuyor
   [OK]   kayitli olmayan sinif nil doner
 
+14 - belgelenen ornek zinciri birebir calisiyor mu
+  [OK]   zincir bastan sona calisti
+  [OK]   toplam 4+2+4 = 10 ayar
+  [OK]   ParaBirimi satiri var
+  [OK]   Choices combo kurdu
+  [OK]   3 secenek
+  [OK]   ilk secenek
+  [OK]   ReadOnly satiri kapatti
+  [OK]   Instance TGenelAyar dondu
+  [OK]   tipli yazma depoya gitti
+  [OK]   integer erisimci
+       {"fatura":{"satis":{"vade":75,"kdv_dahil":true,"gelecek_surum_ayari":"korunmali","depo":"ANKARA"},"alis":{"otomatik_onay":true}},"genel":{"para_birimi":"USD","ondalik_basamak":4}}
+
 =========================================
-GECTI: 60    KALDI: 0
+GECTI: 71    KALDI: 0

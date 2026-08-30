@@ -55,6 +55,17 @@ that break something else in the kit.
 
 ### Changed
 
+- `src/core/rad.core.pas` - `TAbstractLockable` routes every lock method through
+  a now-**virtual** `GetSafe`, so a descendant that shares another object's data
+  can redirect to that object's lock. Without it, an object holding a view over
+  another object's structure would guard that structure with a second, private
+  lock - two locks, one structure, and writers that never see each other.
+  Classes that do not share data are unaffected.
+- `src/core/help.mormot.pas` - the flatten failure is `EMormotFlatten`, not the
+  shorter `EJsonFlatten`. The short name collided with an identically named
+  exception in another unit, so `on E: EJsonFlatten` in any unit that used both
+  resolved by `uses` order - silently, with no diagnostic.
+
 - `src/core/rad.config.pas` — encryption now has three modes, chosen with a new
   `TRadCryptMode` constructor argument. `rcmFile` (the default) wraps the whole
   document; **`rcmSection` encrypts only sections whose new virtual
@@ -105,6 +116,12 @@ that break something else in the kit.
 
 ### Removed
 
+- `src/rad.json.pas` - the JSON abstraction layer is withdrawn. It was an
+  interface tree (`IJson`/`IJsonArray`) with a runtime provider-registration
+  mechanism over a single implementation, and the abstraction earned nothing:
+  there was never a second provider, while a caller who forgot the provider
+  unit still compiled and failed only at runtime. `rad.config` now uses
+  mORMot's `IDocDict` directly.
 - `src/core/rad.cache - Kopya.pas` — an 829-line stray copy of
   `src/core/rad.cache.pas` sitting in the same folder. Two units declaring the
   same symbols in one compilation shadow each other by `uses` order, which is

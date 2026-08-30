@@ -58,6 +58,24 @@ modules/
 Thumbs.db
 .DS_Store
 
+# --- Scratch test ciktilari ---
+# src/test/scratch/* altindaki sondalarin KAYNAKLARI (.dpr, .bat) commit edilir;
+# calistiklarinda urettikleri her sey edilmez. Bunlar olcum kalintisi: her kosuda
+# degisirler ve diff'i kirletip gercek degisikligi gizlerler.
+src/test/scratch/*/bin/
+src/test/scratch/*/bin64/
+src/test/scratch/**/test_log.txt
+src/test/scratch/**/build_log.txt
+*.rsm
+
+# Delphi IDE'nin proje basina yazdigi yerel derleyici secenekleri - makineye ozgu.
+*.optset
+
+# rad.cache / rad.config testleri calisirken birim dosyalarinin yanina yazilir.
+# Kaynak degil, cikti.
+src/core/Cache.json
+src/core/Config.json
+
 # --- Local dev convenience scripts (not part of the published kit) ---
 update.bat
 analysis/
@@ -71,3 +89,8 @@ analysis/
 # full second copy of every skill, which is exactly the duplicate source of
 # truth this whole scheme exists to prevent.
 .claude/skills/
+
+# MCP sunucu ayarı — MAKİNEYE ÖZGÜ mutlak yol içerir (code-intel kitinin
+# konumu her makinede farklı). Commit edilirse başka bir klonda yanlış yola
+# işaret eder ve sunucu sessizce başlamaz.
+.mcp.json

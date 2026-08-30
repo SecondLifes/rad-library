@@ -60,6 +60,10 @@ begin
 end;
 
 type
+  { GetDisplayLookupText protected; kitin kendi erisim-sinifi deseni
+    (bkz. RuntimeTest.dpr TEditAccess). }
+  TPropsAccess = class(TRadLookupComboBoxProperties);
+
   TIzleyici = class
   public
     Sayac: Integer;
@@ -67,9 +71,16 @@ type
     SonMaster: TComponent;
     SonDeger: Variant;
     Yineleyen: TRadLookupComboBox;
+    Patlat: Boolean;              { isleyici istisna atsin mi }
+    LocateSayaci: Integer;
+    AramaSayaci: Integer;
     procedure Filtre(Sender: TRadLookupComboBoxProperties;
       ASource, AMaster: TComponent; const AMasterValue: Variant);
     procedure Sifirla;
+    procedure Arama(Sender: TRadLookupComboBoxProperties;
+      ASource: TComponent; var AText, ATail: string; ANext: Boolean);
+    procedure Locate(Sender: TRadLookupComboBoxProperties;
+      ASource: TComponent; const AKey: Variant);
   end;
 
 procedure TIzleyici.Sifirla;
@@ -78,6 +89,20 @@ begin
   SonSource := nil;
   SonMaster := nil;
   SonDeger := Unassigned;
+end;
+
+procedure TIzleyici.Arama(Sender: TRadLookupComboBoxProperties;
+  ASource: TComponent; var AText, ATail: string; ANext: Boolean);
+begin
+  Inc(AramaSayaci);
+  if Patlat then
+    raise Exception.Create('sonda: arama isleyicisi bilerek patladi');
+end;
+
+procedure TIzleyici.Locate(Sender: TRadLookupComboBoxProperties;
+  ASource: TComponent; const AKey: Variant);
+begin
+  Inc(LocateSayaci);
 end;
 
 procedure TIzleyici.Filtre(Sender: TRadLookupComboBoxProperties;
@@ -90,6 +115,8 @@ begin
   { T03: yeniden giris korumasi calismazsa burasi yigin tukenene kadar doner. }
   if Yineleyen <> nil then
     Yineleyen.FilterNow;
+  if Patlat then
+    raise Exception.Create('sonda: filtre isleyicisi bilerek patladi');
 end;
 
 var
@@ -104,6 +131,7 @@ var
   LView: TcxGridTableView;
   LCol, LCol2: TcxGridColumn;
   LItem: TRadLookupComboBoxRepository;
+  LSlots: TRadEditSlots;
   LVT: TVirtualTable;
   LDs: TDataSource;
   LUlkeOto, LSehirOto: TRadLookupComboBox;
@@ -456,6 +484,101 @@ begin
       end;
       Kontrol('afParam, parametresiz bir dataset''te ERadDev atiyor',
         LHata = 'ERadDev', 'atilan: ' + LHata + ' (TVirtualTable parametre almaz)');
+      Writeln;
+      Writeln('=== T19) Isleyici patlarsa dataset busy KALMIYOR (RADDEV-003) ===');
+      LSehirOto.Properties.AAutoFilter := afNone;
+      LSehirOto.Properties.AOnFilter := LIzle.Filtre;
+      LIzle.Patlat := True;
+      LHata := '';
+      try
+        LSehirOto.FilterNow;
+      except
+        on E: Exception do LHata := E.Message;
+      end;
+      LIzle.Patlat := False;
+      Kontrol('isleyicinin istisnasi disari cikiyor (yutulmuyor)',
+        Pos('bilerek patladi', LHata) > 0, 'mesaj: ' + LHata);
+      Kontrol('dataset busy BIRAKILMADI',
+        not TRadBusyDataSets.IsBusy(LVT),
+        'busy kalsaydi sonraki her filtre sessizce atlanirdi');
+      LIzle.Sifirla;
+      LSehirOto.FilterNow;
+      Kontrol('sonraki filtre yine calisiyor', LIzle.Sayac = 1,
+        Format('olay sayisi: %d', [LIzle.Sayac]));
+
+      Writeln;
+      Writeln('=== T20) Arama patlarsa onbellek YINE de sifirlaniyor (RADDEV-004) ===');
+      LSehirOto.Properties.AOnFilter := nil;
+      LSehirOto.Properties.AOnLocate := LIzle.Locate;
+      LSehirOto.Properties.AOnSearch := LIzle.Arama;
+      LSehirOto.Properties.AMinSearchLength := 0;
+      LIzle.LocateSayaci := 0;
+      { 1) anahtari cozdur -> onbellek dolar }
+      TPropsAccess(LSehirOto.Properties).GetDisplayLookupText(10);
+      Kontrol('ilk cozumleme AOnLocate tetikliyor',
+        LIzle.LocateSayaci = 1, Format('LocateSayaci = %d', [LIzle.LocateSayaci]));
+      TPropsAccess(LSehirOto.Properties).GetDisplayLookupText(10);
+      Kontrol('ayni anahtar ikinci kez onbellekten geliyor',
+        LIzle.LocateSayaci = 1, Format('LocateSayaci = %d (hala 1 olmali)',
+          [LIzle.LocateSayaci]));
+      { 2) arama isleyicisi PATLASIN - liste degismis olabilir }
+      LIzle.Patlat := True;
+      LHata := '';
+      try
+        LSehirOto.Properties.TimedSearch(LSehirOto, 'ist');
+      except
+        on E: Exception do LHata := E.Message;
+      end;
+      LIzle.Patlat := False;
+      Kontrol('arama istisnasi disari cikiyor',
+        Pos('bilerek patladi', LHata) > 0, 'mesaj: ' + LHata);
+      Kontrol('arama dataset i busy birakmadi',
+        not TRadBusyDataSets.IsBusy(LVT));
+      { 3) onbellek sifirlanmis olmali -> AOnLocate YENIDEN tetiklenmeli }
+      TPropsAccess(LSehirOto.Properties).GetDisplayLookupText(10);
+      Kontrol('istisnaya ragmen onbellek sifirlandi (AOnLocate yeniden kosuyor)',
+        LIzle.LocateSayaci = 2,
+        Format('LocateSayaci = %d (2 bekleniyor; 1 kalirsa onbellek BAYAT)',
+          [LIzle.LocateSayaci]));
+
+      Writeln;
+      Writeln('=== T18) TRadEditSlots sinir denetimi (RADDEV-006) ===');
+      (* Paket {$RANGECHECKS OFF} ile derleniyor (RadKon.dpk:17), yani
+         derleyici korumasina guvenilemez: FItems[0] ya da FItems[5] sessizce
+         dizi disini okur/yazar. Sinif public oldugu icin bu erisim disaridan
+         mumkun. *)
+      LSlots := TRadEditSlots.Create(nil);
+      try
+        LHata := '';
+        try
+          LSlots.Get(0);
+        except
+          on E: Exception do LHata := E.ClassName;
+        end;
+        Kontrol('Get(0) reddediliyor', LHata = 'ERadDev',
+          'atilan: ' + LHata + ' (sessiz kalirsa dizi disi okuma)');
+
+        LHata := '';
+        try
+          LSlots.Put(TRadEditSlots.CCount + 1, LBagimli);
+        except
+          on E: Exception do LHata := E.ClassName;
+        end;
+        Kontrol('Put(CCount+1) reddediliyor', LHata = 'ERadDev',
+          'atilan: ' + LHata + ' (sessiz kalirsa dizi disi YAZMA)');
+
+        LHata := '';
+        try
+          LSlots.Put(1, LBagimli);
+          LSlots.Get(TRadEditSlots.CCount);
+        except
+          on E: Exception do LHata := E.ClassName;
+        end;
+        Kontrol('gecerli aralik (1..CCount) etkilenmedi', LHata = '',
+          'atilan: ' + LHata);
+      finally
+        LSlots.Free;
+      end;
     finally
       LIzle.Free;
       LForm.Free;

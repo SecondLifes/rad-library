@@ -295,6 +295,7 @@ type
     function  GetNotificator: TcxFreeNotificator;
     procedure SlotFreeNotification(Sender: TComponent);
     function  Contains(AComponent: TComponent): Boolean;
+    procedure CheckIndex(AIndex: Integer);
   public
     constructor Create(AMaster: TObject);
     destructor Destroy; override;
@@ -373,8 +374,11 @@ type
        AMaster: AMaster property'sine atanmis bilesen - bir editor ya da bir
          grid KOLONU.
        AMasterValue: _ValueOf(AMaster). Kolonda ODAKLI kaydin degeridir;
-         odakli kayit yoksa Unassigned gelir - Null DEGIL. Isleyici hem
-         VarIsNull hem VarIsEmpty durumunu gozetmelidir.
+         odakli kayit yoksa NULL gelir (help.Dev.pas:367 - _ValueOf
+         Result'i Null ile baslatir; bu yorum eskiden yanlislikla
+         "Unassigned" diyordu). Isleyici yine de hem VarIsNull hem
+         VarIsEmpty gozetmelidir: master bir EDITOR ise EditValue
+         atanmamis/Unassigned olabilir.
 
        Sender NEDEN AYIRT ETMEZ: AOnCascade'dekiyle ayni gerekce - bir
        RepositoryItem'a bagli tum tuketiciler AYNI Properties ORNEGINI
@@ -1077,8 +1081,23 @@ end;
 
 destructor TRadEditRepositoryItem.Destroy;
 begin
-  FConsumers.Free;
+  (* SIRA HAYATI ONEM TASIYOR - RADDEV-001.
+
+     inherited Destroy, bagli listener'lari kaldirirken RemoveNotification'i
+     calistirir (cxEdit.pas:6745-6755) ve orada RemoveListener SANALDIR
+     (cxEdit.pas:260). Cagri bizim override'imiza duser, o da FConsumers'a
+     dokunur. Listeyi ONCE serbest biraksaydik - eskiden oyleydi - serbest
+     birakilmis bir TList uzerinde Remove cagrilirdi.
+
+     OLCULDU, tahmin degil: eski sirayla, uc tuketici bagliyken Free ->
+     EAccessViolation (DestructorTest T02). Bu, "bellek yoneticisi blogu
+     henuz geri vermediyse sessizce calisabilir" turunden bir tuzak degil;
+     bu makinede her seferinde coktu.
+
+     Tetikleyici siradan: tasarimcida bir RepositoryItem'i hala kullanan
+     kolonlar/editorler varken silmek. *)
   inherited Destroy;
+  FreeAndNil(FConsumers);
 end;
 
 procedure TRadEditRepositoryItem.AddListener(AListener: IcxEditRepositoryItemListener);
@@ -1087,18 +1106,23 @@ begin
   { Isaretci olarak saklaniyor: tuketiciler TComponent tabanli, referans
     sayimi yok; arayuz referansi tutmak yasam suresini uzatmaz ama gereksiz
     yere kilitler. }
-  if FConsumers.IndexOf(Pointer(AListener)) < 0 then
+  if (FConsumers <> nil) and (FConsumers.IndexOf(Pointer(AListener)) < 0) then
     FConsumers.Add(Pointer(AListener));
 end;
 
 procedure TRadEditRepositoryItem.RemoveListener(AListener: IcxEditRepositoryItemListener);
 begin
-  FConsumers.Remove(Pointer(AListener));
+  { Destroy'dan SONRA gelen bir cagriya karsi: liste orada nil'lenir. }
+  if FConsumers <> nil then
+    FConsumers.Remove(Pointer(AListener));
   inherited RemoveListener(AListener);
 end;
 
 function TRadEditRepositoryItem.ConsumerCount: Integer;
 begin
+  { Destroy sonrasi cagri: liste nil'lenmis olur (bkz. Destroy'daki not). }
+  if FConsumers = nil then
+    Exit(0);
   Result := FConsumers.Count;
 end;
 
@@ -1108,7 +1132,7 @@ var
   LObj: TObject;
 begin
   Result := nil;
-  if (AIndex < 0) or (AIndex >= FConsumers.Count) then
+  if (FConsumers = nil) or (AIndex < 0) or (AIndex >= FConsumers.Count) then
     Exit;
   LIntf := IcxEditRepositoryItemListener(FConsumers[AIndex]);
   LObj := LIntf as TObject;
@@ -1201,8 +1225,24 @@ begin
       FItems[i] := nil;
 end;
 
+procedure TRadEditSlots.CheckIndex(AIndex: Integer);
+begin
+  (* RADDEV-006. Derleyici korumasina GUVENILEMEZ: paket
+     {$RANGECHECKS OFF} ile derleniyor (RadKon.dpk:17) ve bu sinif public,
+     yani Get/Put disaridan cagrilabilir. Denetimsiz haliyle Get(0) dizi disi
+     OKUMA, Put(5, X) dizi disi YAZMA yapiyordu - ikisi de sessizce
+     (PullTest T18, duzeltmeden once olculdu). *)
+  if (AIndex < Low(FItems)) or (AIndex > High(FItems)) then
+    raise ERadDev.CreateFmt(
+      'Yuva indeksi %d gecersiz; gecerli aralik %d..%d. Bu sinif ' +
+      '{$RANGECHECKS OFF} ile derlenen bir pakette yer aldigi icin denetim ' +
+      'elle yapiliyor - aksi halde dizi disi erisim sessiz kalirdi.',
+      [AIndex, Low(FItems), High(FItems)]);
+end;
+
 function TRadEditSlots.Get(AIndex: Integer): TComponent;
 begin
+  CheckIndex(AIndex);
   Result := FItems[AIndex];
 end;
 
@@ -1220,6 +1260,7 @@ procedure TRadEditSlots.Put(AIndex: Integer; const AValue: TComponent);
 var
   LOld: TComponent;
 begin
+  CheckIndex(AIndex);
   LOld := FItems[AIndex];
   if LOld = AValue then
     Exit;
@@ -1854,8 +1895,9 @@ begin
 
   (* Master'in degeri: help.Dev'deki _ValueOf HER IKI sekli de kabul eder -
      editor ise EditValue, grid KOLONU ise ODAKLI kaydin degeri. Kolonda
-     odakli kayit yoksa Unassigned doner (Null DEGIL); isleyiciye oldugu gibi
-     geciyoruz, uydurma bir deger uretmiyoruz. *)
+     odakli kayit yoksa NULL doner (help.Dev.pas:367; bu yorum eskiden
+     yanlislikla "Unassigned" diyordu). Isleyiciye oldugu gibi geciyoruz,
+     uydurma bir deger uretmiyoruz. *)
   LValue := _ValueOf(LMaster);
 
   { Isleyici liste dataset'ini kapatip acacak. Ayni dataset'i paylasan baska
@@ -1880,13 +1922,17 @@ begin
     if Assigned(FFilterEvent) then
       FFilterEvent(Self, ASource, LMaster, LValue);
   finally
-    FFiltering := False;
-    (* ONBELLEKLER ISTISNA HALINDE DE BOSALTILIR. Isleyici dataset'i acmis ve
-       yolun ortasinda patlamis olabilir: liste ARTIK DEGISMISTIR, dolayisiyla
-       onbellek bayattir. Bunu try'in disinda birakmak, istisna sonrasi
-       editorun eski metni gostermeye devam etmesi demekti. *)
-    ResetCaches;
-    TRadBusyDataSets.Leave(LDS);
+    try
+      FFiltering := False;
+      (* ONBELLEKLER ISTISNA HALINDE DE BOSALTILIR. Isleyici dataset'i acmis
+         ve yolun ortasinda patlamis olabilir: liste ARTIK DEGISMISTIR,
+         dolayisiyla onbellek bayattir. *)
+      ResetCaches;
+    finally
+      (* RADDEV-003: Leave AYRI finally'de - ResetCaches patlarsa dataset
+         KALICI busy kalirdi ve sonraki her filtre sessizce atlanirdi. *)
+      TRadBusyDataSets.Leave(LDS);
+    end;
   end;
 end;
 
@@ -2124,18 +2170,30 @@ begin
   { Enter/try eslesmesi icin bkz. DoLocate'teki not. }
   TRadBusyDataSets.Enter(LDS);
   try
-    LockUpdate(True);
     try
-      FSearchEvent(Self, ASource, AText, ATail, ANext);
+      LockUpdate(True);
+      try
+        FSearchEvent(Self, ASource, AText, ATail, ANext);
+      finally
+        LockUpdate(False);
+      end;
     finally
-      LockUpdate(False);
+      (* RADDEV-004: ISTISNA HALINDE DE bosaltilir. Arama isleyicisi
+         dataset'i yeniden acmis ve yolun ortasinda patlamis olabilir - liste
+         DEGISMISTIR, dolayisiyla hem bizim cozulmus-anahtar onbellegimiz hem
+         DevExpress'in FLookupList'i bayattir. Eskiden bu satir try'in
+         DISINDAYDI: olculdu, patlayan bir aramadan sonra ayni anahtar
+         onbellekten geliyor ve AOnLocate bir daha kosmuyordu
+         (PullTest T20, duzeltmeden once). *)
+      ResetCaches;
     end;
   finally
+    (* RADDEV-003: Leave AYRI ve EN DIS finally'de. ResetCaches'in kendisi
+       patlarsa (CheckLookupList vendor koduna giriyor) Leave atlanirdi ve
+       dataset KALICI busy gorunurdu - sonraki her arama/filtre sessizce
+       atlanirdi. *)
     TRadBusyDataSets.Leave(LDS);
   end;
-  { Arama listeyi degistirmis olabilir - onbellekteki anahtar artik gecersiz.
-    DevExpress'in FLookupList'i de ayni sekilde bayat (bkz. ResetDisplayCache). }
-  ResetCaches;
 end;
 
 function TRadLookupComboBoxProperties.GetDisplayLookupText(const AKey: TcxEditValue): string;

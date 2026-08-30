@@ -149,6 +149,8 @@ var
   LCol, LCol2: TcxGridColumn;
   LItem: TRadLookupComboBoxRepository;
   LSlots: TRadEditSlots;
+  LPayItem: TRadLookupComboBoxRepository;
+  LPayEd1, LPayEd2: TRadLookupComboBox;
   LBuyukVT: TVirtualTable;
   LBuyukDs: TDataSource;
   LBuyukEd, LBuyukUsta: TRadLookupComboBox;
@@ -664,6 +666,42 @@ begin
       Kontrol('AOnCascade ataninca combo uyarisi susuyor',
         LCombo.Properties.CascadeWarning = '',
         'uyari: ' + LCombo.Properties.CascadeWarning);
+
+      Writeln;
+      Writeln('=== T25) Paylasilan item te onbellek KAPALI (RADDEV-002) ===');
+      (* Kitin kendi deseni (LiveLookupTest M5): TEK isleyici, PAYLASILAN
+         item, tuketici-basina TUR. O desende ayni sayisal anahtar iki
+         tuketici icin FARKLI satiri gosterir - ama cozulmus-anahtar
+         onbellegi PAYLASILAN Properties te durur. Onbellek acik kalirsa
+         ikinci tuketicinin OnLocate i bastirilir ve birincinin metni
+         yeniden kullanilir. *)
+      LPayItem := TRadLookupComboBoxRepository.Create(LForm);
+      LPayItem.Name := 'PaylasilanLookup';
+      LPayItem.Properties.AOnLocate := LIzle.Locate;
+      LPayEd1 := YeniEditor('PayEd1');
+      LPayEd1.RepositoryItem := LPayItem;
+
+      { TEK tuketici: onbellek ACIK olmali }
+      LIzle.LocateSayaci := 0;
+      TPropsAccess(LPayItem.Properties).GetDisplayLookupText(7);
+      TPropsAccess(LPayItem.Properties).GetDisplayLookupText(7);
+      Kontrol('tek tuketicide onbellek calisiyor (1 cagri)',
+        LIzle.LocateSayaci = 1,
+        Format('LocateSayaci = %d', [LIzle.LocateSayaci]));
+
+      { IKINCI tuketici baglaninca onbellek KAPANMALI }
+      LPayEd2 := YeniEditor('PayEd2');
+      LPayEd2.RepositoryItem := LPayItem;
+      Kontrol('item iki tuketici tarafindan paylasiliyor',
+        LPayItem.ConsumerCount = 2,
+        Format('ConsumerCount = %d', [LPayItem.ConsumerCount]));
+      LIzle.LocateSayaci := 0;
+      TPropsAccess(LPayItem.Properties).GetDisplayLookupText(8);
+      TPropsAccess(LPayItem.Properties).GetDisplayLookupText(8);
+      Kontrol('paylasilan item te onbellek DEVRE DISI (2 cagri)',
+        LIzle.LocateSayaci = 2,
+        Format('LocateSayaci = %d (1 kalirsa ikinci tuketici birincinin ' +
+               'cozumunu goruyor demektir)', [LIzle.LocateSayaci]));
 
       Writeln;
       Writeln('=== T18) TRadEditSlots sinir denetimi (RADDEV-006) ===');

@@ -521,6 +521,7 @@ type
       FAutoFilter: TRadAutoFilter;
       procedure ApplyAutoFilter(ADataSet: TDataSet; const AValue: Variant;
         AOpen: Boolean);
+      function  CacheAllowed: Boolean;
       function  GetMaster: TComponent;
       procedure SetMaster(const AValue: TComponent);
       function  GetSlot(AIndex: Integer): TComponent;
@@ -1898,6 +1899,34 @@ begin
     TcxCustomEdit(ATarget).EditValue := Null;
 end;
 
+function TRadLookupComboBoxProperties.CacheAllowed: Boolean;
+var
+  LOwner: TComponent;
+begin
+  (* RADDEV-002. Cozulmus-anahtar ve metin onbellekleri Properties'te durur,
+     yani bir RepositoryItem'a bagli TUM tuketiciler tarafindan PAYLASILIR.
+
+     Kitin kendi deseni (LiveLookupTest M5) tam da bunu yapiyor: tek isleyici,
+     paylasilan item, tuketici-basina TUR - isleyici ASource'un KENDI
+     Properties'inden turu okuyup AYNI dataset'ten FARKLI satirlari cekiyor.
+     O durumda ayni sayisal anahtar iki tuketici icin farkli kaydi gosterir;
+     onbellek acik kalirsa ikinci tuketicinin OnLocate'i BASTIRILIR ve
+     birincinin metni yeniden kullanilir. Sessiz, yanlis metin.
+
+     Cizim yolunda tuketici KIMLIGI YOKTUR (GetDisplayLookupText -> DoLocate
+     ASource olarak nil alir), dolayisiyla onbellegi tuketici basina ayirmak
+     MUMKUN DEGIL. Yapilabilecek dogru sey, belirsizligin var oldugu TEK
+     durumda onbellegi kapatmak: Properties paylasilan bir item'a ait VE
+     birden fazla tuketicisi var.
+
+     Bedeli dar: tek tuketicili item'lar ve editorun/kolonun KENDI
+     Properties'i etkilenmez, yani cizim yolundaki 50-satir-1-sorgu kazanci
+     yaygin durumda korunur. *)
+  LOwner := GetOwnerComponent(Self);
+  Result := not ((LOwner is TRadEditRepositoryItem) and
+                 (TRadEditRepositoryItem(LOwner).ConsumerCount > 1));
+end;
+
 procedure TRadLookupComboBoxProperties.ResetDisplayCache;
 begin
   (* DevExpress'in anahtar->metin onbellegi: FLookupList
@@ -2216,7 +2245,7 @@ begin
      ResetLocateCache'i kendisi cagirmalidir. *)
   { Kisa devre yalnizca METIN onbellegi doluysa - olay bastirma bayragi
     tek basina metin oldugu anlamina GELMEZ. }
-  if FHasText and VarSameValue(FTextKey, AEditValue) then
+  if CacheAllowed and FHasText and VarSameValue(FTextKey, AEditValue) then
   begin
     DisplayValue := FLastText;
     Exit;
@@ -2227,9 +2256,12 @@ begin
   (* Onbellek TAM OLARAK bu yolun urettigi degerle dolduruluyor: baska bir
      cozumleme yolunun (GetDisplayLookupText) degeri farkli bicimlendirilmis
      olabilir. *)
-  FTextKey := AEditValue;
-  FLastText := VarToStr(DisplayValue);
-  FHasText := True;
+  if CacheAllowed then
+  begin
+    FTextKey := AEditValue;
+    FLastText := VarToStr(DisplayValue);
+    FHasText := True;
+  end;
 end;
 
 procedure TRadLookupComboBoxProperties.DoAssign(AProperties: TcxCustomEditProperties);
@@ -2296,7 +2328,7 @@ begin
   { CIZIM YOLU KORUMASI: GetDisplayLookupText her hucre boyamasinda cagrilir.
     Ayni anahtar ust uste gelirse olayi (yani muhtemelen bir sorguyu) tekrar
     tetiklemiyoruz. Gridde 50 satir = 50 sorgu farki. }
-  if FHasLastKey and VarSameValue(FLastKey, AKey) then
+  if CacheAllowed and FHasLastKey and VarSameValue(FLastKey, AKey) then
     Exit;
 
   { Ayni liste sorgusunu paylasan baska bir editorun isleyicisinin ICINDEYSEK
@@ -2321,8 +2353,11 @@ begin
     LockUpdate(True);
     try
       FLocateEvent(Self, ASource, AKey);
-      FLastKey := AKey;
-      FHasLastKey := True;
+      if CacheAllowed then
+      begin
+        FLastKey := AKey;
+        FHasLastKey := True;
+      end;
       { FLastText'i BURADA doldurmuyoruz - bkz. PrepareDisplayValue'daki not.
         Cagiran GetDisplayLookupText zaten cozumlemeyi kendisi yapiyor;
         burada bir kez daha yapmak cizim yolunda cift is demekti. }

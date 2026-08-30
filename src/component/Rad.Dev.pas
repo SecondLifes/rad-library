@@ -114,7 +114,8 @@ uses
   ,cxDropDownEdit,Generics.Collections,cxDBEdit,cxContainer
   ,cxDBLookupEdit,cxDBLookupComboBox,cxLookupEdit,dxCoreClasses
   ,System.Types  { TList.Remove satir ici acilimi icin - H2443 }
-  ,Vcl.ExtCtrls; { SearchDelay geciktiricisinin TTimer'i }
+  ,Vcl.ExtCtrls  { SearchDelay geciktiricisinin TTimer'i }
+  ,rad.lookup;   { lookup TANIMLARININ kayit defteri }
 
 type
   {*
@@ -301,6 +302,8 @@ type
       FSearchDelay: Cardinal;
       FMinSearchLength: Integer;
       FClearTargets: Boolean;
+      FLookupCode: string;
+      FLookupDef: TRadLookupDef;
       (* A → B → A dongusune karsi. Zincirin bir halkasi, kendisini besleyen
          halkayi yeniden tetiklerse yigin tukenene kadar donerdi; ne derleyici
          ne test bunu yakalar. Bu kitte olculmus bir emsali var: geri besleme
@@ -312,6 +315,7 @@ type
       FCascadeSource: TComponent;
       function  GetSlot(AIndex: Integer): TComponent;
       procedure SetSlot(AIndex: Integer; const AValue: TComponent);
+      procedure SetLookupCode(const AValue: string);
       procedure CascadeOne(ATarget: TComponent; const AValue: Variant);
       function  ListDataSet: TDataSet;
       procedure ClearTarget(ATarget: TComponent);
@@ -353,6 +357,10 @@ type
       procedure ResetLocateCache;
       /// <summary>Dolu zincir yuvasi sayisi (ChainWarning icin).</summary>
       function ChainSlotCount: Integer;
+      (* LookupCode cozulduyse ilgili tanim, yoksa nil. Olay isleyicileri
+         sorguyu ve parametre adlarini buradan okur - kayit defterine tekrar
+         basvurmalari gerekmez. *)
+      property LookupDef: TRadLookupDef read FLookupDef;
     published
       property AComponent1:TComponent index 1 read GetSlot write SetSlot;
       property AComponent2:TComponent index 2 read GetSlot write SetSlot;
@@ -389,6 +397,18 @@ type
          "degeri" satira gore degisir, kolon duzeyinde temizlemek anlamsizdir.
          Varsayilan False: davranis degisikligi opt-in. *)
       property ClearTargetsOnCascade:Boolean read FClearTargets write FClearTargets default False;
+      (* Bu editorun hangi TANIMI gosterdigi - "MARKA", "MUSTERI_TIPI" gibi.
+         Atandiginda, kayit defterindeki tanim bu Properties'e uygulanir:
+         KeyFieldNames, ListFieldNames, MinSearchLength, SearchDelay ve
+         CascadeField (ust parametrenin adi) tanimdan gelir.
+
+         NEDEN KOD, tek tek ayar degil: yeni bir tanim turu eklemek boylece
+         FORM DEGISIKLIGI degil, kayit defterine bir SATIR eklemek olur.
+
+         Kayit defteri bos ya da kod bilinmiyorsa SESSIZ kalir - tasarim
+         zamaninda ve kayit defteri yuklenmeden once bu normaldir. Kodun
+         cozulup cozulmedigini LookupDef <> nil ile anlarsiniz. *)
+      property LookupCode:string read FLookupCode write SetLookupCode;
       property OnCascade:TRadCascadeEvent read FCascadeEvent write FCascadeEvent;
     end;
 
@@ -1316,6 +1336,37 @@ begin
   Result := FSlots.FilledCount;
 end;
 
+procedure TRadLookupComboBoxProperties.SetLookupCode(const AValue: string);
+var
+  LDef: TRadLookupDef;
+begin
+  FLookupCode := Trim(AValue);
+  FLookupDef := nil;
+  if FLookupCode = '' then
+    Exit;
+
+  (* Kayit defteri bos olabilir: tasarim zamani, ya da uygulama henuz
+     LoadFromDataSet cagirmadi. Bu bir HATA DEGIL - kod saklanir, tanim
+     sonra cozulur. Burada istisna atmak, DFM yuklenirken formu acilamaz
+     hale getirirdi. *)
+  LDef := LookupRegistry.Find(FLookupCode);
+  if LDef = nil then
+    Exit;
+
+  FLookupDef := LDef;
+
+  { Tanimdan gelenler. Bos alanlar mevcut degeri EZMEZ. }
+  if LDef.KeyField <> '' then
+    KeyFieldNames := LDef.KeyField;
+  if LDef.ListField <> '' then
+    ListFieldNames := LDef.ListField;
+  MinSearchLength := LDef.MinSearchLength;
+  SearchDelay := LDef.SearchDelay;
+  { Ust parametrenin adi zincir yukudur - OnCascade isleyicisi bunu okur. }
+  if LDef.ParentParam <> '' then
+    CascadeField := LDef.ParentParam;
+end;
+
 function TRadLookupComboBoxProperties.ListDataSet: TDataSet;
 begin
   Result := nil;
@@ -1366,6 +1417,8 @@ begin
   FSearchDelay := LSrc.FSearchDelay;
   FMinSearchLength := LSrc.FMinSearchLength;
   FClearTargets := LSrc.FClearTargets;
+  FLookupCode := LSrc.FLookupCode;
+  FLookupDef := LSrc.FLookupDef;
   FSlots.Assign(LSrc.FSlots);
   FSearchEvent := LSrc.FSearchEvent;
   FLocateEvent := LSrc.FLocateEvent;

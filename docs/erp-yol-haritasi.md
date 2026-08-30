@@ -76,27 +76,53 @@ Kaynağı: `analysis/_retired/rad-lookup/` (gitignore'da) ve git geçmişinde
 
 ---
 
-## 1. Zorunlu okuma-tarafı kapsam (`TRadScope`) — en kritik
+## 1. Şube yetkilendirmesi — şirket kapsamı DEĞİL
 
-**Sorun.** `TRadAutoValues` yazma tarafını çözüyor: insert'te `sirket_id`
-doldurulabilir. Okuma tarafında hiçbir zorlama yok. `TRadFilterCollection`
-kullanıcıya görünen filtre paneli modeli (`Caption`, `FilterType`), güvenlik
-kapsamı değil.
+> **Düzeltildi.** Bu madde önce "zorunlu okuma-tarafı **şirket** kapsamı
+> (`TRadScope`)" olarak yazılmıştı. Yanlıştı; şemadan doğrulandı.
 
-ERP'de en pahalı hata sınıfı budur: bir sorguda `where sirket_id = :x`
-unutulur, başka şirketin verisi ekrana gelir — ve **hiçbir şey patlamaz**,
-sadece fazla satır döner.
+**Şirket boyutu zaten çözülmüş — üstelik daha iyi bir şekilde.** `radcore`
+merkezî kimlik veritabanı ve `sirket` tablosu şunları taşıyor:
 
-**Öneri.** Açılışta SQL'e predicate enjekte eden, varsayılan açık, kapatılması
-bilinçli ve loglanan bir kapsam:
-
-```pascal
-Q.Text('select * from stok').Open;      // otomatik: and sirket_id = :_scope_sirket
-Q.Scope.Bypass('konsolide rapor');       // gerekçe ZORUNLU, loglanır
+```
+sirket: db_host, db_port, db_adi, db_kullanici, db_sifre_sifreli
 ```
 
-`Bypass`'ın gerekçe istemesi tasarımın parçası: denetimde "kim neden kapattı"
-sorusunun cevabı olur.
+Her şirketin kendi veritabanı var; kullanıcı giriş sonrası o DB'ye bağlanıyor.
+Şirket ayrımı **bağlantı sınırında** duruyor — sorguya predicate enjekte
+etmeye gerek yok, çünkü unutulabilecek bir `where` hiç yok. Tek-veritabanı-
+çok-kiracı tasarımından daha sağlam.
+
+**Gerçek ihtiyaç şube boyutunda ve daha zor.** Şirket tek bir predicate'ti;
+şube bir **matris**:
+
+| | görebilsin | yazsın | düzeltsin |
+|---|---|---|---|
+| Merkez | ✓ | ✓ | ✓ |
+| Şube A | ✓ | ✓ | ✗ |
+| Şube B | ✗ | ✗ | ✗ |
+
+Ve şirketin aksine şubeyi **hiçbir şey zorlamıyor** — bağlantı sınırı yok. Bir
+raporda `where sube_id in (...)` unutulursa kullanıcı göremeyeceği şubenin
+verisini görür ve yine hiçbir şey patlamaz.
+
+**Bilinen (karar verildi):** yetki **iki yerde birden** duracak — rol JSON'ı
+(`kullanici_rol.rol_yetkisi`) genel yetkiyi, şirket veritabanı şube listesini
+ve kullanıcı-şube atamalarını tutacak. `TRadPermission`'ın ağaç modeli ve
+`Storage = psDatabase` saklaması buna hazır; `radcore`'da yetkiler zaten üç
+ayrı JSONB sütununda duruyor (`ayar.yetkiler`, `kullanici_rol.rol_yetkisi`,
+`tokens.yetki_kapsami`).
+
+**Açık soru (sonraya bırakıldı):** kullanıcı aynı anda **tek şube** mi görüyor,
+**birden çok şube** mi, yoksa **ekrana göre mi** değişiyor? Cevap tasarımı
+belirliyor:
+
+- *Tek aktif şube* → tek predicate; şirket çözümünün aynısı, çok basit.
+- *Çok şube* → `sube_id in (...)` **ve** satır bazında yazma/düzeltme denetimi;
+  gerçek matris.
+- *Ekrana göre* → en esnek, en çok kural.
+
+Bu cevaplanmadan tasarıma girilmemeli — üç seçenek üç farklı bileşen demek.
 
 ---
 

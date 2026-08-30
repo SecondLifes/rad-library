@@ -27,12 +27,12 @@ that break something else in the kit.
 ### Added
 
 - `src/test/scratch/rad_dev_repolisteners/PullTest.dpr` —
-  28 assertions covering the new pull direction (event fires exactly once with
+  35 assertions covering the new pull direction (event fires exactly once with
   the right source/master/value, re-entrancy guard, `DoAssign` carries the pull
   payload, free-notification nils `AMaster`, `PullWarning` reports each silent
   trap). One assertion is red-first: with the old `DoCascade` gate restored it
-  fails, proving the invalidation defect below was real. Green 28/28 on Win32
-  and Win64.
+  fails, proving the invalidation defect below was real. Green on Win32
+  and Win64 (35/35).
 - `src/test/scratch/rad_dev_repolisteners/build_and_run.bat` and
   `src/test/scratch/rad_dev_livedb/build_and_run.bat` — these two probe
   directories were the only ones in the kit with no build script, which is a
@@ -119,6 +119,31 @@ that break something else in the kit.
   `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.
 
 ### Fixed
+
+- `src/component/Rad.Dev.pas` — `RadChainAudit` looked only at each consumer's
+  *active* Properties, so it missed a master set on a consumer's **own**
+  Properties while a shared `RepositoryItem` was bound. That is precisely the
+  layout `ChainWarning` tells you to adopt, and the kit's own `PerConsumerTest`
+  measures — the audit could not check the configuration it recommends. It now
+  inspects own and active, deduplicating by instance. `PullTest` T13 was
+  verified red before the fix.
+
+- `src/component/Rad.Dev.pas` — `DoFilter` cleared its caches *after* the
+  try/finally, so a handler that raised part-way through reopening the list left
+  the list changed and both caches stale, and the editor went on rendering the
+  old text. Moved into `finally`. The same block also broke the unit's own
+  `Enter`-immediately-before-`try` discipline (which `DoLocate` and `DoSearch`
+  follow); an assignment sat between them.
+
+- `src/component/Rad.Dev.pas` — `AMaster` accepted a circular assignment: an
+  editor as its own master, or — with a shared `RepositoryItem` — a master that
+  is another consumer of the very Properties being configured, since one
+  `AMaster` field serves them all. `FFiltering` stopped it recursing, so it
+  produced no crash, just a list silently filtered by its own value. Now raises
+  `ERadDev`.
+
+- `src/component/Rad.Dev.pas` — `RadChainAudit`'s header printed an empty name
+  for a root created in code; falls back to the class name.
 
 - `src/component/Rad.Dev.pas` — `DoCascade` exited early when no `AOnCascade`
   handler was assigned, which also killed the target invalidation that runs

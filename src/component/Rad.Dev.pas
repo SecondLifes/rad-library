@@ -930,6 +930,7 @@ function RadChainAudit(ARoot: TComponent): string;
 var
   LSeen: TList<TObject>;
   LOut: TStringList;
+  LKokAdi: string;
 
   procedure Ekle(const AText: string);
   begin
@@ -957,7 +958,16 @@ var
     if AC is TRadEditRepositoryItem then
       Ekle(TRadEditRepositoryItem(AC).ChainWarning)
     else if (AC is TcxCustomEdit) or (AC is TcxCustomGridTableItem) then
+    begin
+      (* IKISINE DE bakilir. Bir tuketici paylasilan bir RepositoryItem'a
+         bagliyken KENDI Properties'inde de yuk tasiyabilir - kitin kendi
+         deseni budur (PerConsumerTest bunu olcuyor) ve ChainWarning master
+         icin tam olarak bunu ONERIYOR. Yalnizca aktif Properties'e bakan bir
+         denetim, tavsiye ettigi kurulumu denetleyemezdi.
+         Ayni ornek iki kez raporlanmaz: LSeen bunu zaten kesiyor. *)
+      BakProperties(_OwnProperties(AC));
       BakProperties(_ActiveProperties(AC));
+    end;
     for i := 0 to AC.ComponentCount - 1 do
       Gez(AC.Components[i]);
   end;
@@ -966,14 +976,20 @@ begin
   Result := '';
   if ARoot = nil then
     Exit;
+  { Kod icinde yaratilmis bir formun Name'i bostur; basligin hangi koku
+    denetledigini soylemesi gerekiyor. }
+  if ARoot.Name <> '' then
+    LKokAdi := ARoot.Name
+  else
+    LKokAdi := '<' + ARoot.ClassName + '>';
   LSeen := TList<TObject>.Create;
   try
     LOut := TStringList.Create;
     try
       Gez(ARoot);
       if LOut.Count > 0 then
-        Result := Format('RadChainAudit(%s): %d bulgu', [ARoot.Name, LOut.Count]) +
-          sLineBreak + LOut.Text;
+        Result := Format('RadChainAudit(%s): %d bulgu',
+          [LKokAdi, LOut.Count]) + sLineBreak + LOut.Text;
     finally
       LOut.Free;
     end;
@@ -1597,6 +1613,22 @@ begin
       '(TcxCustomGridTableItem) olmalidir; %s verildi. Degeri _ValueOf okur ' +
       've baska turlerde Null doner - yani filtre sessizce bos calisirdi.',
       [AValue.ClassName]);
+
+  (* DAIRESEL MASTER. Iki sekilde olusur ve ikisi de sessizce anlamsizdir:
+       - editor kendini master gosterir: liste kendi degerine gore suzulur;
+       - master, BU Properties'i paylasan baska bir tuketicidir (paylasilan
+         RepositoryItem): tek AMaster alani hepsi icin ortak oldugundan
+         master'in master'i yine kendisi olur.
+     FFiltering ozyinelemeyi keser, yani carpma degil SESSIZ bir yanlis
+     yapilandirma uretirdi. *)
+  if (AValue <> nil) and
+     ((_OwnProperties(AValue) = Self) or (_ActiveProperties(AValue) = Self)) then
+    raise ERadDev.CreateFmt(
+      'AMaster dairesel: %s bu Properties ornegini kullaniyor, yani editor ' +
+      'kendi degerine gore suzulurdu. Paylasilan bir RepositoryItem ' +
+      'kullaniyorsaniz master''i tuketicinin KENDI Properties''ine tasiyin.',
+      [AValue.Name]);
+
   FMasterSlot.Put(1, AValue);
 end;
 
@@ -1731,17 +1763,21 @@ begin
     Exit;
   end;
 
-  { Enter/try eslesmesi icin bkz. DoLocate'teki not. }
+  { Enter/try eslesmesi icin bkz. DoLocate'teki not: Enter'dan HEMEN SONRA
+    try gelir, arada tek satir bile olmaz. }
   TRadBusyDataSets.Enter(LDS);
-  FFiltering := True;
   try
+    FFiltering := True;
     FFilterEvent(Self, ASource, LMaster, LValue);
   finally
     FFiltering := False;
+    (* ONBELLEKLER ISTISNA HALINDE DE BOSALTILIR. Isleyici dataset'i acmis ve
+       yolun ortasinda patlamis olabilir: liste ARTIK DEGISMISTIR, dolayisiyla
+       onbellek bayattir. Bunu try'in disinda birakmak, istisna sonrasi
+       editorun eski metni gostermeye devam etmesi demekti. *)
+    ResetCaches;
     TRadBusyDataSets.Leave(LDS);
   end;
-  { Liste yeni bir filtreyle acildi - IKI katman onbellek de bayat. }
-  ResetCaches;
 end;
 
 function TRadLookupComboBoxProperties.PullWarning: string;

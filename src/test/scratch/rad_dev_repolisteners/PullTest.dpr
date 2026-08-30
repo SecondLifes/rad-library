@@ -25,6 +25,7 @@ uses
   System.SysUtils, System.Classes, System.Variants, Vcl.Forms, Vcl.Controls,
   cxEdit, cxDropDownEdit, cxLookupEdit, cxDBLookupEdit, cxDBLookupComboBox,
   cxGraphics, cxControls, cxLookAndFeels, cxContainer, cxClasses, Vcl.StdCtrls,
+  cxGrid, cxGridLevel, cxGridTableView, cxGridCustomTableView,
   Rad.Dev;
 
 var
@@ -94,8 +95,14 @@ var
   LForm: TForm;
   LIzle: TIzleyici;
   LUsta, LBagimli, LKopya, LKaynak, LHedef: TRadLookupComboBox;
-  LUyari, LHata, LDenetim: string;
+  LUyari, LHata, LDenetim, LOnce: string;
   LDugme: TButton;
+  LUsta2, LOrtak: TRadLookupComboBox;
+  LGrid: TcxGrid;
+  LLevel: TcxGridLevel;
+  LView: TcxGridTableView;
+  LCol, LCol2: TcxGridColumn;
+  LItem: TRadLookupComboBoxRepository;
 
 function YeniEditor(const AAd: string): TRadLookupComboBox;
 begin
@@ -259,6 +266,90 @@ begin
       Writeln('         --- denetim ciktisi (ilk satir) ---');
       if LDenetim <> '' then
         Writeln('         ', Copy(LDenetim, 1, Pos(sLineBreak, LDenetim + sLineBreak) - 1));
+
+      Writeln;
+      Writeln('=== T12) Denetim, grid KOLONUNUN KENDI Properties''ini goruyor mu? ===');
+      (* Bu tam olarak ChainWarning''in ONERDIGI yapilandirma: paylasilan
+         item yerine her tuketici KENDI Properties''inde master tasisin.
+         Denetim bunu kacirirsa, tavsiye edilen kurulum denetlenemez olur. *)
+      LUsta2 := YeniEditor('Usta2');
+      LGrid := TcxGrid.Create(LForm);
+      LGrid.Name := 'Izgara';
+      LGrid.Parent := LForm;
+      LLevel := LGrid.Levels.Add;
+      LView := LGrid.CreateView(TcxGridTableView) as TcxGridTableView;
+      LLevel.GridView := LView;
+      LCol := LView.CreateColumn;
+      LCol.Caption := 'SehirKolonu';
+      LCol.PropertiesClass := TRadLookupComboBoxProperties;
+      TRadLookupComboBoxProperties(LCol.Properties).AMaster := LUsta2;
+
+      LOnce := LDenetim;
+      LDenetim := RadChainAudit(LForm);
+      Kontrol('kolonun kendi Properties''i denetimde yeni bir bulgu uretiyor',
+        Length(LDenetim) > Length(LOnce),
+        Format('once %d karakter, simdi %d', [Length(LOnce), Length(LDenetim)]));
+      Kontrol('kolon icin PullWarning gercekten uretilebiliyor',
+        TRadLookupComboBoxProperties(LCol.Properties).PullWarning <> '',
+        'kolonun kendi PullWarning''i bos ise master hic gorulmuyor demektir');
+
+      Writeln;
+      Writeln('=== T13) PAYLASILAN item + KENDI Properties''i (KIRMIZI-ONCE) ===');
+      (* Kitin kendi deseni (PerConsumerTest bunu olcuyor): item paylasilir,
+         her tuketici yere ozel yuku KENDI Properties''inde tasir. ChainWarning
+         master icin tam olarak bunu ONERIYOR. Kolona bir RepositoryItem
+         baglaninca _ActiveProperties artik PAYLASILANI dondurur; denetim
+         yalnizca ona bakarsa, tavsiye edilen kurulum denetlenemez olur. *)
+      LItem := TRadLookupComboBoxRepository.Create(LForm);
+      LItem.Name := 'PaylasilanItem';
+      LCol2 := LView.CreateColumn;
+      LCol2.Caption := 'IlceKolonu';
+      LCol2.PropertiesClass := TRadLookupComboBoxProperties;
+      TRadLookupComboBoxProperties(LCol2.Properties).AMaster := LUsta2;
+      LCol2.RepositoryItem := LItem;
+
+      Kontrol('kurulum dogru: aktif Properties = item''in, kendi Properties''i ayri',
+        (LCol2.GetProperties = LItem.Properties) and
+        (TRadLookupComboBoxProperties(LCol2.Properties).AMaster = LUsta2),
+        'aktif ile kendi ayni ise bu test bir sey olcmez');
+
+      LOnce := LDenetim;
+      LDenetim := RadChainAudit(LForm);
+      Kontrol('denetim, KENDI Properties''indeki master''i da raporluyor',
+        Length(LDenetim) > Length(LOnce),
+        Format('once %d karakter, simdi %d ' +
+          '(esitse denetim yalnizca aktif Properties''e bakiyor demektir)',
+          [Length(LOnce), Length(LDenetim)]));
+
+      Writeln;
+      Writeln('=== T14) Dairesel master reddediliyor ===');
+      LHata := '';
+      try
+        LBagimli.Properties.AMaster := LBagimli;
+      except
+        on E: Exception do
+          LHata := E.ClassName;
+      end;
+      Kontrol('editor kendini master yapamiyor',
+        LHata = 'ERadDev', 'atilan: ' + LHata + ' (ERadDev bekleniyor)');
+
+      (* Ikinci sekil: master, AYNI paylasilan Properties'i kullanan baska bir
+         tuketici. Tek AMaster alani hepsi icin ortak oldugundan master'in
+         master'i yine kendisi olurdu. *)
+      LOrtak := YeniEditor('OrtakTuketici');
+      LOrtak.RepositoryItem := LItem;
+      LHata := '';
+      try
+        LItem.Properties.AMaster := LOrtak;
+      except
+        on E: Exception do
+          LHata := E.ClassName;
+      end;
+      Kontrol('paylasilan item, kendi tuketicisini master alamiyor',
+        LHata = 'ERadDev', 'atilan: ' + LHata + ' (ERadDev bekleniyor)');
+      Kontrol('reddedilen atamalar yuvayi bozmadi',
+        (LBagimli.Properties.AMaster = nil) and
+        (LItem.Properties.AMaster = nil));
     finally
       LIzle.Free;
       LForm.Free;

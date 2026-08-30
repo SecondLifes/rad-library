@@ -11,22 +11,68 @@ açma/çalıştırma. Aşağıdakiler bunun üzerine gelir.
 
 ---
 
-## ✅ Tamamlandı — Lookup tanım kayıt defteri
+## ✅ Tamamlandı — Paylaşılan RepositoryItem + tüketici-başına yük
 
-`src/core/rad.lookup.pas` + `Rad.Dev.pas`'taki `LookupCode` property'si.
+Bir `TRadLookupComboBoxRepository` ortak davranışı ve **tek** olay işleyicisini
+taşır; her tüketici kendi `Properties.CascadeField`'inde hangi tanım olduğunu
+söyler. İşleyici bunu `ASource` üzerinden okur.
 
-Formda `LookupCode := 'MARKA'` yazılır; sorgu, anahtar/liste alanı, üst tanım
-ve parametre adları kayıt defterinden gelir. **Yeni bir tanım türü eklemek
-form değişikliği değil, bir satır eklemektir.**
+```pascal
+// DM'de: tek item, tek işleyici
+riTanim.Properties.OnSearch := DM.TanimAra;
 
-Kayıt defteri sorgu çalıştırmaz — yalnızca "ne" sorusunu cevaplar, "nasıl"
-uygulamanındır. Bu yüzden `src/core`'da vendor'suz durur ve aynı tanımlar
-UniDAC, FireDAC ya da bellek içi bir kaynakla da kullanılabilir.
+// Formlarda: her combo kendi türünü söyler
+cbMarka.RepositoryItem := riTanim;   cbMarka.Properties.CascadeField := 'marka';
+cbTip.RepositoryItem   := riTanim;   cbTip.Properties.CascadeField   := 'musteri_tipi';
+```
 
-`Validate` yapılandırmayı işletmeden önce denetler: döngüsel üst zinciri, var
-olmayan üst kod, SQL'de karşılığı olmayan parametre bildirimi, ve SQL'de geçip
-hiçbir alanda bildirilmemiş parametre. Bir yapılandırma tablosunun en büyük
-riski sessizce yanlış olmasıdır.
+Ölçüldü (`LiveLookupTest` M5): `ASource` doğru editörü veriyor,
+`_OwnProperties(ASource).CascadeField` doğru türü döndürüyor, paylaşılan
+`Sender` ise ikisinde de ortak değeri veriyor.
+
+Bunun mümkün olması için `OnSearch` ve `OnLocate` imzalarına `ASource`
+eklendi — `Sender` paylaşılan Properties örneği olduğu için tek başına
+tüketiciyi ayırt etmiyordu.
+
+**Sınır:** `OnLocate` çizim yolundan da tetikleniyor
+(`GetDisplayLookupText`) ve orada kaynak **yok** — `ASource` nil gelir.
+İşleyici bunu kontrol etmeli.
+
+---
+
+## ⏸ Ertelendi — Lookup tanım kayıt defteri
+
+Bir kez yazıldı (`rad.lookup.pas`, commit `e30ff8a`) ve **geri alındı**.
+Gerekçe kaybolmasın diye burada duruyor.
+
+Fikir: tanımları (`sorgu`, `anahtar alan`, `üst tanım`, parametre adları) bir
+tabloya taşımak; formda yalnızca `LookupCode := 'MARKA'` yazmak. Yeni tanım
+türü eklemek form değişikliği değil, bir satır eklemek olur.
+
+**Neden geri alındı:** yukarıdaki RepositoryItem deseni aynı ihtiyacı
+karşılıyor ve hiçbir ek altyapı gerektirmiyor. `tanimlar` gibi tek tablolu bir
+tasarımda SQL her tür için **aynı** — değişen sadece parametre. Kayıt defteri
+bu durumda fazladan bir dolaylılık katmanı.
+
+**Hangi koşullarda yeniden değerlendirilmeli** — biri doğru olduğunda:
+
+1. **SQL türe göre gerçekten değişiyorsa** — `marka` bir tablodan, `doviz`
+   başka bir tablodan, `birim` bir view'dan. Tek parametreyle çözülmüyorsa.
+2. **Yeniden derlemeden değiştirmek gerekiyorsa** — müşteri "listede kod da
+   görünsün" dediğinde EXE dağıtmak istemiyorsan.
+3. **Müşteri kendi tanım türünü ekliyorsa** — derleme anında var olmayan bir
+   şey için `RepositoryItem` bırakamazsın.
+
+Kaldırılan sürümün taşıdığı ve tekrar yazılırsa korunması gereken parça
+`Validate` idi: döngüsel üst zinciri, var olmayan üst kod, SQL'de karşılığı
+olmayan parametre bildirimi, ve SQL'de geçip hiçbir alanda bildirilmemiş
+parametre. Sonuncusu en sinsisi — yanlış parametre adı çalışma zamanında hata
+değil, **sessiz boş liste** olarak görünür. Ayrıca ayrıştırıcısı PostgreSQL
+cast'ini (`::text`) parametre saymıyordu; saysaydı her cast sahte bir
+doğrulama hatası üretirdi.
+
+Kaynağı: `analysis/_retired/rad-lookup/` (gitignore'da) ve git geçmişinde
+`e30ff8a`.
 
 ---
 

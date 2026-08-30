@@ -29,7 +29,7 @@ uses
   cxDBLookupComboBox, cxGridCustomTableView, cxGridTableView, cxGridLevel,
   cxGrid, cxGridCustomView, cxGridDBTableView, cxDBData, cxCustomData,
   cxGraphics, cxControls, cxLookAndFeels, cxContainer, cxClasses,
-  Rad.Dev;
+  Rad.Dev, Help.Dev;
 
 type
   { GetDisplayLookupText protected; testten erisim icin erisim sinifi. }
@@ -83,16 +83,44 @@ type
     SqlSayaci: Integer;              { calisan sorgu sayisi }
     LocateSayaci: Integer;
     SonSehirSql: string;
+    OrtakKayit: TStringList;         { M5: her cagrida kaynak + tur }
     procedure UlkeArama(Sender: TRadLookupComboBoxProperties;
-      var AText, ATail: string; ANext: Boolean);
+      ASource: TComponent; var AText, ATail: string; ANext: Boolean);
+    { M5: TEK isleyici, PAYLASILAN item, tuketici-basina tur }
+    procedure OrtakTanimArama(Sender: TRadLookupComboBoxProperties;
+      ASource: TComponent; var AText, ATail: string; ANext: Boolean);
     procedure UlkeKaskad(Sender: TRadLookupComboBoxProperties;
       ASource, ATarget: TComponent; const AValue: Variant);
     procedure SehirLocate(Sender: TRadLookupComboBoxProperties;
-      const AKey: Variant);
+      ASource: TComponent; const AKey: Variant);
   end;
 
+procedure TSenaryo.OrtakTanimArama(Sender: TRadLookupComboBoxProperties;
+  ASource: TComponent; var AText, ATail: string; ANext: Boolean);
+var
+  LOwn: TcxCustomEditProperties;
+  LTur, LAd: string;
+begin
+  (* Kullanicinin deseni: PAYLASILAN item tek isleyiciyi tasir, her tuketici
+     kendi Properties'inde turunu soyler. Sender PAYLASILAN ornek oldugu icin
+     tur ondan OKUNAMAZ - ASource'un KENDI Properties'inden okunur. *)
+  if ASource = nil then
+  begin
+    OrtakKayit.Add('ASource=nil (kaynak yok)');
+    Exit;
+  end;
+  LAd := ASource.Name;
+  LOwn := _OwnProperties(ASource);
+  if LOwn is TRadLookupComboBoxProperties then
+    LTur := TRadLookupComboBoxProperties(LOwn).CascadeField
+  else
+    LTur := '<kendi Properties yok>';
+  OrtakKayit.Add(Format('kaynak=%s tur=%s paylasilan(Sender).CascadeField=%s',
+    [LAd, LTur, Sender.CascadeField]));
+end;
+
 procedure TSenaryo.UlkeArama(Sender: TRadLookupComboBoxProperties;
-  var AText, ATail: string; ANext: Boolean);
+  ASource: TComponent; var AText, ATail: string; ANext: Boolean);
 begin
   Inc(SqlSayaci);
   QUlke.Close;
@@ -114,7 +142,7 @@ begin
 end;
 
 procedure TSenaryo.SehirLocate(Sender: TRadLookupComboBoxProperties;
-  const AKey: Variant);
+  ASource: TComponent; const AKey: Variant);
 begin
   { M3: listede olmayan bir anahtarin satirini SUNUCUDAN cek ve listeye koy. }
   Inc(LocateSayaci);
@@ -244,7 +272,7 @@ begin
       Writeln('  baslangicta ulke listesi : ', LS.QUlke.RecordCount, ' satir (4 bekleniyor)');
       LS.SqlSayaci := 0;
       LText := 'Tu'; LTail := '';
-      LEdUlke.Properties.TimedSearch(LText);
+      LEdUlke.Properties.TimedSearch(LEdUlke, LText);
       Writeln('  "Tu" arandi -> calisan sorgu : ', LS.SqlSayaci);
       Writeln('  liste simdi : ', LS.QUlke.RecordCount, ' satir (Turkiye + Tunus = 2 bekleniyor)');
       LS.QUlke.First;
@@ -305,6 +333,39 @@ begin
       Writeln('  onbellek kapaliyken   -> OnLocate ', LS.LocateSayaci,
         ' kez  (50 bekleniyor)');
       Writeln(Format('  KAZANC: %d yerine %d sorgu', [LS.LocateSayaci, LOnce]));
+
+      { ══ M5) Paylasilan item + tuketici-basina tur ═══════════════════ }
+      Writeln;
+      Writeln('=== M5) TEK item, TEK isleyici, tuketici-basina tur ===');
+      LS.OrtakKayit := TStringList.Create;
+      try
+        var LRepo := TcxEditRepository.Create(LForm);
+        var LItem := TRadLookupComboBoxRepository.Create(LForm);
+        LItem.Repository := LRepo;
+        LItem.Name := 'riTanim';
+        LItem.Properties.CascadeField := 'ORTAK';        { paylasilan yuk }
+        LItem.Properties.OnSearch := LS.OrtakTanimArama; { TEK isleyici }
+
+        var LMarka := TRadLookupComboBox.Create(LForm);
+        LMarka.Name := 'cbMarka'; LMarka.Parent := LForm;
+        LMarka.Properties.CascadeField := 'marka';       { yere ozel yuk }
+        LMarka.RepositoryItem := LItem;
+
+        var LTip := TRadLookupComboBox.Create(LForm);
+        LTip.Name := 'cbMusteriTipi'; LTip.Parent := LForm;
+        LTip.Properties.CascadeField := 'musteri_tipi';
+        LTip.RepositoryItem := LItem;
+
+        Writeln('  iki combo, tek item. Her birinden arama tetikleniyor:');
+        LMarka.ActiveProperties.TimedSearch(LMarka, 'a');
+        LTip.ActiveProperties.TimedSearch(LTip, 'b');
+        for i := 0 to LS.OrtakKayit.Count - 1 do
+          Writeln('    ', LS.OrtakKayit[i]);
+        Writeln('  beklenen: kaynak dogru editor, tur ''marka'' / ''musteri_tipi'',');
+        Writeln('            paylasilan Sender ise ikisinde de ''ORTAK''');
+      finally
+        LS.OrtakKayit.Free;
+      end;
 
       LForm.Free;
     except

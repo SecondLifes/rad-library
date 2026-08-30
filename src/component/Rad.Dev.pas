@@ -66,6 +66,50 @@
     _OwnProperties / _ActiveProperties / _ValueOf / _CaptionOf / _DataSetOf /
     _FieldOf yordamlari.
 
+  TARIF: TEK ITEM, TEK ISLEYICI, TUKETICI-BASINA TUR
+    Bir ERP'de "marka", "musteri tipi", "birim" gibi onlarca liste ayni
+    tablodan gelir; degisen yalnizca bir tur kodudur. Hepsini tek bir
+    RepositoryItem ve tek bir isleyiciyle surebilirsiniz:
+
+      // veri modulunde - ORTAK olan her sey burada
+      riTanim.Properties.OnSearch := DM.TanimAra;
+
+      // formlarda - her tuketici KENDI turunu soyler
+      cbMarka.RepositoryItem := riTanim;
+      cbMarka.Properties.CascadeField := 'marka';
+      cbTip.RepositoryItem := riTanim;
+      cbTip.Properties.CascadeField := 'musteri_tipi';
+
+      procedure TDM.TanimAra(Sender: TRadLookupComboBoxProperties;
+        ASource: TComponent; var AText, ATail: string; ANext: Boolean);
+      var
+        LOwn: TcxCustomEditProperties;
+      begin
+        if ASource = nil then Exit;
+        LOwn := _OwnProperties(ASource);            // help.Dev
+        if not (LOwn is TRadLookupComboBoxProperties) then Exit;
+
+        Q.Close;
+        Q.SQL.Text := 'select id, deger from tanimlar ' +
+                      'where tur = :tur and deger ilike :ara';
+        Q.ParamByName('tur').AsString :=
+          TRadLookupComboBoxProperties(LOwn).CascadeField;
+        Q.ParamByName('ara').AsString := '%' + AText + '%';
+        Q.Open;
+      end;
+
+    IKI TUZAK - ikisi de olculdu, ikisi de sessiz:
+
+    1) Turu SENDER'dan OKUMAYIN. Sender PAYLASILAN ornektir; bir item'a bagli
+       her tuketici icin AYNI degeri verir. Yukaridaki kod calisir, ama
+       CascadeField'i Sender'dan okusaydiniz her combo ayni turu sorardi ve
+       hicbir hata almadan yanlis liste gosterirdi.
+
+    2) GRID KOLONUNDA kolonun kendi Properties'i ancak PropertiesClass (DFM'de
+       PropertiesClassName) atanmissa OLUSUR; atanmamissa _OwnProperties nil
+       doner ve yukaridaki isleyici sessizce Exit eder. Kolonlarda yere ozel
+       yuk kullanacaksaniz PropertiesClass'i atamayi unutmayin.
+
   TUKETICILERI SAYMA
     TRadEditRepositoryItem.ConsumerCount / Consumers(i) bir RepositoryItem'i
     su an kullanan editor ve kolonlari verir. Yukaridaki kisiti calisma
@@ -114,8 +158,7 @@ uses
   ,cxDropDownEdit,Generics.Collections,cxDBEdit,cxContainer
   ,cxDBLookupEdit,cxDBLookupComboBox,cxLookupEdit,dxCoreClasses
   ,System.Types  { TList.Remove satir ici acilimi icin - H2443 }
-  ,Vcl.ExtCtrls  { SearchDelay geciktiricisinin TTimer'i }
-  ,rad.lookup;   { lookup TANIMLARININ kayit defteri }
+  ,Vcl.ExtCtrls; { SearchDelay geciktiricisinin TTimer'i }
 
 type
   {*
@@ -253,8 +296,22 @@ type
    protected
     function Locate(var AText, ATail: string; ANext: Boolean): Boolean; override;
   end;
-    TRadLookupSearchEvent  = procedure (Sender:TRadLookupComboBoxProperties; var AText, ATail: string; ANext: Boolean) of object;
-    TRadLookupLocateEvent  = procedure (Sender:TRadLookupComboBoxProperties; const AKey: Variant) of object;
+    (* ASource NEDEN VAR - kaskad olayindakiyle AYNI gerekce:
+       Sender, PAYLASILAN Properties ornegidir. Bir RepositoryItem'a bagli tum
+       tuketiciler onu paylasir (olculdu), dolayisiyla Sender'a bakarak "su an
+       hangi editor soruyor" sorusu CEVAPLANAMAZ.
+
+       Yere ozel yuku (hangi tanim turu, hangi filtre) ASource'un KENDI
+       Properties'inden okuyun: help.Dev'deki _OwnProperties(ASource).
+
+       ! ASource nil OLABILIR. OnLocate cizim yolundan da tetiklenir
+         (GetDisplayLookupText -> DoLocate) ve orada bir kaynak YOKTUR: cizim
+         makinesi paylasilan Properties uzerinde calisir. Uydurma bir deger
+         gecmek yerine nil geciyoruz - isleyici bunu kontrol etmelidir. *)
+    TRadLookupSearchEvent  = procedure (Sender:TRadLookupComboBoxProperties;
+      ASource: TComponent; var AText, ATail: string; ANext: Boolean) of object;
+    TRadLookupLocateEvent  = procedure (Sender:TRadLookupComboBoxProperties;
+      ASource: TComponent; const AKey: Variant) of object;
     (* Zincirin bir halkasi degistiginde, bagli her hedef icin BIR kez
        tetiklenir. Bilesen hedefi nasil yenileyecegini BILMEZ - filtreyi/SQL'i
        uygulamanin tek dogru yeri uygulamadir; buradaki is yalnizca
@@ -302,8 +359,6 @@ type
       FSearchDelay: Cardinal;
       FMinSearchLength: Integer;
       FClearTargets: Boolean;
-      FLookupCode: string;
-      FLookupDef: TRadLookupDef;
       (* A → B → A dongusune karsi. Zincirin bir halkasi, kendisini besleyen
          halkayi yeniden tetiklerse yigin tukenene kadar donerdi; ne derleyici
          ne test bunu yakalar. Bu kitte olculmus bir emsali var: geri besleme
@@ -315,7 +370,6 @@ type
       FCascadeSource: TComponent;
       function  GetSlot(AIndex: Integer): TComponent;
       procedure SetSlot(AIndex: Integer; const AValue: TComponent);
-      procedure SetLookupCode(const AValue: string);
       procedure CascadeOne(ATarget: TComponent; const AValue: Variant);
       function  ListDataSet: TDataSet;
       procedure ClearTarget(ATarget: TComponent);
@@ -329,8 +383,8 @@ type
            derleyici de calisma zamani da hicbir sey soylemez. *)
         procedure DoAssign(AProperties: TcxCustomEditProperties); override;
         function GetDisplayLookupText(const AKey: TcxEditValue): string; override;
-        procedure DoSearch(var AText, ATail: string; ANext: Boolean);
-        procedure DoLocate(const AKey: Variant);
+        procedure DoSearch(ASource: TComponent; var AText, ATail: string; ANext: Boolean);
+        procedure DoLocate(ASource: TComponent; const AKey: Variant);
     public
       (* Grid, inplace editoru BU siniftan uretir. Override edilmezse taban
          stok TcxLookupComboBox'i dondurur (cxDBLookupComboBox.pas:405) ve
@@ -347,7 +401,7 @@ type
       (* Geciktirici tetikledi. FindLookupText taban Properties'te PROTECTED
          oldugu icin kontrol onu dogrudan cagiramaz - bu yuzden "ara ve bul"
          adimi burada, torun Properties'te duruyor. *)
-      procedure TimedSearch(const AText: string);
+      procedure TimedSearch(ASource: TComponent; const AText: string);
       constructor Create(AOwner: TPersistent); override;
       destructor Destroy; override;
       /// <summary>Bagli her zincir hedefi icin OnCascade'i tetikler.
@@ -357,10 +411,6 @@ type
       procedure ResetLocateCache;
       /// <summary>Dolu zincir yuvasi sayisi (ChainWarning icin).</summary>
       function ChainSlotCount: Integer;
-      (* LookupCode cozulduyse ilgili tanim, yoksa nil. Olay isleyicileri
-         sorguyu ve parametre adlarini buradan okur - kayit defterine tekrar
-         basvurmalari gerekmez. *)
-      property LookupDef: TRadLookupDef read FLookupDef;
     published
       property AComponent1:TComponent index 1 read GetSlot write SetSlot;
       property AComponent2:TComponent index 2 read GetSlot write SetSlot;
@@ -397,18 +447,6 @@ type
          "degeri" satira gore degisir, kolon duzeyinde temizlemek anlamsizdir.
          Varsayilan False: davranis degisikligi opt-in. *)
       property ClearTargetsOnCascade:Boolean read FClearTargets write FClearTargets default False;
-      (* Bu editorun hangi TANIMI gosterdigi - "MARKA", "MUSTERI_TIPI" gibi.
-         Atandiginda, kayit defterindeki tanim bu Properties'e uygulanir:
-         KeyFieldNames, ListFieldNames, MinSearchLength, SearchDelay ve
-         CascadeField (ust parametrenin adi) tanimdan gelir.
-
-         NEDEN KOD, tek tek ayar degil: yeni bir tanim turu eklemek boylece
-         FORM DEGISIKLIGI degil, kayit defterine bir SATIR eklemek olur.
-
-         Kayit defteri bos ya da kod bilinmiyorsa SESSIZ kalir - tasarim
-         zamaninda ve kayit defteri yuklenmeden once bu normaldir. Kodun
-         cozulup cozulmedigini LookupDef <> nil ile anlarsiniz. *)
-      property LookupCode:string read FLookupCode write SetLookupCode;
       property OnCascade:TRadCascadeEvent read FCascadeEvent write FCascadeEvent;
     end;
 
@@ -1173,7 +1211,8 @@ begin
   FSearchTimer.Enabled := False;
   if [csLoading, csDestroying, csDesigning] * ComponentState <> [] then
     Exit;
-  ActiveProperties.TimedSearch(EditingText);
+  { Kaynak: geciktiriciyi calistiran editorun kendisi. }
+  ActiveProperties.TimedSearch(Self, EditingText);
 end;
 
 procedure TRadCustomLookupComboBox.DoEditKeyPress(var Key: Char);
@@ -1319,13 +1358,14 @@ begin
   FLastText := '';
 end;
 
-procedure TRadLookupComboBoxProperties.TimedSearch(const AText: string);
+procedure TRadLookupComboBoxProperties.TimedSearch(ASource: TComponent;
+  const AText: string);
 var
   LText, LTail: string;
 begin
   LText := AText;
   LTail := '';
-  DoSearch(LText, LTail, False);
+  DoSearch(ASource, LText, LTail, False);
   { Liste yenilendi; yazilan metni yeni listede bulmayi deniyoruz. }
   if LText <> '' then
     FindLookupText(LText);
@@ -1334,37 +1374,6 @@ end;
 function TRadLookupComboBoxProperties.ChainSlotCount: Integer;
 begin
   Result := FSlots.FilledCount;
-end;
-
-procedure TRadLookupComboBoxProperties.SetLookupCode(const AValue: string);
-var
-  LDef: TRadLookupDef;
-begin
-  FLookupCode := Trim(AValue);
-  FLookupDef := nil;
-  if FLookupCode = '' then
-    Exit;
-
-  (* Kayit defteri bos olabilir: tasarim zamani, ya da uygulama henuz
-     LoadFromDataSet cagirmadi. Bu bir HATA DEGIL - kod saklanir, tanim
-     sonra cozulur. Burada istisna atmak, DFM yuklenirken formu acilamaz
-     hale getirirdi. *)
-  LDef := LookupRegistry.Find(FLookupCode);
-  if LDef = nil then
-    Exit;
-
-  FLookupDef := LDef;
-
-  { Tanimdan gelenler. Bos alanlar mevcut degeri EZMEZ. }
-  if LDef.KeyField <> '' then
-    KeyFieldNames := LDef.KeyField;
-  if LDef.ListField <> '' then
-    ListFieldNames := LDef.ListField;
-  MinSearchLength := LDef.MinSearchLength;
-  SearchDelay := LDef.SearchDelay;
-  { Ust parametrenin adi zincir yukudur - OnCascade isleyicisi bunu okur. }
-  if LDef.ParentParam <> '' then
-    CascadeField := LDef.ParentParam;
 end;
 
 function TRadLookupComboBoxProperties.ListDataSet: TDataSet;
@@ -1417,8 +1426,6 @@ begin
   FSearchDelay := LSrc.FSearchDelay;
   FMinSearchLength := LSrc.FMinSearchLength;
   FClearTargets := LSrc.FClearTargets;
-  FLookupCode := LSrc.FLookupCode;
-  FLookupDef := LSrc.FLookupDef;
   FSlots.Assign(LSrc.FSlots);
   FSearchEvent := LSrc.FSearchEvent;
   FLocateEvent := LSrc.FLocateEvent;
@@ -1442,7 +1449,8 @@ begin
   end;
 end;
 
-procedure TRadLookupComboBoxProperties.DoLocate(const AKey: Variant);
+procedure TRadLookupComboBoxProperties.DoLocate(ASource: TComponent;
+  const AKey: Variant);
 var
   LDS: TDataSet;
 begin
@@ -1473,7 +1481,7 @@ begin
       editor bir daha guncellenmez. }
     LockUpdate(True);
     try
-      FLocateEvent(Self, AKey);
+      FLocateEvent(Self, ASource, AKey);
       FLastKey := AKey;
       FHasLastKey := True;
       { FLastText'i BURADA doldurmuyoruz - bkz. PrepareDisplayValue'daki not.
@@ -1487,7 +1495,8 @@ begin
   end;
 end;
 
-procedure TRadLookupComboBoxProperties.DoSearch(var AText, ATail: string; ANext: Boolean);
+procedure TRadLookupComboBoxProperties.DoSearch(ASource: TComponent;
+  var AText, ATail: string; ANext: Boolean);
 var
   LDS: TDataSet;
 begin
@@ -1508,7 +1517,7 @@ begin
   try
     LockUpdate(True);
     try
-      FSearchEvent(Self, AText, ATail, ANext);
+      FSearchEvent(Self, ASource, AText, ATail, ANext);
     finally
       LockUpdate(False);
     end;
@@ -1521,7 +1530,8 @@ end;
 
 function TRadLookupComboBoxProperties.GetDisplayLookupText(const AKey: TcxEditValue): string;
 begin
-  DoLocate(AKey);
+  { CIZIM YOLU: kaynak yok - bkz. TRadLookupLocateEvent'teki not. }
+  DoLocate(nil, AKey);
   Result := inherited GetDisplayLookupText(AKey);
 end;
 
@@ -1548,7 +1558,10 @@ begin
   { SearchDelay > 0 ise aramanin sahibi kontroldeki geciktiricidir; burada
     tetiklemek geciktirmeyi anlamsiz kilardi. }
   if LProps.SearchDelay = 0 then
-    LProps.DoSearch(AText, ATail, ANext);
+    (* Kaynak BURADA var: lookup-data'nin Edit'i kendi Owner'idir
+       (cxLookupEdit.pas, TcxCustomLookupEditLookupData.GetEdit). Ata sinifta
+       protected; torun oldugumuz icin erisebiliyoruz. *)
+    LProps.DoSearch(Self.Edit, AText, ATail, ANext);
   Result := inherited Locate(AText, ATail, ANext);
 end;
 

@@ -42,13 +42,13 @@ type
     SonHedef: TComponent;
     SonHostSinif: string;
     procedure OnArama(Sender: TRadLookupComboBoxProperties;
-      var AText, ATail: string; ANext: Boolean);
+      ASource: TComponent; var AText, ATail: string; ANext: Boolean);
     procedure OnKaskad(Sender: TRadLookupComboBoxProperties;
       ASource, ATarget: TComponent; const AValue: Variant);
   end;
 
 procedure TSayac.OnArama(Sender: TRadLookupComboBoxProperties;
-  var AText, ATail: string; ANext: Boolean);
+  ASource: TComponent; var AText, ATail: string; ANext: Boolean);
 begin
   Inc(Arama);
 end;
@@ -159,10 +159,10 @@ begin
       LEdit.Properties.MinSearchLength := 4;
       LEdit.Properties.SearchDelay := 200;
       LSayac.Arama := 0;
-      LEdit.Properties.TimedSearch('ab');
+      LEdit.Properties.TimedSearch(LEdit, 'ab');
       Bekle(50);
       Writeln(Format('  MinSearchLength=4, "ab" -> OnSearch %d kez  (0 olmali)', [LSayac.Arama]));
-      LEdit.Properties.TimedSearch('abcd');
+      LEdit.Properties.TimedSearch(LEdit, 'abcd');
       Writeln(Format('                     "abcd" -> OnSearch %d kez  (1 olmali)', [LSayac.Arama]));
       LEdit.Properties.MinSearchLength := 0;
 

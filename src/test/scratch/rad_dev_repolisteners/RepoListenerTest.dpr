@@ -33,7 +33,7 @@ type
     procedure DonguKaskad(Sender: TRadLookupComboBoxProperties;
       ASource, ATarget: TComponent; const AValue: Variant);
     procedure Arama(Sender: TRadLookupComboBoxProperties;
-      var AText, ATail: string; ANext: Boolean);
+      ASource: TComponent; var AText, ATail: string; ANext: Boolean);
   end;
 
 function Ad(AC: TComponent): string;
@@ -76,7 +76,7 @@ begin
 end;
 
 procedure TIzleyici.Arama(Sender: TRadLookupComboBoxProperties;
-  var AText, ATail: string; ANext: Boolean);
+  ASource: TComponent; var AText, ATail: string; ANext: Boolean);
 begin
   Inc(AramaSayisi);
   Kayit.Add('arama: "' + AText + '"');
@@ -246,7 +246,7 @@ begin
       for var Metin in ['a', 'an', 'ank', 'anka', ''] do
       begin
         LIzle.AramaSayisi := 0;
-        LArama.Properties.TimedSearch(Metin);
+        LArama.Properties.TimedSearch(LArama, Metin);
         Writeln(Format('  "%s" (%d harf) -> OnSearch %d kez',
           [Metin, Length(Metin), LIzle.AramaSayisi]));
       end;

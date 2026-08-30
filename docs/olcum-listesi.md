@@ -181,3 +181,28 @@ yazmıyordu:
   ettiği canlıda ölçüldü (`Parameter 'ulke_id' not found`).
 
 Yalnızca `rad_test_*` tabloları yaratıldı ve çıkarken silindi.
+
+---
+
+## Bu otonom koşuda YAPILAMAYAN ölçümler (2026-08-30)
+
+Kullanıcı "yapamadığın testleri listene kayıt et" dedi. Koşulanlar yukarıda
+madde madde kapandı; **yapılamayanlar bunlar** ve her birinin sebebi:
+
+| Ne | Neden yapılamadı | Nerede duruyor |
+|---|---|---|
+| Gerçek klavye teslimi (`ASearchDelay = 0` yolu) | Tuşun gerçek pencereli iç edit kontrolüne teslimi gerekiyor; sonda `DoEditKeyPress`'i doğrudan çağırıyor. Sonda bunu `[ATLA]` olarak bildiriyor. | **Ö-04** |
+| Tasarım zamanı davranışı | IDE dışından yapılamıyor. `AMaster`/`AAutoFilter`'ın Object Inspector'daki hâli, `AMaster`'a editör olmayan bir bileşen seçilince `ERadDev`'in tasarımcıda nasıl göründüğü, ve **`TRadChainAuditEditor`'ün "Zinciri denetle..." menüsü** hiç görülmedi. | **Ö-03** |
+| `Rad.Editor.pas`'ın derlenmesi | `DesignEditors.dcu` bu araç zincirinde yok; tasarım zamanı birimi yalnızca **okunarak** doğrulandı. Kullanıcı paketi kendisi derleyecek. | **Ö-03** |
+| `default` direktifi ↔ constructor tam turu | `AFilterOnPopup` ve `AAutoFilter` için ölçüldü (PullTest T04/T15); `ASearchDelay = 500` ve `AMinSearchLength = 3` için DFM'e yazılma/yazılmama turu hâlâ ölçülmedi. | **Ö-01** |
+| Gerçek bağımlılıklarla derleme | `rad.pas` `JclBase`, `JclSysInfo` ve `Dext.Types.UUID` kullanıyor; üçü de bu makinede yok. **Bütün ölçümler geçici kütüklerle yapıldı.** Kütükler yalnızca boş klasör yolları ve bir tip takma adı içeriyor, hiçbir sonda onları kullanmıyor — ama gerçek bağımlılıklarla tekrarlanmalı. | **Ö-02** notu |
+| `PermissionTest.dpr` | Kırık ve düzeltmesi bir **tasarım kararı** (`IsFieldLinked`'in yeni API'deki karşılığı). Kullanıcı kararı gerekiyor. | **Ö-05** |
+| Paket ayrımı (RADDEV-005) | Kullanıcı bu koşuda **yapılmamasını** söyledi: public paket/API kararı ve IDE kurulumunu etkiliyor. | Codex raporu |
+| Ayar paneli ölçümleri | Bu koşunun kapsamı bileşenlerdi (`Rad.Dev`); ayar paneli işine hiç girilmedi. | **Ö-06…Ö-10** |
+
+### Bu koşuda gerçekten ölçülenler
+
+Yedi sonda, **Win32 ve Win64**, kapsam-içi **sıfır tanı**:
+`PullTest` 73 · `RepoListenerTest` 14 · `PullPopupTest` 9 · `RuntimeTest` 8 (+1 atlandı) ·
+`DfmRoundTripTest` 7 · `DestructorTest` 6 · `PerConsumerTest` 6 —
+platform başına **123 iddia**, artı canlı PostgreSQL'e karşı `LiveLookupTest` **18**.

@@ -27,11 +27,11 @@ that break something else in the kit.
 ### Added
 
 - `src/test/scratch/rad_dev_repolisteners/PullTest.dpr` —
-  22 assertions covering the new pull direction (event fires exactly once with
+  28 assertions covering the new pull direction (event fires exactly once with
   the right source/master/value, re-entrancy guard, `DoAssign` carries the pull
   payload, free-notification nils `AMaster`, `PullWarning` reports each silent
   trap). One assertion is red-first: with the old `DoCascade` gate restored it
-  fails, proving the invalidation defect below was real. Green 22/22 on Win32
+  fails, proving the invalidation defect below was real. Green 28/28 on Win32
   and Win64.
 - `src/test/scratch/rad_dev_repolisteners/build_and_run.bat` and
   `src/test/scratch/rad_dev_livedb/build_and_run.bat` — these two probe
@@ -39,8 +39,39 @@ that break something else in the kit.
   large part of why their probes rotted unnoticed. Both take a platform
   argument (`Win32` default, `Win64`) and an optional probe name, and both
   honour `%EXTRAU%` for unit paths this repo does not ship.
+- `src/component/Rad.Dev.pas` — `RadChainAudit(ARoot: TComponent): string`
+  walks a component tree and collects every `ChainWarning` and `PullWarning`
+  it finds, reporting each shared `Properties` instance once. The unit had
+  grown three diagnostic queries (`ChainWarning`, `PullWarning`, and the
+  settings panel's own `Warnings`) with **no caller anywhere** — a mechanism
+  built to surface silent misconfiguration that was itself silent. This stays
+  a query rather than an automatic warning, for the reason `ChainWarning`
+  already documents: a form mid-DFM-load looks misconfigured for a moment, so
+  warning on its own would cry wolf. One `{$IFDEF DEBUG}` line in `FormCreate`
+  is now enough to see everything.
+- `src/component/Rad.Dev.pas` — `ERadDev`, the unit's first exception class.
 
 ### Changed
+
+- `src/component/Rad.Dev.pas` — `AMaster` now rejects anything that is not a
+  `TcxCustomEdit` or a `TcxCustomGridTableItem`. The Object Inspector's
+  component dropdown offers every component on the form, and `_ValueOf` reads
+  only those two kinds — so picking, say, a button handed `AOnFilter` a `Null`
+  master value on every call, producing an empty list with no exception and no
+  warning. The symptom ("it behaves as if no country is selected") pointed
+  nowhere near the cause. It now raises at assignment time, i.e. in the
+  designer.
+
+- `src/component/Rad.Dev.pas` — `DoFilter` counts the times it skips because
+  the list dataset was busy, and `PullWarning` reports the count. Skipping is
+  correct (it breaks recursion) but its consequence was invisible: the dropdown
+  opened showing an unfiltered list and nothing said so.
+
+- `src/component/Rad.Dev.pas` — file encoding repaired. It was UTF-8 except for
+  three stray cp1254 bytes (`Oluştur`, in the header comment), which made it
+  invalid UTF-8 as a whole: `file` reported "Non-ISO extended-ASCII" and any
+  UTF-8 tool either failed on those lines or corrupted them. Converted, and a
+  BOM added per this kit's `delphi-encoding` rule.
 
 - `src/component/Rad.Dev.pas` — **the cascade's main direction is inverted.**
   A dependent lookup now declares its own master (`AMaster`) and filters its own
@@ -81,8 +112,8 @@ that break something else in the kit.
   `ResetDisplayCache` / `ResetCaches` clear both layers, and every place that
   invalidates a target now uses `ResetCaches`.
 
-- `docs/olcum-listesi.md` — Ö-02 partially closed (all five cascade probes
-  renamed to the `A`-prefixed API and compiling; four running green), and Ö-11 /
+- `docs/olcum-listesi.md` — Ö-02 largely closed (all six cascade probes now
+  compile on Win32 **and** Win64, four of them running green on both), and Ö-11 /
   Ö-12 added for the pull measurements that need a visible window and a live
   database. Also records that today's runs used **stub units** for `JclBase`,
   `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.

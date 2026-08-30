@@ -44,11 +44,14 @@ Property adları değişti (`AComponent1`, `ACascadeField`, `ASearchDelay`, …)
 `DfmRoundTripTest` çıktısı `Properties.ACascadeField = 'kolon_yuku'`
 gösteriyor — yeni adlar DFM'e yazılıp geri okunuyor.
 
+**Güncelleme:** altı sondanın hepsi artık **Win32 ve Win64'te derliyor**;
+`PullTest` (28/28), `RepoListenerTest`, `PerConsumerTest`, `DfmRoundTripTest`
+**iki platformda da** koşuyor ve yeşil.
+
 **Bekleyen:**
 1. `RuntimeTest` — görünür pencere + mesaj döngüsü şart, çalıştırılmadı.
 2. `LiveLookupTest` — PostgreSQL kimlik bilgisi şart, çalıştırılmadı.
-3. Kalan üç sondanın Win64 koşusu.
-4. `Rad.Dev.pas` + `help.Dev.pas` **uyarısız** derleme iddiası hâlâ
+3. `Rad.Dev.pas` + `help.Dev.pas` **uyarısız** derleme iddiası hâlâ
    ölçülmedi; bugünkü derlemelerde `rad.config.pas` W1055 ve `help.uni`/
    `rad.db` kaynaklı bir dizi W1057/H2164 var (hepsi bu işten önce vardı).
 

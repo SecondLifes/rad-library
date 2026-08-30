@@ -1,4 +1,4 @@
-(*
+ï»¿(*
   Rad.Dev â€” DevExpress editor genislemeleri: zincirleme (kaskad) lookup.
 
   AMAC
@@ -162,13 +162,16 @@ uses
 
 type
   {*
-  1: Properties Oluþtur;
-  2: RepositoryItem Oluþtur
-  3: Component Oluþtur
+  1: Properties OluÅŸtur;
+  2: RepositoryItem OluÅŸtur
+  3: Component OluÅŸtur
 
   *}
 
   {$REGION 'TRadLookupComboBoxProperties'}
+
+  /// <summary>Rad.Dev yapilandirma hatalari.</summary>
+  ERadDev = class(Exception);
 
   TRadLookupComboBoxProperties = class;
 
@@ -420,6 +423,11 @@ type
          yapar. Tek bayragi paylassalardi ikinci adim sessizce atlanirdi ve bu
          ozellikle paylasilan bir Properties ornegi uzerinde gorunmez olurdu. *)
       FFiltering: Boolean;
+      (* DoFilter, liste dataset'i mesgulken SESSIZCE cikar - dogru davranis
+         (ozyinelemeyi keser) ama sonucu gorunmez: kullanici SUZULMEMIS bir
+         liste gorur ve bunun oldugunu hicbir sey soylemez. Sayac bunu
+         PullWarning uzerinden gorunur kilar. *)
+      FSkippedFilters: Integer;
       function  GetMaster: TComponent;
       procedure SetMaster(const AValue: TComponent);
       function  GetSlot(AIndex: Integer): TComponent;
@@ -889,8 +897,90 @@ type
 
 
 
+(* ZINCIR DENETIMI - uc teshis sorgusunu tek cagrida toplar.
+
+   Neden var: ChainWarning ve PullWarning yazildilar ama HICBIR YERDEN
+   cagrilmiyorlardi. "Sessiz tuzagi bildir" diye eklenen mekanizmanin
+   kendisi sessiz kalmisti; bir uyari, onu soran biri olmadan uyari degildir.
+
+   Neden hala KENDILIGINDEN uyarmiyor: DFM yuklenirken her yapilandirma bir
+   an eksik gorunur (master atandi, olay henuz atanmadi). Otomatik uyari
+   yanlis alarm uretirdi - kitin ChainWarning icin verdigi kararin aynisi.
+   Bu yuzden bu bir SORGUDUR; cagirmak size kalmis:
+
+     {$IFDEF DEBUG}
+     OutputDebugString(PChar(RadChainAudit(Self)));
+     {$ENDIF}
+
+   Adi '_' ile BASLAMIYOR: bu bir helper birimi degil (helper-patterns.md'deki
+   '_' kurali help.* birimleri icindir), Rad.Dev'in kendi genel yuzeyidir.
+
+   ARoot'un BILESEN AGACINI gezer (Owner zinciri). Tasarim zamaninda yaratilan
+   grid kolonlari da bu agactadir. Kod icinde Owner'siz yaratilmis bir editor
+   bulunamaz - o zaman onun Properties'ini dogrudan sorgulayin.
+
+   Paylasilan Properties ornekleri BIR KEZ raporlanir: bir RepositoryItem'a
+   bagli on tuketici ayni uyariyi on kez basmaz. *)
+function RadChainAudit(ARoot: TComponent): string;
+
 implementation
   uses Help.Dev,DBAccess, Vcl.Dialogs, Help.vcl;
+
+function RadChainAudit(ARoot: TComponent): string;
+var
+  LSeen: TList<TObject>;
+  LOut: TStringList;
+
+  procedure Ekle(const AText: string);
+  begin
+    if AText <> '' then
+      LOut.Add(AText);
+  end;
+
+  procedure BakProperties(AProps: TcxCustomEditProperties);
+  begin
+    if not (AProps is TRadLookupComboBoxProperties) then
+      Exit;
+    { Paylasilan ornek: ayni Properties'i ikinci kez raporlamayiz. }
+    if LSeen.IndexOf(AProps) >= 0 then
+      Exit;
+    LSeen.Add(AProps);
+    Ekle(TRadLookupComboBoxProperties(AProps).PullWarning);
+  end;
+
+  procedure Gez(AC: TComponent);
+  var
+    i: Integer;
+  begin
+    if AC = nil then
+      Exit;
+    if AC is TRadEditRepositoryItem then
+      Ekle(TRadEditRepositoryItem(AC).ChainWarning)
+    else if (AC is TcxCustomEdit) or (AC is TcxCustomGridTableItem) then
+      BakProperties(_ActiveProperties(AC));
+    for i := 0 to AC.ComponentCount - 1 do
+      Gez(AC.Components[i]);
+  end;
+
+begin
+  Result := '';
+  if ARoot = nil then
+    Exit;
+  LSeen := TList<TObject>.Create;
+  try
+    LOut := TStringList.Create;
+    try
+      Gez(ARoot);
+      if LOut.Count > 0 then
+        Result := Format('RadChainAudit(%s): %d bulgu', [ARoot.Name, LOut.Count]) +
+          sLineBreak + LOut.Text;
+    finally
+      LOut.Free;
+    end;
+  finally
+    LSeen.Free;
+  end;
+end;
 
 { TRadBusyDataSets }
 
@@ -1493,6 +1583,20 @@ end;
 
 procedure TRadLookupComboBoxProperties.SetMaster(const AValue: TComponent);
 begin
+  (* TIP DENETIMI - yoksa Object Inspector'daki AMaster acilir listesi formdaki
+     HER bileseni gosterir ve yanlis secim SESSIZ kalir: _ValueOf yalnizca
+     TcxCustomEdit ve TcxCustomGridTableItem tanir, digerlerinde Null doner
+     (help.Dev). Bir TButton secilirse AOnFilter her seferinde Null alir,
+     liste bos gelir ve ne istisna ne uyari cikar. Belirti "ulke secili degil
+     gibi davraniyor" olur, sebebi burasidir - o yuzden tasarim zamaninda
+     patliyoruz. *)
+  if (AValue <> nil) and not (AValue is TcxCustomEdit) and
+     not (AValue is TcxCustomGridTableItem) then
+    raise ERadDev.CreateFmt(
+      'AMaster bir editor (TcxCustomEdit) ya da bir grid kolonu ' +
+      '(TcxCustomGridTableItem) olmalidir; %s verildi. Degeri _ValueOf okur ' +
+      've baska turlerde Null doner - yani filtre sessizce bos calisirdi.',
+      [AValue.ClassName]);
   FMasterSlot.Put(1, AValue);
 end;
 
@@ -1621,7 +1725,11 @@ begin
     bkz. DoSearch/DoLocate'teki ayni desen. }
   LDS := ListDataSet;
   if TRadBusyDataSets.IsBusy(LDS) then
+  begin
+    { Sessiz kalmiyoruz: PullWarning bunu bildirir. }
+    Inc(FSkippedFilters);
     Exit;
+  end;
 
   { Enter/try eslesmesi icin bkz. DoLocate'teki not. }
   TRadBusyDataSets.Enter(LDS);
@@ -1676,6 +1784,13 @@ begin
          'suzuldugu icin, suzulmus listede bulunmayan bir anahtarin metni ' +
          'BOS gosterilir. GridMode=True bunu COZMEZ - Locate ayni suzulmus ' +
          'dataset''e bakar ve bos cevabi onbellege yazar.');
+
+  if FSkippedFilters > 0 then
+    Ekle(Format('Filtre %d kez ATLANDI: liste dataset''i o anda mesguldu ' +
+      '(TRadBusyDataSets). Acilir liste o acilislarda SUZULMEMIS haliyle ' +
+      'gorundu. Ayni dataset''i birden fazla editor paylasiyorsa beklenen ' +
+      'olabilir; degilse AOnFilter isleyicisi kendi listesini yeniden ' +
+      'aciyor demektir.', [FSkippedFilters]));
 end;
 
 procedure TRadLookupComboBoxProperties.ResetLocateCache;

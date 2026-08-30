@@ -24,7 +24,7 @@ program PullTest;
 uses
   System.SysUtils, System.Classes, System.Variants, Vcl.Forms, Vcl.Controls,
   cxEdit, cxDropDownEdit, cxLookupEdit, cxDBLookupEdit, cxDBLookupComboBox,
-  cxGraphics, cxControls, cxLookAndFeels, cxContainer, cxClasses,
+  cxGraphics, cxControls, cxLookAndFeels, cxContainer, cxClasses, Vcl.StdCtrls,
   Rad.Dev;
 
 var
@@ -94,7 +94,8 @@ var
   LForm: TForm;
   LIzle: TIzleyici;
   LUsta, LBagimli, LKopya, LKaynak, LHedef: TRadLookupComboBox;
-  LUyari: string;
+  LUyari, LHata, LDenetim: string;
+  LDugme: TButton;
 
 function YeniEditor(const AAd: string): TRadLookupComboBox;
 begin
@@ -224,6 +225,40 @@ begin
       Writeln('         --- uyari metni ---');
       Writeln('         ', StringReplace(LUyari, sLineBreak,
         sLineBreak + '         ', [rfReplaceAll]));
+
+      Writeln;
+      Writeln('=== T10) AMaster tip denetimi ===');
+      LDugme := TButton.Create(LForm);
+      LDugme.Name := 'Dugme';
+      LDugme.Parent := LForm;
+      LHata := '';
+      try
+        LBagimli.Properties.AMaster := LDugme;
+      except
+        on E: Exception do
+          LHata := E.ClassName;
+      end;
+      Kontrol('editor olmayan bir bilesen ERadDev ile reddediliyor',
+        LHata = 'ERadDev',
+        'atilan: ' + LHata + ' (ERadDev bekleniyor; bos ise SESSIZCE kabul edildi)');
+      Kontrol('reddedilen atama yuvayi bozmadi',
+        LBagimli.Properties.AMaster = nil,
+        'AMaster = ' + Ad(LBagimli.Properties.AMaster));
+      Kontrol('nil atamasi hala serbest (temizleme yolu)',
+        LKopya.Properties.AMaster = nil);
+
+      Writeln;
+      Writeln('=== T11) RadChainAudit teshisleri topluyor mu? ===');
+      LDenetim := RadChainAudit(LForm);
+      Kontrol('form denetimi bos donmuyor',
+        LDenetim <> '', Format('uzunluk: %d', [Length(LDenetim)]));
+      Kontrol('PullWarning bulgusu denetimde gorunuyor',
+        Pos('AOnFilter', LDenetim) > 0);
+      Kontrol('nil kok icin bos donuyor',
+        RadChainAudit(nil) = '');
+      Writeln('         --- denetim ciktisi (ilk satir) ---');
+      if LDenetim <> '' then
+        Writeln('         ', Copy(LDenetim, 1, Pos(sLineBreak, LDenetim + sLineBreak) - 1));
     finally
       LIzle.Free;
       LForm.Free;

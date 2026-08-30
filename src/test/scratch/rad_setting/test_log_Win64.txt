@@ -1,7 +1,7 @@
 Embarcadero Delphi for Win64 compiler version 37.0
 Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
 E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.config.pas(107) Warning: W1055 PUBLISHED caused RTTI ($M+) to be added to type 'TRadConfig'
-158817 lines, 1.25 seconds, 20758760 bytes code, 1984080 bytes data.
+158817 lines, 1.20 seconds, 20758760 bytes code, 1984080 bytes data.
 === k.setting sondasi ===
 
 01 - anahtar uretimi (PascalCase -> snake_case)

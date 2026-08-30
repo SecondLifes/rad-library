@@ -160,6 +160,63 @@ uses
   ,System.Types  { TList.Remove satir ici acilimi icin - H2443 }
   ,Vcl.ExtCtrls; { SearchDelay geciktiricisinin TTimer'i }
 
+(* ==========================================================================
+   BILESENIN BEKLEDIGI SORGU SEKLI
+
+   Bir ERP lookup'i BUTUN tabloyu cekmez. Beklenen sekil sunucu tarafli,
+   SINIRLI ve iki parametreli tek bir sorgudur:
+
+     select id, ad from sehir
+      where ulke_id = :ulke_id       { master suzgeci - AMasterField }
+        and ad ilike :arama          { artimli arama - AOnSearch'un isi }
+      order by ad
+      limit 15                       { SATIR SINIRI: UYGULAMANIN ISI }
+
+   -- SATIR SINIRINI BILESEN KOYMAZ --------------------------------------
+   limit / top / rownum sozdizimi veritabanina gore degisir ve dogru sayi
+   ekrana gore degisir; bileseni SQL uretmeye yaklastirmamak icin bu tamamen
+   uygulamada birakildi.
+
+   ! UniDAC'in TCustomDADataSet.FetchRows'u (varsayilan 25) BU ISI YAPMAZ.
+     O yalnizca bir gidis-donuste kac satir tasinacagini soyler; sorgu yine
+     butun sonuc kumesini uretir ve non-GridMode bir lookup acilir listeyi
+     doldururken hepsini yurur. Gercek sinir SQL'dedir (ya da GridMode).
+
+   -- IKI MEKANIZMA, TEK SORGU -------------------------------------------
+   AAutoFilter = afServerParam master parametresini kurar; AOnSearch arama
+   parametresini kurar ve dataset'i YENIDEN ACAR. Acilir liste her acildiginda
+   bileseni sunlari yapar:
+
+     1. master parametresini kurar (dataset'i ACMADAN),
+     2. AOnFilter varsa cagirir,
+     3. aramayi BOS metinle bir kez cagirir -> tek Close/Open ORADA olur.
+
+   Ucuncu adim ayni zamanda ARAMA METNINI SIFIRLAR: "ank" yazip sonra ulkeyi
+   degistiren bir kullanici, Almanya listesini "ank" ile suzulmus ve bos
+   gormemelidir.
+
+   ! SQL.Text'i BASTAN ATAYAN bir isleyici master parametresini YOK EDER.
+     Parametre degerleri Close/Open boyunca korunur (UniDAC), ama SQL metni
+     degisince koleksiyon yeniden kurulur ve yeni metinde bulunmayan
+     parametre gider. Isleyiciler parametre atamali, SQL degistirmemelidir.
+
+   -- AOnLocate NEDEN SART ------------------------------------------------
+   Liste master'a gore suzuldugu icin, kayitli anahtar suzulmus listede
+   BULUNMAYABILIR. O durumda taban sinif bos metin uretir
+   (cxDBLookupEdit.pas:626-632) ve GridMode = True bunu COZMEZ: oradaki
+   Locate ayni suzulmus dataset'e bakar ve bos cevabi onbellege yapistirir.
+   Tek cozum AOnLocate'tir - uygulama o tek anahtarin satirini sunucudan
+   ceker.
+
+   -- afClientFilter NE ZAMAN ---------------------------------------------
+   Yalnizca TAMAMI BELLEKTE DURAN kucuk listeler icin (doviz, birim, KDV
+   orani): bir kez cekilir, master degistikce aga hic gidilmez. Buyuk
+   listelerde yanlis secim, calisan ama gitgide yavaslayan bir ekran demek -
+   PullWarning bunu CIstemciFiltreUyariEsigi satirini asinca bildirir.
+   Bu kipte SQL suzgecsiz olmali ve AMasterField dataset'te GERCEKTEN VAR
+   OLAN bir alan olmalidir.
+   ========================================================================== *)
+
 type
   {*
   1: Properties Oluştur;
@@ -173,6 +230,14 @@ type
   /// <summary>Rad.Dev yapilandirma hatalari.</summary>
   ERadDev = class(Exception);
 
+const
+  (* afClientFilter uyari esigi. OLCUM DEGIL, KARAR: doviz/birim/KDV gibi
+     gercekten kucuk listeler rahatlikla altinda kalir; sehir/cari/stok gibi
+     yanlis kullanimlar hizla ustune cikar. Yanlis alarm riski dusuk tutuldu. *)
+  CIstemciFiltreUyariEsigi = 200;
+
+type
+
   (* PULL'un OTOMATIK kipi: basit "alan = master'in degeri" durumunda
      AOnFilter yazmadan filtreyi bilesenin kendisi uygular.
 
@@ -184,10 +249,10 @@ type
     afNone,
     /// Liste dataset'inin AMasterField adli PARAMETRESI atanir ve dataset
     /// yeniden acilir. Sunucu tarafli suzme; UniDAC (TCustomDADataSet) ister.
-    afParam,
+    afServerParam,
     /// TDataSet.Filter ifadesi kurulur (AMasterField = deger). Saticidan
     /// bagimsiz, ama suzme ISTEMCI tarafindadir - butun satirlar cekilir.
-    afFilter);
+    afClientFilter);
 
   TRadLookupComboBoxProperties = class;
 
@@ -448,9 +513,14 @@ type
          liste gorur ve bunun oldugunu hicbir sey soylemez. Sayac bunu
          PullWarning uzerinden gorunur kilar. *)
       FSkippedFilters: Integer;
+      (* Arama ve locate yollari da mesgul dataset yuzunden atlanabiliyor ama
+         eskiden bu SESSIZDI - yalnizca DoFilter sayiyordu. Atlanan bir arama,
+         kullanicinin yazdigi metnin hic uygulanmamasi demek. *)
+      FSkippedSearches: Integer;
       FMasterField: string;
       FAutoFilter: TRadAutoFilter;
-      procedure ApplyAutoFilter(ADataSet: TDataSet; const AValue: Variant);
+      procedure ApplyAutoFilter(ADataSet: TDataSet; const AValue: Variant;
+        AOpen: Boolean);
       function  GetMaster: TComponent;
       procedure SetMaster(const AValue: TComponent);
       function  GetSlot(AIndex: Integer): TComponent;
@@ -598,7 +668,7 @@ type
          kaskadda ulke secilmeden sehir listelenmemelidir. Iki kip icin de
          ayni kural - ifade oyunu yok.
 
-         SINIR: afFilter'in ifadesi tamsayi ve metin degerleri icin uretilir.
+         SINIR: afClientFilter'in ifadesi tamsayi ve metin degerleri icin uretilir.
          Ondalik/tarih bir master anahtari icin AOnFilter yazin - yerel ondalik
          ayraci filtre ifadesini sessizce bozardi. *)
       property AAutoFilter:TRadAutoFilter read FAutoFilter write FAutoFilter default afNone;
@@ -818,6 +888,8 @@ type
     procedure DoCascade(ASource: TComponent; const AValue: Variant);
     /// <summary>Dolu zincir yuvasi sayisi (ChainWarning icin).</summary>
     function ChainSlotCount: Integer;
+    /// <summary>Combo tarafindaki SESSIZ tuzak. Bos string = sorun yok.</summary>
+    function CascadeWarning: string;
     //procedure DoAssign(AProperties: TcxCustomEditProperties); override;
     //procedure DoInitPopup(Sender: TObject);
     //procedure PrepareDisplayValue(const AEditValue: Variant; var DisplayValue: Variant; AEditFocused: Boolean); override;
@@ -984,13 +1056,25 @@ var
 
   procedure BakProperties(AProps: TcxCustomEditProperties);
   begin
-    if not (AProps is TRadLookupComboBoxProperties) then
+    if AProps = nil then
       Exit;
     { Paylasilan ornek: ayni Properties'i ikinci kez raporlamayiz. }
     if LSeen.IndexOf(AProps) >= 0 then
       Exit;
-    LSeen.Add(AProps);
-    Ekle(TRadLookupComboBoxProperties(AProps).PullWarning);
+
+    (* HER IKI AILE de denetlenir. Eskiden yalnizca lookup ailesine
+       bakiliyordu; combo'nun kendi sessiz tuzagi (AOnCascade'siz zincir)
+       denetimde hic gorunmuyordu - RADDEV-007. *)
+    if AProps is TRadLookupComboBoxProperties then
+    begin
+      LSeen.Add(AProps);
+      Ekle(TRadLookupComboBoxProperties(AProps).PullWarning);
+    end
+    else if AProps is TRadComboBoxProperties then
+    begin
+      LSeen.Add(AProps);
+      Ekle(TRadComboBoxProperties(AProps).CascadeWarning);
+    end;
   end;
 
   procedure Gez(AC: TComponent);
@@ -1351,6 +1435,29 @@ begin
   FInt := LSrc.FInt;
   FSlots.Assign(LSrc.FSlots);
   FCascadeEvent := LSrc.FCascadeEvent;
+end;
+
+function TRadComboBoxProperties.CascadeWarning: string;
+begin
+  Result := '';
+  if FSlots.FilledCount = 0 then
+    Exit;
+
+  (* COMBO'YA OZGU. Lookup ailesinde hedef, kendi listesini bir dataset'ten
+     alir; kaynak yalnizca "degerin gecersiz" sinyalini gonderse bile hedef
+     acilirken kendi pull'uyla tazelenir.
+
+     Combo'nun listesi Items: TStrings'tir - onu YALNIZCA bir isleyici
+     doldurabilir. AOnCascade atanmamissa hedefin listesi HIC degismez:
+     kaskad kurulmus gorunur, calisir gorunur, ama secenekler sabit kalir.
+     Bu, hicbir istisna veya uyari uretmeyen turden bir hatadir. *)
+  if not Assigned(FCascadeEvent) then
+    Result :=
+      'Zincir kurulmus (' + IntToStr(FSlots.FilledCount) + ' hedef) ama ' +
+      'AOnCascade yok. Combo hedefinin listesi Items''tir ve yalnizca bir ' +
+      'isleyici doldurabilir - kaynak degistiginde hedefin secenekleri HIC ' +
+      'degismez. (Lookup hedefleri kendi AOnFilter''i ile tazelenebilir; ' +
+      'combo icin boyle bir yol yoktur.)';
 end;
 
 function TRadComboBoxProperties.ChainSlotCount: Integer;
@@ -1818,10 +1925,14 @@ begin
 end;
 
 procedure TRadLookupComboBoxProperties.ApplyAutoFilter(ADataSet: TDataSet;
-  const AValue: Variant);
+  const AValue: Variant; AOpen: Boolean);
 var
   LLiteral: string;
+  LBos: Boolean;
 begin
+  (* AOpen = False demek: dataset'i YENIDEN ACMA, yalnizca filtreyi kur.
+     Cagiran (DoFilter) bir AOnSearch isleyicisi oldugunu biliyorsa acmayi
+     ONA devreder - boylece bir acilista tek sorgu kosar, iki degil. *)
   if ADataSet = nil then
     raise ERadDev.Create(
       'AAutoFilter acik ama ListSource/dataset yok: suzecek bir sey bulunamadi.');
@@ -1830,36 +1941,53 @@ begin
       'AAutoFilter acik ama AMasterField bos: hangi parametrenin/alanin ' +
       'suzulecegi bilinmiyor.');
 
-  (* MASTER BOSSA LISTE DE BOS. Kaskadda ulke secilmeden sehir listelenmemeli;
-     dataset'i kapatmak bunu ifade oyunu olmadan, iki kip icin de ayni sekilde
-     verir. *)
-  if VarIsNull(AValue) or VarIsEmpty(AValue) or (VarToStr(AValue) = '') then
+  (* MASTER BOSSA LISTE DE BOS: kaskadda ulke secilmeden sehir
+     listelenmemeli. Iki kip bunu FARKLI yoldan yapiyor ve fark onemli:
+
+       afServerParam -> parametre NULL'a cekilir. Sorgu "ulke_id = null"
+         olur ve sifir satir doner. Dataset ACIK kalir, dolayisiyla arama
+         isleyicisi sonradan yeniden acsa bile master suzgeci HALA gecerlidir.
+       afClientFilter -> dataset KAPATILIR. Kurulacak bir parametre yok;
+         "hicbir satir" ifadesini filtre metniyle kurmak ancak uydurma bir
+         ifadeyle olurdu.
+
+     Eskiden ikisi de kapatiyordu. Bu, arama isleyicisine devredilen bir
+     acilisla birlestiginde SESSIZ bir hata uretirdi: master bossa dataset
+     kapanir, sonra arama onu master suzgeci OLMADAN yeniden acar ve liste
+     BUTUN satirlari gosterirdi. *)
+  LBos := VarIsNull(AValue) or VarIsEmpty(AValue) or (VarToStr(AValue) = '');
+  if LBos and (FAutoFilter = afClientFilter) then
   begin
     ADataSet.Close;
     Exit;
   end;
 
   case FAutoFilter of
-    afParam:
+    afServerParam:
       begin
         (* Sunucu tarafli. UniDAC'e baglidir - bu birimin implementation'i
            zaten DBAccess kullaniyor. Baska bir saticinin dataset'i icin
-           afFilter'i ya da AOnFilter'i kullanin. *)
+           afClientFilter'i ya da AOnFilter'i kullanin. *)
         if not (ADataSet is TCustomDADataSet) then
           raise ERadDev.CreateFmt(
-            'AAutoFilter = afParam, parametreli bir UniDAC dataset''i ister ' +
-            '(TCustomDADataSet); liste dataset''i %s. afFilter kipini ya da ' +
+            'AAutoFilter = afServerParam, parametreli bir UniDAC dataset''i ister ' +
+            '(TCustomDADataSet); liste dataset''i %s. afClientFilter kipini ya da ' +
             'AOnFilter''i kullanin.', [ADataSet.ClassName]);
-        ADataSet.Close;
+        if AOpen then
+          ADataSet.Close;
         { ParamByName yoksa istisna atar - sessiz yanlis suzmeden iyidir. }
-        TCustomDADataSet(ADataSet).ParamByName(FMasterField).Value := AValue;
-        ADataSet.Open;
+        if LBos then
+          TCustomDADataSet(ADataSet).ParamByName(FMasterField).Clear
+        else
+          TCustomDADataSet(ADataSet).ParamByName(FMasterField).Value := AValue;
+        if AOpen then
+          ADataSet.Open;
       end;
 
-    afFilter:
+    afClientFilter:
       begin
         (* Saticidan bagimsiz ama suzme ISTEMCI tarafinda: butun satirlar
-           cekilir. Buyuk listelerde afParam tercih edilmelidir.
+           cekilir. Buyuk listelerde afServerParam tercih edilmelidir.
 
            Deger bicimi BILINCLI olarak dar: tamsayilar ciplak, digerleri
            tirnakli metin. Ondalik/tarih icin yerel ayrac ifadeyi SESSIZCE
@@ -1874,7 +2002,9 @@ begin
         ADataSet.Filtered := False;
         ADataSet.Filter := FMasterField + ' = ' + LLiteral;
         ADataSet.Filtered := True;
-        if not ADataSet.Active then
+        { Filter/Filtered Close/Open boyunca korunur; acmayi arama isleyicisi
+          devraldiysa suzgec yine de gecerli kalir. }
+        if AOpen and not ADataSet.Active then
           ADataSet.Open;
       end;
   end;
@@ -1885,6 +2015,8 @@ var
   LMaster: TComponent;
   LValue: Variant;
   LDS: TDataSet;
+  LAramaAcacak: Boolean;
+  LText, LTail: string;
 begin
   LMaster := FMasterSlot.Get(1);
   { Otomatik kip acikken AOnFilter GEREKMEZ - pull'un bir isleyici yazmadan
@@ -1911,6 +2043,30 @@ begin
     Exit;
   end;
 
+  (* TEK YENIDEN ACIS.
+
+     Bir AOnSearch isleyicisi varsa acmayi ONA devrediyoruz: ApplyAutoFilter
+     yalnizca parametreyi/filtreyi kurar, dataset'i acmaz; hemen ardindan
+     aramayi BOS metinle bir kez cagiririz ve tek Close/Open'i o yapar.
+
+     Iki sey birden cozuluyor:
+       1. Bir acilista IKI sorgu kosuyordu (once master filtresi, sonra
+          arama). Artik bir.
+       2. Master degisince ESKI ARAMA METNI parametrede kaliyordu: Almanya'ya
+          gecince liste hala "ank" ile suzulu gelir, bos gorunur ve sebebi
+          gorunmezdi. Bos metin mevcut sozlesmede zaten "hepsini goster"
+          demek ve uzunluk kapisindan muaf, o yuzden ayri bir mekanizmaya
+          gerek yok.
+
+     Parametrelerin birbirini korudugu DOGRULANDI (UniDAC kaynagi): Close/Open
+     params koleksiyonuna dokunmaz; koleksiyon yalnizca SQL.Text/makro
+     degisince yeniden kurulur, o zaman bile degerler ADA GORE korunur.
+     Dolayisiyla arama isleyicisinin Close/Open'i az once kurdugumuz master
+     parametresini silmez.
+     ! Bunun tek istisnasi, SQL.Text'i BASTAN ATAYAN bir isleyicidir: yeni
+       metinde master parametresi yoksa gider. Birim basligindaki nota bakin. *)
+  LAramaAcacak := Assigned(FSearchEvent);
+
   { Enter/try eslesmesi icin bkz. DoLocate'teki not: Enter'dan HEMEN SONRA
     try gelir, arada tek satir bile olmaz. }
   TRadBusyDataSets.Enter(LDS);
@@ -1918,7 +2074,7 @@ begin
     FFiltering := True;
     { SIRA: once otomatik, sonra isleyici - isleyici uzerine yazabilsin. }
     if FAutoFilter <> afNone then
-      ApplyAutoFilter(LDS, LValue);
+      ApplyAutoFilter(LDS, LValue, not LAramaAcacak);
     if Assigned(FFilterEvent) then
       FFilterEvent(Self, ASource, LMaster, LValue);
   finally
@@ -1933,6 +2089,16 @@ begin
          KALICI busy kalirdi ve sonraki her filtre sessizce atlanirdi. *)
       TRadBusyDataSets.Leave(LDS);
     end;
+  end;
+
+  (* ARAMA SIFIRLAMA - busy sarmalinin DISINDA olmak ZORUNDA.
+     DoSearch kendi IsBusy denetimini yapiyor; bu cagriyi Enter/Leave arasina
+     koysaydik kendi kilidimize takilir ve arama SESSIZCE atlanirdi. *)
+  if LAramaAcacak then
+  begin
+    LText := '';
+    LTail := '';
+    DoSearch(ASource, LText, LTail, False);
   end;
 end;
 
@@ -1980,6 +2146,19 @@ begin
          'suzuldugu icin, suzulmus listede bulunmayan bir anahtarin metni ' +
          'BOS gosterilir. GridMode=True bunu COZMEZ - Locate ayni suzulmus ' +
          'dataset''e bakar ve bos cevabi onbellege yazar.');
+
+  if FSkippedSearches > 0 then
+    Ekle(Format('Arama/locate %d kez ATLANDI: liste dataset''i o anda ' +
+      'mesguldu. Kullanicinin yazdigi metin o denemelerde hic uygulanmadi, ' +
+      'ya da bir anahtarin metni bos gorundu.', [FSkippedSearches]));
+
+  if (FAutoFilter = afClientFilter) and (ListDataSet <> nil) and
+     ListDataSet.Active and
+     (ListDataSet.RecordCount > CIstemciFiltreUyariEsigi) then
+    Ekle(Format('AAutoFilter = afClientFilter ama liste %d satir (esik %d). ' +
+      'Bu kip BUTUN satirlari cekip bellekte suzer; bu boyutta afServerParam ' +
+      'ile sunucuda suzun ve SQL''e bir satir siniri (limit/top) koyun.',
+      [ListDataSet.RecordCount, CIstemciFiltreUyariEsigi]));
 
   if FSkippedFilters > 0 then
     Ekle(Format('Filtre %d kez ATLANDI: liste dataset''i o anda mesguldu ' +
@@ -2124,7 +2303,12 @@ begin
     geri cekiliyoruz - yoksa ic ice sorgu ac/kapa. }
   LDS := ListDataSet;
   if TRadBusyDataSets.IsBusy(LDS) then
+  begin
+    { Cizim yolundaki atlama da sayilir: atlanan bir locate, o anahtarin
+      metninin BOS gorunmesi demek - ve bu bugune kadar sessizdi. }
+    Inc(FSkippedSearches);
     Exit;
+  end;
 
   (* Enter, try'in ICINDE degil hemen ONCESINDE olmali VE arasinda hicbir sey
      calismamali. Onceki halinde araya LockUpdate(True) giriyordu: o istisna
@@ -2165,7 +2349,12 @@ begin
 
   LDS := ListDataSet;
   if TRadBusyDataSets.IsBusy(LDS) then
+  begin
+    { Sessiz kalmiyordu artik: PullWarning bunu bildirir. Atlanan bir arama,
+      kullanicinin yazdigi metnin hic uygulanmamasi demektir. }
+    Inc(FSkippedSearches);
     Exit;
+  end;
 
   { Enter/try eslesmesi icin bkz. DoLocate'teki not. }
   TRadBusyDataSets.Enter(LDS);

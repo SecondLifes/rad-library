@@ -120,9 +120,14 @@ procedure Register;
 begin
   //RegisterComponentEditor(TAksaPropertiesStore,TAksaPropertiesStoreEditor);
   RegisterComponentEditor(TRadPermission,TRadPermissonEditor);
-  { Zincir denetimi: AMaster/AComponent1..4 tasiyan editorlerin hepsine. }
+  (* Zincir denetimi: AMaster/AComponent1..4 tasiyan HER dort sinifa.
+     Combo ailesi de kaskad yuvalarina sahip ve kendi sessiz tuzagi var
+     (AOnCascade siz zincir - bkz. TRadComboBoxProperties.CascadeWarning);
+     onlari disarida birakmak denetimi yarim birakirdi - RADDEV-007. *)
   RegisterComponentEditor(TRadLookupComboBox,TRadChainAuditEditor);
   RegisterComponentEditor(TRadDBLookupComboBox,TRadChainAuditEditor);
+  RegisterComponentEditor(TRadComboBox,TRadChainAuditEditor);
+  RegisterComponentEditor(TRadDBComboBox,TRadChainAuditEditor);
   //RegisterComponentEditor(TAksaCmdList,TAksaCmdListEditor);
 
   RegisterPropertyEditor(TypeInfo (string), TRadAutoValueItem, 'Command', TListCommand);

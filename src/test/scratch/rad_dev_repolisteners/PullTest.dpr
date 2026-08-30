@@ -74,6 +74,9 @@ type
     Patlat: Boolean;              { isleyici istisna atsin mi }
     LocateSayaci: Integer;
     AramaSayaci: Integer;
+    SonAramaMetni: string;
+    AramaAcsin: Boolean;          { arama isleyicisi dataset i acsin mi }
+    AcilacakTablo: TVirtualTable;
     procedure Filtre(Sender: TRadLookupComboBoxProperties;
       ASource, AMaster: TComponent; const AMasterValue: Variant);
     procedure Sifirla;
@@ -81,6 +84,8 @@ type
       ASource: TComponent; var AText, ATail: string; ANext: Boolean);
     procedure Locate(Sender: TRadLookupComboBoxProperties;
       ASource: TComponent; const AKey: Variant);
+    procedure ComboKaskad(Sender: TRadComboBoxProperties;
+      ASource, ATarget: TComponent; const AValue: Variant);
   end;
 
 procedure TIzleyici.Sifirla;
@@ -95,6 +100,12 @@ procedure TIzleyici.Arama(Sender: TRadLookupComboBoxProperties;
   ASource: TComponent; var AText, ATail: string; ANext: Boolean);
 begin
   Inc(AramaSayaci);
+  SonAramaMetni := AText;
+  if AramaAcsin and (AcilacakTablo <> nil) then
+  begin
+    AcilacakTablo.Close;
+    AcilacakTablo.Open;
+  end;
   if Patlat then
     raise Exception.Create('sonda: arama isleyicisi bilerek patladi');
 end;
@@ -103,6 +114,12 @@ procedure TIzleyici.Locate(Sender: TRadLookupComboBoxProperties;
   ASource: TComponent; const AKey: Variant);
 begin
   Inc(LocateSayaci);
+end;
+
+procedure TIzleyici.ComboKaskad(Sender: TRadComboBoxProperties;
+  ASource, ATarget: TComponent; const AValue: Variant);
+begin
+  { govde bos - varligi yeterli }
 end;
 
 procedure TIzleyici.Filtre(Sender: TRadLookupComboBoxProperties;
@@ -132,6 +149,11 @@ var
   LCol, LCol2: TcxGridColumn;
   LItem: TRadLookupComboBoxRepository;
   LSlots: TRadEditSlots;
+  LBuyukVT: TVirtualTable;
+  LBuyukDs: TDataSource;
+  LBuyukEd, LBuyukUsta: TRadLookupComboBox;
+  LCombo: TRadComboBox;
+  i: Integer;
   LVT: TVirtualTable;
   LDs: TDataSource;
   LUlkeOto, LSehirOto: TRadLookupComboBox;
@@ -406,7 +428,7 @@ begin
         YeniEditor('Taze2').Properties.AAutoFilter = afNone);
 
       Writeln;
-      Writeln('=== T16) AAutoFilter = afFilter, AOnFilter YAZMADAN ===');
+      Writeln('=== T16) AAutoFilter = afClientFilter, AOnFilter YAZMADAN ===');
       LVT := TVirtualTable.Create(LForm);
       LVT.Name := 'SehirTablosu';
       LVT.FieldDefs.Add('id', ftInteger);
@@ -431,7 +453,7 @@ begin
       LSehirOto.Properties.ListFieldNames := 'ad';
       LSehirOto.Properties.AMaster := LUlkeOto;
       LSehirOto.Properties.AMasterField := 'ulke_id';
-      LSehirOto.Properties.AAutoFilter := afFilter;
+      LSehirOto.Properties.AAutoFilter := afClientFilter;
       { AOnFilter BILEREK atanmiyor - ozelligin butun amaci bu. }
 
       LUlkeOto.EditValue := 1;
@@ -474,7 +496,7 @@ begin
         Pos('AMasterField', LSehirOto.Properties.PullWarning) > 0);
       LSehirOto.Properties.AMasterField := 'ulke_id';
 
-      LSehirOto.Properties.AAutoFilter := afParam;
+      LSehirOto.Properties.AAutoFilter := afServerParam;
       LHata := '';
       try
         LSehirOto.FilterNow;
@@ -482,8 +504,59 @@ begin
         on E: Exception do
           LHata := E.ClassName;
       end;
-      Kontrol('afParam, parametresiz bir dataset''te ERadDev atiyor',
+      Kontrol('afServerParam, parametresiz bir dataset''te ERadDev atiyor',
         LHata = 'ERadDev', 'atilan: ' + LHata + ' (TVirtualTable parametre almaz)');
+      Writeln;
+      Writeln('=== T21) Master filtresi arama metnini SIFIRLIYOR mu? ===');
+      (* Kullanicinin karari: yeni master, yeni liste. Bos metin mevcut
+         sozlesmede zaten "hepsini goster" demek, o yuzden ayri bir
+         mekanizma yok - arama BOS metinle bir kez cagriliyor. *)
+      LSehirOto.Properties.AAutoFilter := afNone;
+      LSehirOto.Properties.AOnFilter := LIzle.Filtre;
+      LSehirOto.Properties.AOnSearch := LIzle.Arama;
+      LIzle.Sifirla;
+      LIzle.AramaSayaci := 0;
+      LIzle.SonAramaMetni := 'ONCEKI-ARAMA';
+      LSehirOto.FilterNow;
+      Kontrol('master filtresinden sonra arama tam bir kez cagrildi',
+        LIzle.AramaSayaci = 1, Format('AramaSayaci = %d', [LIzle.AramaSayaci]));
+      Kontrol('arama BOS metinle cagrildi (eski metin silindi)',
+        LIzle.SonAramaMetni = '',
+        'gelen metin: "' + LIzle.SonAramaMetni + '"');
+      Kontrol('filtre isleyicisi de calisti',
+        LIzle.Sayac = 1, Format('filtre olayi = %d', [LIzle.Sayac]));
+
+      Writeln;
+      Writeln('=== T22) TEK yeniden acis: acmayi arama devraliyor mu? ===');
+      (* afClientFilter kipinde ApplyAutoFilter normalde dataset i acar.
+         AOnSearch bagliysa ACMAMALI - tek Close/Open i arama yapar. Sonda
+         isleyicisi acmadigi icin dataset KAPALI kalmali. *)
+      LSehirOto.Properties.AOnFilter := nil;
+      LSehirOto.Properties.AAutoFilter := afClientFilter;
+      LSehirOto.Properties.AMasterField := 'ulke_id';
+      LIzle.AramaAcsin := False;
+      LUlkeOto.EditValue := 1;
+      LVT.Close;
+      LIzle.AramaSayaci := 0;
+      LSehirOto.FilterNow;
+      Kontrol('arama cagrildi', LIzle.AramaSayaci = 1,
+        Format('AramaSayaci = %d', [LIzle.AramaSayaci]));
+      Kontrol('ApplyAutoFilter dataset i KENDISI acmadi (acis devredildi)',
+        not LVT.Active,
+        'acik kalsaydi bir acilista iki sorgu kosardi');
+      Kontrol('filtre yine de kurulmus',
+        LVT.Filter = 'ulke_id = 1', 'Filter = "' + LVT.Filter + '"');
+
+      { Simdi arama gercekten acsin - suzgec korunuyor mu? }
+      LIzle.AcilacakTablo := LVT;
+      LIzle.AramaAcsin := True;
+      LSehirOto.FilterNow;
+      LIzle.AramaAcsin := False;
+      Kontrol('arama acinca liste master suzgeciyle geliyor',
+        LVT.Active and (LVT.RecordCount = 4),
+        Format('Active=%s RecordCount=%d (4 bekleniyor)',
+          [BoolToStr(LVT.Active, True), LVT.RecordCount]));
+
       Writeln;
       Writeln('=== T19) Isleyici patlarsa dataset busy KALMIYOR (RADDEV-003) ===');
       LSehirOto.Properties.AAutoFilter := afNone;
@@ -540,6 +613,57 @@ begin
         LIzle.LocateSayaci = 2,
         Format('LocateSayaci = %d (2 bekleniyor; 1 kalirsa onbellek BAYAT)',
           [LIzle.LocateSayaci]));
+
+      Writeln;
+      Writeln('=== T23) afClientFilter esik uyarisi (200 satir) ===');
+      LBuyukVT := TVirtualTable.Create(LForm);
+      LBuyukVT.Name := 'BuyukTablo';
+      LBuyukVT.FieldDefs.Add('id', ftInteger);
+      LBuyukVT.FieldDefs.Add('ad', ftString, 30);
+      LBuyukVT.FieldDefs.Add('ulke_id', ftInteger);
+      LBuyukVT.Open;
+      for i := 1 to 200 do
+        SehirEkle(LBuyukVT, i, 'Sehir' + IntToStr(i), 1);
+      LBuyukDs := TDataSource.Create(LForm);
+      LBuyukDs.DataSet := LBuyukVT;
+      LBuyukUsta := YeniEditor('BuyukUsta');
+      LBuyukUsta.EditValue := 1;
+      LBuyukEd := YeniEditor('BuyukEd');
+      LBuyukEd.Properties.ListSource := LBuyukDs;
+      LBuyukEd.Properties.AMaster := LBuyukUsta;
+      LBuyukEd.Properties.AMasterField := 'ulke_id';
+      LBuyukEd.Properties.AAutoFilter := afClientFilter;
+      LBuyukEd.Properties.AOnLocate := LIzle.Locate;
+      LBuyukEd.Properties.AOnFilter := LIzle.Filtre;
+      Kontrol('tam esikte (200) uyari YOK',
+        Pos('esik', LBuyukEd.Properties.PullWarning) = 0,
+        Format('RecordCount = %d; uyari: %s',
+          [LBuyukVT.RecordCount, LBuyukEd.Properties.PullWarning]));
+      SehirEkle(LBuyukVT, 201, 'Sehir201', 1);
+      Kontrol('esigin bir ustunde (201) uyari VAR',
+        Pos('esik', LBuyukEd.Properties.PullWarning) > 0,
+        Format('RecordCount = %d', [LBuyukVT.RecordCount]));
+      Kontrol('uyari afServerParam i oneriyor',
+        Pos('afServerParam', LBuyukEd.Properties.PullWarning) > 0);
+
+      Writeln;
+      Writeln('=== T24) Denetim combo ailesini de goruyor mu? (RADDEV-007) ===');
+      LCombo := TRadComboBox.Create(LForm);
+      LCombo.Name := 'ComboKaynak';
+      LCombo.Parent := LForm;
+      LCombo.Properties.AComponent1 := LBuyukEd;
+      { AOnCascade BILEREK yok - combo hedefinin listesi hic tazelenmez. }
+      Kontrol('combo icin CascadeWarning uretiliyor',
+        Pos('AOnCascade', LCombo.Properties.CascadeWarning) > 0,
+        'uyari: ' + LCombo.Properties.CascadeWarning);
+      LOnce := RadChainAudit(LForm);
+      Kontrol('denetim combo uyarisini da topluyor',
+        Pos('Items', LOnce) > 0,
+        'combo uyarisi Items kelimesini iceriyor; denetimde gorunmeli');
+      LCombo.Properties.AOnCascade := LIzle.ComboKaskad;
+      Kontrol('AOnCascade ataninca combo uyarisi susuyor',
+        LCombo.Properties.CascadeWarning = '',
+        'uyari: ' + LCombo.Properties.CascadeWarning);
 
       Writeln;
       Writeln('=== T18) TRadEditSlots sinir denetimi (RADDEV-006) ===');

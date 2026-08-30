@@ -74,11 +74,54 @@ begin
   end;
 end;
 
+var
+  GBasari: Integer = 0;
+  GHata: Integer = 0;
+  GAtlanan: Integer = 0;
+
+(* RADDEV-008: bu sonda eskiden yalnizca YAZDIRIYORDU. Beklenen degerler
+   parantez icinde metin olarak duruyordu ve yanlis bir sonuc hicbir seyi
+   bozmuyordu - nitekim M1 UZUN SUREDIR OLU bir olcumdu (asagiya bakin). *)
+procedure Kontrol(const AAd: string; ABasarili: Boolean; const ADetay: string = '');
+begin
+  if ABasarili then
+  begin
+    Inc(GBasari);
+    Writeln('  [OK]   ', AAd);
+  end
+  else
+  begin
+    Inc(GHata);
+    Writeln('  [HATA] ', AAd);
+  end;
+  if ADetay <> '' then
+    Writeln('         ', ADetay);
+end;
+
+procedure Atla(const AAd, ASebep: string);
+begin
+  Inc(GAtlanan);
+  Writeln('  [ATLA] ', AAd);
+  Writeln('         ', ASebep);
+end;
+
+procedure Sonuc;
+begin
+  Writeln;
+  Writeln(Format('=== SONUC: %d basarili, %d hata, %d atlanan ===',
+    [GBasari, GHata, GAtlanan]));
+  if GHata > 0 then
+    Halt(1);
+end;
+
 type
   TSenaryo = class
   public
     Con: TUniConnection;
     QUlke, QSehir: TUniQuery;
+    QSehir2: TUniQuery;              { M6-M9: iki parametreli + limit }
+    Sehir2Sql: string;               { son kosan sorgunun parametreleri }
+    Sehir2Sayaci: Integer;
     SehirLookup: TUniQuery;          { M3: tek anahtar cozumleyen sorgu }
     SqlSayaci: Integer;              { calisan sorgu sayisi }
     LocateSayaci: Integer;
@@ -93,7 +136,28 @@ type
       ASource, ATarget: TComponent; const AValue: Variant);
     procedure SehirLocate(Sender: TRadLookupComboBoxProperties;
       ASource: TComponent; const AKey: Variant);
+    { M6-M9: gercek ERP sekli - master parametresi + arama + limit }
+    procedure Sehir2Arama(Sender: TRadLookupComboBoxProperties;
+      ASource: TComponent; var AText, ATail: string; ANext: Boolean);
   end;
+
+procedure TSenaryo.Sehir2Arama(Sender: TRadLookupComboBoxProperties;
+  ASource: TComponent; var AText, ATail: string; ANext: Boolean);
+begin
+  Inc(Sehir2Sayaci);
+  (* NOTR ARAMA DEGERI UYGULAMANIN ISI. Parametre hic atanmazsa Null kalir
+     ve 'ad ilike NULL' SIFIR satir doner - bilesen bunu bilemez, cunku
+     notr degerin ne oldugu SQL'e baglidir ('%' burada, baska yerde ''). *)
+  QSehir2.Close;
+  if AText = '' then
+    QSehir2.ParamByName('arama').AsString := '%'
+  else
+    QSehir2.ParamByName('arama').AsString := '%' + AText + '%';
+  QSehir2.Open;
+  Sehir2Sql := Format('ulke_id=%s arama=%s',
+    [VarToStr(QSehir2.ParamByName('ulke_id').Value),
+     QSehir2.ParamByName('arama').AsString]);
+end;
 
 procedure TSenaryo.OrtakTanimArama(Sender: TRadLookupComboBoxProperties;
   ASource: TComponent; var AText, ATail: string; ANext: Boolean);
@@ -182,8 +246,10 @@ var
   LCfg: TCfg;
   LS: TSenaryo;
   LForm: TForm;
-  LDsUlke, LDsSehir: TDataSource;
-  LUlke, LSehir: TRadDBLookupComboBox;
+  LDsUlke, LDsSehir, LDsSehir2: TDataSource;
+  LSehir2: TRadLookupComboBox;
+  LHataM5b: string;
+  LSehir: TRadDBLookupComboBox;   { LUlke kaldirildi - hic kullanilmiyordu (H2164) }
   LEdUlke: TRadLookupComboBox;
   LText, LTail: string;
   i, LOnce: Integer;
@@ -264,6 +330,14 @@ begin
       LEdUlke.Properties.KeyFieldNames := 'id';
       LEdUlke.Properties.ListFieldNames := 'ad';
       LEdUlke.Properties.AOnSearch := LS.UlkeArama;
+      (* OLU OLCUM ONARIMI. M1 iki harfli "Tu" ile ariyordu ama varsayilan
+         AMinSearchLength 3'tur, yani DoSearch uzunluk kapisindan cikiyor ve
+         SORGU HIC KOSMUYORDU. Sonda bunu yalnizca yazdirdigi icin kimse fark
+         etmedi (olculdu: "calisan sorgu : 0", liste 4 satirda kaldi).
+
+         0 yapmak ayni zamanda DOGRU yapilandirma: birimin kendi notu ulke
+         kodlari icin (TR, DE - iki harf) bunu acikca soyluyor. *)
+      LEdUlke.Properties.AMinSearchLength := 0;
       LEdUlke.Properties.AComponent1 := LSehir;
       LEdUlke.Properties.AOnCascade := LS.UlkeKaskad;
 
@@ -274,7 +348,14 @@ begin
       LText := 'Tu'; LTail := '';
       LEdUlke.Properties.TimedSearch(LEdUlke, LText);
       Writeln('  "Tu" arandi -> calisan sorgu : ', LS.SqlSayaci);
+      Kontrol('iki harfli arama GERCEKTEN sorgu kosturuyor',
+        LS.SqlSayaci = 1,
+        Format('sorgu = %d. Sifirsa AMinSearchLength kapisi kesmis demektir - ' +
+               'kisa kodlu listelerde 0 verilmeli.', [LS.SqlSayaci]));
       Writeln('  liste simdi : ', LS.QUlke.RecordCount, ' satir (Turkiye + Tunus = 2 bekleniyor)');
+      Kontrol('arama listeyi gercekten suzdu (2 satir)',
+        LS.QUlke.RecordCount = 2,
+        Format('RecordCount = %d', [LS.QUlke.RecordCount]));
       LS.QUlke.First;
       while not LS.QUlke.Eof do
       begin
@@ -290,10 +371,14 @@ begin
       Bekle(150);
       Writeln('  Ulke=1 (Turkiye) -> ', LS.SonSehirSql,
         '  sehir listesi : ', LS.QSehir.RecordCount, ' satir (4 bekleniyor)');
+      Kontrol('kaskad Turkiye icin 4 sehir getirdi', LS.QSehir.RecordCount = 4,
+        Format('RecordCount = %d', [LS.QSehir.RecordCount]));
       LEdUlke.EditValue := 2;      { Almanya }
       Bekle(150);
       Writeln('  Ulke=2 (Almanya) -> ', LS.SonSehirSql,
         '  sehir listesi : ', LS.QSehir.RecordCount, ' satir (2 bekleniyor)');
+      Kontrol('kaskad Almanya icin 2 sehir getirdi', LS.QSehir.RecordCount = 2,
+        Format('RecordCount = %d', [LS.QSehir.RecordCount]));
 
       { ══ M3) OnLocate: listede OLMAYAN anahtari cozme ════════════════ }
       Writeln;
@@ -305,6 +390,8 @@ begin
       LMetin := TPropsAccess(LSehir.Properties).GetDisplayLookupText(30); { Paris - listede YOK }
       Writeln('  anahtar 30 icin metin : "', LMetin, '"  (Paris bekleniyor)');
       Writeln('  OnLocate tetiklenme   : ', LS.LocateSayaci, ' (1 bekleniyor)');
+      Kontrol('AOnLocate suzulmus listede OLMAYAN anahtari cozuyor',
+        LS.LocateSayaci = 1, Format('LocateSayaci = %d', [LS.LocateSayaci]));
 
       { ══ M4) Onbellek: ayni anahtar N kez ════════════════════════════ }
       Writeln;
@@ -345,6 +432,13 @@ begin
         LItem.Name := 'riTanim';
         LItem.Properties.ACascadeField := 'ORTAK';        { paylasilan yuk }
         LItem.Properties.AOnSearch := LS.OrtakTanimArama; { TEK isleyici }
+        (* OLU OLCUM ONARIMI (M1 ile ayni sinif hata). Asagida tek harfle
+           ('a' / 'b') arama tetikleniyor ama varsayilan AMinSearchLength 3;
+           DoSearch uzunluk kapisindan cikiyor ve isleyici HIC kosmuyordu.
+           Sonda yalnizca yazdirdigi icin bu yillarca fark edilmedi: kayit
+           listesi bos kaliyor, "beklenen ..." satiri yine de basiliyordu.
+           M5 in olctugu sey uzunluk kapisi degil, tuketici-basina yuk. *)
+        LItem.Properties.AMinSearchLength := 0;
 
         var LMarka := TRadLookupComboBox.Create(LForm);
         LMarka.Name := 'cbMarka'; LMarka.Parent := LForm;
@@ -363,14 +457,153 @@ begin
           Writeln('    ', LS.OrtakKayit[i]);
         Writeln('  beklenen: kaynak dogru editor, tur ''marka'' / ''musteri_tipi'',');
         Writeln('            paylasilan Sender ise ikisinde de ''ORTAK''');
+        Kontrol('iki tuketici de kendi turuyle kaydedildi',
+          (LS.OrtakKayit.Count = 2) and
+          (Pos('tur=marka', LS.OrtakKayit[0]) > 0) and
+          (Pos('tur=musteri_tipi', LS.OrtakKayit[1]) > 0),
+          'kayit sayisi: ' + IntToStr(LS.OrtakKayit.Count));
+        Kontrol('paylasilan Sender ikisinde de ORTAK yukunu tasiyor',
+          (LS.OrtakKayit.Count = 2) and
+          (Pos('paylasilan(Sender).ACascadeField=ORTAK', LS.OrtakKayit[0]) > 0) and
+          (Pos('paylasilan(Sender).ACascadeField=ORTAK', LS.OrtakKayit[1]) > 0));
       finally
         LS.OrtakKayit.Free;
       end;
 
+
+      { == M5b) SQL.Text ATAYAN ISLEYICI master parametresini yok eder ==== }
+      Writeln;
+      Writeln('=== M5b) SQL.Text degistiren isleyicinin bedeli ===');
+      (* M3'teki SehirLocate, QSehir'in SQL.Text'ini BASTAN ATIYOR
+         ('where id = :tek_id'). Parametre DEGERLERI Close/Open boyunca
+         korunur, ama SQL METNI degisince koleksiyon yeniden kurulur ve yeni
+         metinde bulunmayan parametre GIDER. Dolayisiyla hala bagli olan
+         UlkeKaskad, QSehir'de artik var olmayan 'ulke_id'yi arar.
+
+         Bu bir bilesen hatasi DEGIL - isleyicinin sozlesmeyi bozmasi. Birim
+         basligi bunu yaziyor; burada CANLI olarak olculuyor. *)
+      LHataM5b := '';
+      try
+        LEdUlke.EditValue := 1;
+      except
+        on E: Exception do
+          LHataM5b := E.Message;
+      end;
+      Kontrol('SQL.Text degistiren isleyici master parametresini YOK ETTI',
+        Pos('not found', LHataM5b) > 0,
+        'atilan: "' + LHataM5b + '"  <- isleyiciler parametre atamali, ' +
+        'SQL degistirmemelidir');
+
+      { Eski senaryonun kaskadini sokuyoruz; M6-M9 temiz bir kurulum ister. }
+      LEdUlke.Properties.AOnCascade := nil;
+      LEdUlke.Properties.AComponent1 := nil;
+      LEdUlke.Properties.AOnLocate := nil;
+
+      { == M6-M9) GERCEK ERP SEKLI: master + arama + limit, TEK sorgu ===== }
+      Writeln;
+      Writeln('=== M6-M9) afServerParam + AOnSearch, iki parametreli sinirli sorgu ===');
+
+      { 40 sehirli bir ulke: satir sinirinin gercekten uygulandigini gormek icin }
+      Calistir(LS.Con, 'insert into rad_test_ulke values (5,''CokSehirli'')');
+      for i := 1 to 40 do
+        Calistir(LS.Con, Format(
+          'insert into rad_test_sehir values (%d,''Kent%.2d'',5)', [500 + i, i]));
+
+      LS.QSehir2 := TUniQuery.Create(LForm);
+      LS.QSehir2.Connection := LS.Con;
+      (* Kullanicinin tarif ettigi sekil: iki parametre + SATIR SINIRI.
+         Sinir SQL'de, bilesende degil. *)
+      LS.QSehir2.SQL.Text :=
+        'select id, ad from rad_test_sehir ' +
+        'where ulke_id = :ulke_id and ad ilike :arama order by ad limit 15';
+      LS.QSehir2.ParamByName('ulke_id').Clear;
+      LS.QSehir2.ParamByName('arama').AsString := '%';
+
+      LDsSehir2 := TDataSource.Create(LForm);
+      LDsSehir2.DataSet := LS.QSehir2;
+
+      LSehir2 := TRadLookupComboBox.Create(LForm);
+      LSehir2.Name := 'Sehir2'; LSehir2.Parent := LForm;
+      LSehir2.Left := 20; LSehir2.Top := 130; LSehir2.Width := 260;
+      LSehir2.Properties.ListSource := LDsSehir2;
+      LSehir2.Properties.KeyFieldNames := 'id';
+      LSehir2.Properties.ListFieldNames := 'ad';
+      LSehir2.Properties.AMaster := LEdUlke;
+      LSehir2.Properties.AMasterField := 'ulke_id';
+      LSehir2.Properties.AAutoFilter := afServerParam;
+      LSehir2.Properties.AOnSearch := LS.Sehir2Arama;
+      LSehir2.Properties.AMinSearchLength := 0;
+      { AOnFilter YOK - otomatik kip yeterli. }
+
+      { ── M6) Bir acilista TEK sorgu, dogru parametrelerle ────────────── }
+      Writeln;
+      Writeln('  M6) acilista tek sorgu mu?');
+      LEdUlke.EditValue := 1;                 { Turkiye }
+      LS.Sehir2Sayaci := 0;
+      LSehir2.FilterNow;
+      Writeln('    kosan sorgu : ', LS.Sehir2Sayaci, '   (', LS.Sehir2Sql, ')');
+      Writeln('    satir       : ', LS.QSehir2.RecordCount);
+      Kontrol('acilis basina TEK sorgu kosuyor', LS.Sehir2Sayaci = 1,
+        Format('kosan = %d (iki ise master filtresi ve arama ayri ayri ' +
+               'aciyor demektir)', [LS.Sehir2Sayaci]));
+      Kontrol('master parametresi dogru kuruldu',
+        Pos('ulke_id=1', LS.Sehir2Sql) > 0, LS.Sehir2Sql);
+      Kontrol('arama parametresi NOTR degerle acildi',
+        Pos('arama=%', LS.Sehir2Sql) > 0, LS.Sehir2Sql);
+      Kontrol('Turkiye icin 4 sehir geldi', LS.QSehir2.RecordCount = 4,
+        Format('RecordCount = %d', [LS.QSehir2.RecordCount]));
+
+      { ── M7) Arama, master parametresini KORUYOR mu? ─────────────────── }
+      Writeln;
+      Writeln('  M7) uc harf yazilinca master parametresi korunuyor mu?');
+      LS.Sehir2Sayaci := 0;
+      LSehir2.Properties.TimedSearch(LSehir2, 'ank');
+      Writeln('    kosan sorgu : ', LS.Sehir2Sayaci, '   (', LS.Sehir2Sql, ')');
+      Writeln('    satir       : ', LS.QSehir2.RecordCount);
+      Kontrol('arama ikinci bir sorgu kosturdu', LS.Sehir2Sayaci = 1,
+        Format('kosan = %d', [LS.Sehir2Sayaci]));
+      Kontrol('master parametresi Close/Open sonrasi HALA dogru',
+        Pos('ulke_id=1', LS.Sehir2Sql) > 0,
+        LS.Sehir2Sql + '  <- kaybolsaydi butun ulkelerin sehirleri gelirdi');
+      Kontrol('arama gercekten suzdu (Ankara)', LS.QSehir2.RecordCount = 1,
+        Format('RecordCount = %d', [LS.QSehir2.RecordCount]));
+
+      { ── M8) Master degisince ESKI ARAMA METNI etkisiz mi? ───────────── }
+      Writeln;
+      Writeln('  M8) master degisince eski arama metni ne oluyor?');
+      LEdUlke.EditValue := 2;                 { Almanya - "ank" yok }
+      LS.Sehir2Sayaci := 0;
+      LSehir2.FilterNow;
+      Writeln('    kosan sorgu : ', LS.Sehir2Sayaci, '   (', LS.Sehir2Sql, ')');
+      Writeln('    satir       : ', LS.QSehir2.RecordCount);
+      Kontrol('yeni master ile arama metni SIFIRLANDI',
+        Pos('arama=%', LS.Sehir2Sql) > 0,
+        LS.Sehir2Sql + '  <- eski metin kalsaydi Almanya listesi BOS gelirdi');
+      Kontrol('Almanya icin 2 sehir geldi', LS.QSehir2.RecordCount = 2,
+        Format('RecordCount = %d (eski "ank" etkili olsaydi 0 olurdu)',
+          [LS.QSehir2.RecordCount]));
+
+      { ── M9) SQL'deki satir siniri gercekten uygulaniyor mu? ─────────── }
+      Writeln;
+      Writeln('  M9) 40 sehirli ulkede limit 15 tutuyor mu?');
+      LEdUlke.EditValue := 5;                 { CokSehirli - 40 sehir }
+      LS.Sehir2Sayaci := 0;
+      LSehir2.FilterNow;
+      Writeln('    kosan sorgu : ', LS.Sehir2Sayaci, '   (', LS.Sehir2Sql, ')');
+      Writeln('    satir       : ', LS.QSehir2.RecordCount, '  (40 degil 15 bekleniyor)');
+      Kontrol('satir siniri uygulandi: 40 sehirden 15 satir',
+        LS.QSehir2.RecordCount = 15,
+        Format('RecordCount = %d. Sinir SQL''dedir; bilesen sinir uretmez.',
+          [LS.QSehir2.RecordCount]));
+
       LForm.Free;
+      Sonuc;
     except
       on E: Exception do
+      begin
         Writeln('HATA: ', E.ClassName, ': ', E.Message);
+        Halt(2);
+      end;
     end;
   finally
     { ── Temizlik: yalnizca kendi tablolarimiz ─────────────────────────── }

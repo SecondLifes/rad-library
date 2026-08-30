@@ -70,6 +70,16 @@ IDE dışından yapılamıyor, kullanıcı tarafında:
 - Yeni property'ler görünüyor ve gerçek bir `.dfm`'e yazılıp geri okunuyor mu
 - "A" önekinin amacı: property'ler gerçekten üste toplanıyor mu
 
+**Pull yönüyle gelen yeni yüzey (aynı şekilde ölçülmedi):**
+- `AMaster` açılır listesi — editör olmayan bir bileşen seçilince `ERadDev`
+  fırlıyor; IDE bunu kullanıcıya makul bir şekilde gösteriyor mu, yoksa
+  tasarımcıyı bozuyor mu?
+- `AAutoFilter` enum'u Object Inspector'da görünüyor mu (kitin RTTI kuralı:
+  açık değer atanmamış, bu yüzden görünmeli — ama doğrulanmadı)
+- `TRadChainAuditEditor` — sağ tık menüsünde "Zinciri denetle..." çıkıyor mu ve
+  rapor doğru mu? **Bu birim bu araç zincirinde hiç derlenmedi**
+  (`DesignEditors.dcu` yok); yalnızca okunarak doğrulandı.
+
 ### Ö-04 · Gerçek klavye teslimi
 `DoEditKeyPress` doğrudan çağrıldı; Windows'un tuşu iç edit kontrolüne
 ilettiği yol ölçülmedi. Çalışan bir formda yazıp debounce'un hissedildiğini

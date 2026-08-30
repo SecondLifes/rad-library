@@ -39,6 +39,19 @@ that break something else in the kit.
   large part of why their probes rotted unnoticed. Both take a platform
   argument (`Win32` default, `Win64`) and an optional probe name, and both
   honour `%EXTRAU%` for unit paths this repo does not ship.
+- `src/packages/Rad.Editor.pas` — `TRadChainAuditEditor`, a design-time
+  component editor registered for `TRadLookupComboBox` and
+  `TRadDBLookupComboBox`: right-click → "Zinciri denetle...", which runs
+  `RadChainAudit` over the form and shows the result. The runtime one-liner
+  covers a developer reading logs; this puts the same answer under the hand of
+  whoever is laying the form out, which is where the misconfiguration is
+  actually created. It changes nothing, so it does not call
+  `Designer.Modified`, and it takes its root from `Owner` rather than the
+  `IDesigner` interface — plain VCL, no version surprises.
+  **Not compiled here:** `DesignEditors.dcu` is not reachable from this
+  toolchain, so this unit is verified by reading only; it builds with the
+  package in the IDE.
+
 - `src/component/Rad.Dev.pas` — `AMasterField` and `AAutoFilter`, the pull
   direction's two conveniences. `AMasterField` is the free payload `ACascadeField`
   is for push, and doubles as the parameter/field name the automatic mode uses.

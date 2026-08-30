@@ -45,7 +45,23 @@ type
      procedure ExecuteVerb(Index: Integer); override;
   end;
 
-  TAksaCmdListEditor = class(TComponentEditorBase)
+  (* Zincir denetimi. Rad.Dev'deki RadChainAudit'i tasarim zamanindan
+     cagirilabilir yapar: bilesene sag tik -> "Zinciri denetle".
+
+     NEDEN GEREKLI: ChainWarning ve PullWarning yazildilar ama koddan
+     cagrilmadikca sessizler. Calisma zamaninda bir {$IFDEF DEBUG} satiri
+     yeterli; tasarim zamaninda ise formu duzenleyen kisinin elinin altinda
+     olmasi gerekiyor - yanlis yapilandirma tam da orada uretiliyor.
+
+     Hicbir sey DEGISTIRMEZ, o yuzden Designer.Modified cagrilmaz. *)
+  TRadChainAuditEditor = class(TComponentEditorBase)
+    public
+     procedure Edit; override;
+     function GetItem:TArray<string>;override;
+     procedure ExecuteVerb(Index: Integer); override;
+  end;
+
+ TAksaCmdListEditor = class(TComponentEditorBase)
     public
      procedure Edit; override;
 
@@ -75,6 +91,15 @@ type
   end;
 
 
+  {$REGION 'DevExpress'}
+
+  TCxNavigatorEditor = class(TClassProperty)
+    public
+    procedure Edit; override; // <-- Display the editor here
+  end;
+
+  {$ENDREGION}
+
 
 procedure Register;
 implementation
@@ -83,8 +108,9 @@ cxNavigator,cxDBNavigator,
 cxGridCustomTableView,
 cxGridServerModeBandedTableView,
 cxGridServerModeTableView,
+Help.Dev,
 rad.db,
-//AksaPropertiesStoreEditor,
+Rad.Dev,          { RadChainAudit + TRadLookupComboBox / TRadDBLookupComboBox }
 Permission.Edit
 
 
@@ -94,6 +120,9 @@ procedure Register;
 begin
   //RegisterComponentEditor(TAksaPropertiesStore,TAksaPropertiesStoreEditor);
   RegisterComponentEditor(TRadPermission,TRadPermissonEditor);
+  { Zincir denetimi: AMaster/AComponent1..4 tasiyan editorlerin hepsine. }
+  RegisterComponentEditor(TRadLookupComboBox,TRadChainAuditEditor);
+  RegisterComponentEditor(TRadDBLookupComboBox,TRadChainAuditEditor);
   //RegisterComponentEditor(TAksaCmdList,TAksaCmdListEditor);
 
   RegisterPropertyEditor(TypeInfo (string), TRadAutoValueItem, 'Command', TListCommand);
@@ -101,9 +130,12 @@ begin
   RegisterPropertyEditor(TypeInfo (string), TRadEventHandler, 'Name', TListDBFields);
 
 
-  {
+
+
   //RegisterPropertyEditor(TypeInfo(TcxCustomNavigatorButtons),nil,'',TCxNavigatorEditor);
   RegisterPropertyEditor(TypeInfo(TcxNavigatorButton),nil,'',TCxNavigatorEditor);
+
+  {
   RegisterPropertyEditor(TypeInfo(string), TFiltreItem, 'FiltreAlan', TListField);
   RegisterPropertyEditor(TypeInfo(string), TFiltreItem, 'Filtre1', TListField);
   RegisterPropertyEditor(TypeInfo(string), TFiltreItem, 'Filtre2', TListField);
@@ -190,6 +222,40 @@ begin
 end;
 
 { TAksaPermissonEditor }
+
+{ TRadChainAuditEditor }
+
+function TRadChainAuditEditor.GetItem: TArray<string>;
+begin
+  Result := ['Zinciri denetle...'];
+end;
+
+procedure TRadChainAuditEditor.ExecuteVerb(Index: Integer);
+begin
+  Edit;
+end;
+
+procedure TRadChainAuditEditor.Edit;
+var
+  LRoot: TComponent;
+  LRapor: string;
+begin
+  (* Denetimin koku FORM (ya da frame) olmali: RadChainAudit butun bilesen
+     agacini gezer ve paylasilan Properties orneklerini bir kez raporlar.
+     Designer arayuzu yerine Owner kullaniliyor - sade VCL, surumler arasi
+     surprizi yok. Owner yoksa bilesenin kendisiyle yetiniriz. *)
+  LRoot := GetComponent;
+  if LRoot = nil then
+    Exit;
+  if LRoot.Owner <> nil then
+    LRoot := LRoot.Owner;
+
+  LRapor := RadChainAudit(LRoot);
+  if LRapor = '' then
+    ShowMessage('Zincir denetimi temiz: rapor edilecek bir sey yok.')
+  else
+    ShowMessage(LRapor);
+end;
 
 procedure TRadPermissonEditor.Edit;
 begin
@@ -339,6 +405,34 @@ begin
   //(Designer as IDesigner).Edit(Component,GetPropInfo(Component, 'CommandList'));;
 
  // (Designer as IDesigner).Edit()
+end;
+
+{ TCxNavigatorEditor }
+
+procedure TCxNavigatorEditor.Edit;
+begin
+  ShowMessage(GetComponent(0).ClassName) ;
+    TcxCustomNavigatorButtons(GetComponent(0))._TR;
+    exit;
+
+  if GetComponent(0).ClassName='TcxGridTableViewNavigator' then
+  begin
+    TcxCustomNavigatorButtons(TcxGridViewNavigator(GetComponent(0)).Buttons)._TR;
+    TcxGridViewNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
+  end else if GetComponent(0).ClassName='TcxNavigator' then
+  begin
+    TcxCustomNavigatorButtons(TcxNavigator(GetComponent(0)).Buttons)._TR;
+    TcxNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
+  end else if GetComponent(0).ClassName='TcxGridViewNavigator' then
+  begin
+    TcxGridViewNavigator(GetComponent(0)).Buttons._TR;
+    TcxGridViewNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
+  end else if GetComponent(0).ClassName='TcxControlNavigator' then
+  begin
+    TcxGridViewNavigator(GetComponent(0)).Buttons._TR;
+    TcxGridViewNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
+  end;
+
 end;
 
 initialization

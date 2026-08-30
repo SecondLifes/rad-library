@@ -27,7 +27,7 @@ that break something else in the kit.
 ### Added
 
 - `src/test/scratch/rad_dev_repolisteners/PullTest.dpr` —
-  35 assertions covering the new pull direction (event fires exactly once with
+  46 assertions covering the new pull direction (event fires exactly once with
   the right source/master/value, re-entrancy guard, `DoAssign` carries the pull
   payload, free-notification nils `AMaster`, `PullWarning` reports each silent
   trap). One assertion is red-first: with the old `DoCascade` gate restored it
@@ -39,6 +39,20 @@ that break something else in the kit.
   large part of why their probes rotted unnoticed. Both take a platform
   argument (`Win32` default, `Win64`) and an optional probe name, and both
   honour `%EXTRAU%` for unit paths this repo does not ship.
+- `src/component/Rad.Dev.pas` — `AMasterField` and `AAutoFilter`, the pull
+  direction's two conveniences. `AMasterField` is the free payload `ACascadeField`
+  is for push, and doubles as the parameter/field name the automatic mode uses.
+  `AAutoFilter` (`afNone` default, `afParam`, `afFilter`) applies the filter in
+  the component for the ordinary "field = master's value" case, so a dependent
+  lookup needs no `AOnFilter` at all. Decisions worth knowing: the automatic
+  filter runs **before** `AOnFilter`, which still fires and can refine it; an
+  empty master **closes** the list dataset, because a city list has no meaning
+  before a country is chosen, and closing says that without filter-expression
+  tricks; `afFilter` formats integers bare and everything else quoted, so a
+  decimal or date master needs `AOnFilter` rather than a silently broken
+  expression built with a locale decimal separator. Misconfiguration raises
+  `ERadDev` at first popup and is reported by `PullWarning` before that.
+
 - `src/component/Rad.Dev.pas` — `RadChainAudit(ARoot: TComponent): string`
   walks a component tree and collects every `ChainWarning` and `PullWarning`
   it finds, reporting each shared `Properties` instance once. The unit had
@@ -119,6 +133,13 @@ that break something else in the kit.
   `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.
 
 ### Fixed
+
+- `src/test/scratch/rad_dev_repolisteners/RuntimeTest.dpr` — the probe passed a
+  `for..in` loop variable straight into `DoEditKeyPress(var Key: Char)` (W1015,
+  twice). A key-press handler is allowed to rewrite the key — swallowing it is
+  `Key := #0` — so this wrote back into a loop variable the compiler may keep in
+  a register. Copies into a local now. Also an unused variable (H2164). The
+  probe directory is now diagnostic-free on both platforms.
 
 - `src/component/Rad.Dev.pas` — `RadChainAudit` looked only at each consumer's
   *active* Properties, so it missed a master set on a consumer's **own**

@@ -103,8 +103,7 @@ var
   LCol: TcxGridColumn;
   LProps: TRadLookupComboBoxProperties;
   LInplace: TcxCustomEdit;
-  i: Integer;
-  LKey: Char;
+  LKey, LTus: Char;
 
 begin
   try
@@ -136,7 +135,12 @@ begin
       LEdit.Properties.ASearchDelay := 0;
       LSayac.Arama := 0;
       for LKey in 'ankara' do
-        TEditAccess(LEdit).DoEditKeyPress(LKey);
+      begin
+        { DoEditKeyPress(var Key) tusu DEGISTIREBILIR (yutmak icin #0 yapar);
+          FOR dongu degiskenine geri yazmak tanimsizdir - W1015. Kopya sart. }
+        LTus := LKey;
+        TEditAccess(LEdit).DoEditKeyPress(LTus);
+      end;
       Bekle(600);
       Writeln(Format('  SearchDelay=0   : 6 tus -> OnSearch %d kez  (geciktirici yok)',
         [LSayac.Arama]));
@@ -146,7 +150,8 @@ begin
       LSayac.Arama := 0;
       for LKey in 'ankara' do
       begin
-        TEditAccess(LEdit).DoEditKeyPress(LKey);
+        LTus := LKey;   { bkz. yukaridaki W1015 notu }
+        TEditAccess(LEdit).DoEditKeyPress(LTus);
         Bekle(30);   { tuslar arasi 30 ms - insan hizindan hizli }
       end;
       Writeln(Format('  SearchDelay=250 : tuslar bitti, hemen -> OnSearch %d kez  (0 olmali)',

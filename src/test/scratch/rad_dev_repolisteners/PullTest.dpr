@@ -26,6 +26,7 @@ uses
   cxEdit, cxDropDownEdit, cxLookupEdit, cxDBLookupEdit, cxDBLookupComboBox,
   cxGraphics, cxControls, cxLookAndFeels, cxContainer, cxClasses, Vcl.StdCtrls,
   cxGrid, cxGridLevel, cxGridTableView, cxGridCustomTableView,
+  Data.DB, MemDS, VirtualTable,
   Rad.Dev;
 
 var
@@ -103,6 +104,19 @@ var
   LView: TcxGridTableView;
   LCol, LCol2: TcxGridColumn;
   LItem: TRadLookupComboBoxRepository;
+  LVT: TVirtualTable;
+  LDs: TDataSource;
+  LUlkeOto, LSehirOto: TRadLookupComboBox;
+
+procedure SehirEkle(ATable: TVirtualTable; AId: Integer; const AAd: string;
+  AUlke: Integer);
+begin
+  ATable.Append;
+  ATable.FieldByName('id').AsInteger := AId;
+  ATable.FieldByName('ad').AsString := AAd;
+  ATable.FieldByName('ulke_id').AsInteger := AUlke;
+  ATable.Post;
+end;
 
 function YeniEditor(const AAd: string): TRadLookupComboBox;
 begin
@@ -350,6 +364,98 @@ begin
       Kontrol('reddedilen atamalar yuvayi bozmadi',
         (LBagimli.Properties.AMaster = nil) and
         (LItem.Properties.AMaster = nil));
+
+      Writeln;
+      Writeln('=== T15) AMasterField serbest yuku ve DoAssign ===');
+      LKaynak.Properties.AMasterField := 'ulke_id';
+      Kontrol('AMasterField okunup yaziliyor',
+        LKaynak.Properties.AMasterField = 'ulke_id');
+      LHedef.Properties := LKaynak.Properties;
+      Kontrol('DoAssign AMasterField''i tasiyor',
+        LHedef.Properties.AMasterField = 'ulke_id',
+        'kopyadaki: "' + LHedef.Properties.AMasterField + '"');
+      Kontrol('taze bir Properties AAutoFilter = afNone ile geliyor',
+        YeniEditor('Taze2').Properties.AAutoFilter = afNone);
+
+      Writeln;
+      Writeln('=== T16) AAutoFilter = afFilter, AOnFilter YAZMADAN ===');
+      LVT := TVirtualTable.Create(LForm);
+      LVT.Name := 'SehirTablosu';
+      LVT.FieldDefs.Add('id', ftInteger);
+      LVT.FieldDefs.Add('ad', ftString, 30);
+      LVT.FieldDefs.Add('ulke_id', ftInteger);
+      LVT.Open;
+      SehirEkle(LVT, 10, 'Istanbul', 1);
+      SehirEkle(LVT, 11, 'Ankara',   1);
+      SehirEkle(LVT, 12, 'Izmir',    1);
+      SehirEkle(LVT, 13, 'Bursa',    1);
+      SehirEkle(LVT, 20, 'Berlin',   2);
+      SehirEkle(LVT, 21, 'Munih',    2);
+      Kontrol('sonda verisi hazir: 6 sehir', LVT.RecordCount = 6,
+        Format('RecordCount = %d', [LVT.RecordCount]));
+
+      LDs := TDataSource.Create(LForm);
+      LDs.DataSet := LVT;
+      LUlkeOto := YeniEditor('UlkeOto');
+      LSehirOto := YeniEditor('SehirOto');
+      LSehirOto.Properties.ListSource := LDs;
+      LSehirOto.Properties.KeyFieldNames := 'id';
+      LSehirOto.Properties.ListFieldNames := 'ad';
+      LSehirOto.Properties.AMaster := LUlkeOto;
+      LSehirOto.Properties.AMasterField := 'ulke_id';
+      LSehirOto.Properties.AAutoFilter := afFilter;
+      { AOnFilter BILEREK atanmiyor - ozelligin butun amaci bu. }
+
+      LUlkeOto.EditValue := 1;
+      LSehirOto.FilterNow;
+      Kontrol('master=1 -> liste 4 satira suzuldu (isleyici YOK)',
+        LVT.RecordCount = 4,
+        Format('RecordCount = %d, Filter = "%s"', [LVT.RecordCount, LVT.Filter]));
+
+      LUlkeOto.EditValue := 2;
+      LSehirOto.FilterNow;
+      Kontrol('master=2 -> liste 2 satira suzuldu',
+        LVT.RecordCount = 2,
+        Format('RecordCount = %d, Filter = "%s"', [LVT.RecordCount, LVT.Filter]));
+
+      LUlkeOto.EditValue := Null;
+      LSehirOto.FilterNow;
+      Kontrol('master BOS -> dataset kapatildi (bos liste)',
+        not LVT.Active, Format('Active = %s', [BoolToStr(LVT.Active, True)]));
+
+      LUlkeOto.EditValue := 1;
+      LSehirOto.FilterNow;
+      Kontrol('master geri gelince liste yeniden aciliyor',
+        LVT.Active and (LVT.RecordCount = 4),
+        Format('Active = %s, RecordCount = %d',
+          [BoolToStr(LVT.Active, True), LVT.RecordCount]));
+
+      Writeln;
+      Writeln('=== T17) Otomatik kip yanlis yapilandirmayi SESSIZ birakmiyor ===');
+      LSehirOto.Properties.AMasterField := '';
+      LHata := '';
+      try
+        LSehirOto.FilterNow;
+      except
+        on E: Exception do
+          LHata := E.ClassName;
+      end;
+      Kontrol('AMasterField bos -> ERadDev',
+        LHata = 'ERadDev', 'atilan: ' + LHata);
+      Kontrol('PullWarning de ayni seyi onceden soyluyor',
+        Pos('AMasterField', LSehirOto.Properties.PullWarning) > 0);
+      LSehirOto.Properties.AMasterField := 'ulke_id';
+
+      LSehirOto.Properties.AAutoFilter := afParam;
+      LHata := '';
+      try
+        LSehirOto.FilterNow;
+      except
+        on E: Exception do
+          LHata := E.ClassName;
+      end;
+      Kontrol('afParam, parametresiz bir dataset''te ERadDev atiyor',
+        LHata = 'ERadDev', 'atilan: ' + LHata + ' (TVirtualTable parametre almaz)');
     finally
       LIzle.Free;
       LForm.Free;

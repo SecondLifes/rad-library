@@ -173,6 +173,22 @@ type
   /// <summary>Rad.Dev yapilandirma hatalari.</summary>
   ERadDev = class(Exception);
 
+  (* PULL'un OTOMATIK kipi: basit "alan = master'in degeri" durumunda
+     AOnFilter yazmadan filtreyi bilesenin kendisi uygular.
+
+     ! DEGERLERE ACIK SAYI ATANMAZ. Kitin delphi-conventions kuralinda
+       olculmus davranis: acik deger atanmis bir enum HIC RTTI uretmez ve
+       published property'si Object Inspector'da SESSIZCE gorunmez. *)
+  TRadAutoFilter = (
+    /// Otomatik filtre yok; yalnizca AOnFilter calisir (varsayilan).
+    afNone,
+    /// Liste dataset'inin AMasterField adli PARAMETRESI atanir ve dataset
+    /// yeniden acilir. Sunucu tarafli suzme; UniDAC (TCustomDADataSet) ister.
+    afParam,
+    /// TDataSet.Filter ifadesi kurulur (AMasterField = deger). Saticidan
+    /// bagimsiz, ama suzme ISTEMCI tarafindadir - butun satirlar cekilir.
+    afFilter);
+
   TRadLookupComboBoxProperties = class;
 
   (* ── Zincir yuvalari ─────────────────────────────────────────────────────
@@ -428,6 +444,9 @@ type
          liste gorur ve bunun oldugunu hicbir sey soylemez. Sayac bunu
          PullWarning uzerinden gorunur kilar. *)
       FSkippedFilters: Integer;
+      FMasterField: string;
+      FAutoFilter: TRadAutoFilter;
+      procedure ApplyAutoFilter(ADataSet: TDataSet; const AValue: Variant);
       function  GetMaster: TComponent;
       procedure SetMaster(const AValue: TComponent);
       function  GetSlot(AIndex: Integer): TComponent;
@@ -504,6 +523,12 @@ type
          Serbest-birakma korumasi AComponent1..4 ile ayni desendendir, ama
          AYRI bir tutucudan gelir - gerekcesi FMasterSlot'un yaninda. *)
       property AMaster:TComponent read GetMaster write SetMaster;
+      (* PULL yonunun serbest yuku - ACascadeField'in karsiligi. Iki isi var:
+           1. AOnFilter isleyicisine tasinir (bilesen yorumlamaz);
+           2. AAutoFilter <> afNone iken KULLANILIR: suzulecek parametrenin
+              ya da alanin adidir (ornegin 'ulke_id').
+         Otomatik kip kapaliyken tamamen serbesttir. *)
+      property AMasterField:string read FMasterField write FMasterField;
       /// <summary>Zincirde hedefe suzme icin gecirilecek alan adi
       /// (ornegin "ulke_id"). Bileseni ilgilendirmez; OnCascade isleyicisine
       /// tasinan serbest yuktur.</summary>
@@ -558,6 +583,21 @@ type
          constructor AYNI olmak zorunda, yoksa deger ya sessizce kaybolur ya
          da gereksiz yere DFM'e yazilir. *)
       property AFilterOnPopup:Boolean read FFilterOnPopup write FFilterOnPopup default True;
+      (* Basit "alan = master'in degeri" durumunda AOnFilter yazmaktan kurtarir.
+         AMasterField ZORUNLUDUR.
+
+         SIRA: once otomatik filtre, SONRA AOnFilter. Isleyici hala calisir ve
+         isterse uzerine yazar - otomatik kip onu bastirmaz, ona baslangic
+         noktasi verir.
+
+         MASTER BOSSA (Null/Unassigned/bos metin) liste dataset'i KAPATILIR:
+         kaskadda ulke secilmeden sehir listelenmemelidir. Iki kip icin de
+         ayni kural - ifade oyunu yok.
+
+         SINIR: afFilter'in ifadesi tamsayi ve metin degerleri icin uretilir.
+         Ondalik/tarih bir master anahtari icin AOnFilter yazin - yerel ondalik
+         ayraci filtre ifadesini sessizce bozardi. *)
+      property AAutoFilter:TRadAutoFilter read FAutoFilter write FAutoFilter default afNone;
       property AOnFilter:TRadLookupFilterEvent read FFilterEvent write FFilterEvent;
 
       property Buttons;
@@ -1736,6 +1776,69 @@ begin
   ResetDisplayCache;   { DevExpress'in FLookupList'i }
 end;
 
+procedure TRadLookupComboBoxProperties.ApplyAutoFilter(ADataSet: TDataSet;
+  const AValue: Variant);
+var
+  LLiteral: string;
+begin
+  if ADataSet = nil then
+    raise ERadDev.Create(
+      'AAutoFilter acik ama ListSource/dataset yok: suzecek bir sey bulunamadi.');
+  if FMasterField = '' then
+    raise ERadDev.Create(
+      'AAutoFilter acik ama AMasterField bos: hangi parametrenin/alanin ' +
+      'suzulecegi bilinmiyor.');
+
+  (* MASTER BOSSA LISTE DE BOS. Kaskadda ulke secilmeden sehir listelenmemeli;
+     dataset'i kapatmak bunu ifade oyunu olmadan, iki kip icin de ayni sekilde
+     verir. *)
+  if VarIsNull(AValue) or VarIsEmpty(AValue) or (VarToStr(AValue) = '') then
+  begin
+    ADataSet.Close;
+    Exit;
+  end;
+
+  case FAutoFilter of
+    afParam:
+      begin
+        (* Sunucu tarafli. UniDAC'e baglidir - bu birimin implementation'i
+           zaten DBAccess kullaniyor. Baska bir saticinin dataset'i icin
+           afFilter'i ya da AOnFilter'i kullanin. *)
+        if not (ADataSet is TCustomDADataSet) then
+          raise ERadDev.CreateFmt(
+            'AAutoFilter = afParam, parametreli bir UniDAC dataset''i ister ' +
+            '(TCustomDADataSet); liste dataset''i %s. afFilter kipini ya da ' +
+            'AOnFilter''i kullanin.', [ADataSet.ClassName]);
+        ADataSet.Close;
+        { ParamByName yoksa istisna atar - sessiz yanlis suzmeden iyidir. }
+        TCustomDADataSet(ADataSet).ParamByName(FMasterField).Value := AValue;
+        ADataSet.Open;
+      end;
+
+    afFilter:
+      begin
+        (* Saticidan bagimsiz ama suzme ISTEMCI tarafinda: butun satirlar
+           cekilir. Buyuk listelerde afParam tercih edilmelidir.
+
+           Deger bicimi BILINCLI olarak dar: tamsayilar ciplak, digerleri
+           tirnakli metin. Ondalik/tarih icin yerel ayrac ifadeyi SESSIZCE
+           bozardi - o durumda AOnFilter yazilmalidir (property notuna bakin). *)
+        case VarType(AValue) and varTypeMask of
+          varSmallInt, varInteger, varShortInt, varByte, varWord,
+          varLongWord, varInt64, varUInt64:
+            LLiteral := VarToStr(AValue);
+        else
+          LLiteral := QuotedStr(VarToStr(AValue));
+        end;
+        ADataSet.Filtered := False;
+        ADataSet.Filter := FMasterField + ' = ' + LLiteral;
+        ADataSet.Filtered := True;
+        if not ADataSet.Active then
+          ADataSet.Open;
+      end;
+  end;
+end;
+
 procedure TRadLookupComboBoxProperties.DoFilter(ASource: TComponent);
 var
   LMaster: TComponent;
@@ -1743,7 +1846,10 @@ var
   LDS: TDataSet;
 begin
   LMaster := FMasterSlot.Get(1);
-  if FFiltering or (LMaster = nil) or not Assigned(FFilterEvent) then
+  { Otomatik kip acikken AOnFilter GEREKMEZ - pull'un bir isleyici yazmadan
+    calisabilmesi bu ozelligin butun amaci. }
+  if FFiltering or (LMaster = nil) or
+     ((FAutoFilter = afNone) and not Assigned(FFilterEvent)) then
     Exit;
 
   (* Master'in degeri: help.Dev'deki _ValueOf HER IKI sekli de kabul eder -
@@ -1768,7 +1874,11 @@ begin
   TRadBusyDataSets.Enter(LDS);
   try
     FFiltering := True;
-    FFilterEvent(Self, ASource, LMaster, LValue);
+    { SIRA: once otomatik, sonra isleyici - isleyici uzerine yazabilsin. }
+    if FAutoFilter <> afNone then
+      ApplyAutoFilter(LDS, LValue);
+    if Assigned(FFilterEvent) then
+      FFilterEvent(Self, ASource, LMaster, LValue);
   finally
     FFiltering := False;
     (* ONBELLEKLER ISTISNA HALINDE DE BOSALTILIR. Isleyici dataset'i acmis ve
@@ -1794,9 +1904,13 @@ begin
   if not HasMaster then
     Exit;
 
-  if not Assigned(FFilterEvent) then
-    Ekle('AMaster atanmis ama AOnFilter yok: acilir liste hic suzulmez, ' +
-         'kaskad sessizce YOKTUR.');
+  if (FAutoFilter = afNone) and not Assigned(FFilterEvent) then
+    Ekle('AMaster atanmis ama ne AOnFilter ne de AAutoFilter var: acilir ' +
+         'liste hic suzulmez, kaskad sessizce YOKTUR.');
+
+  if (FAutoFilter <> afNone) and (FMasterField = '') then
+    Ekle('AAutoFilter acik ama AMasterField bos: hangi parametrenin/alanin ' +
+         'suzulecegi bilinmiyor - acilir liste ilk acilista istisna atar.');
 
   if ListSource = nil then
     Ekle('AMaster atanmis ama ListSource yok: pull suzecek bir dataset ' +
@@ -1907,6 +2021,8 @@ begin
   FMinSearchLength := LSrc.FMinSearchLength;
   FClearTargets := LSrc.FClearTargets;
   FFilterOnPopup := LSrc.FFilterOnPopup;
+  FMasterField := LSrc.FMasterField;
+  FAutoFilter := LSrc.FAutoFilter;
   FSlots.Assign(LSrc.FSlots);
   FMasterSlot.Assign(LSrc.FMasterSlot);
   FSearchEvent := LSrc.FSearchEvent;

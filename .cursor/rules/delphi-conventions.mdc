@@ -112,6 +112,43 @@ Both were hit and reproduced in this kit. Rules: prefer the star-paren form for
 any comment containing a code sample, and never write either closing delimiter
 literally inside a comment — describe the delimiters in words instead.
 
+## Window procedures: three traps, all measured on Win32 + Win64
+
+Reconstructing a window procedure by hand — a common move when a VCL field you
+need is `private` — fails in three independent ways. All three were measured by
+running a probe against a live MDI form, not read from documentation.
+
+**1. `GetWindowLong` truncates the pointer on Win64.** It returns `Longint`.
+Measured on the same window: `GetWindowLongPtr` gave `$21777E40F06`,
+`GetWindowLong` gave `$77E40F06` — the top 32 bits were silently lost. Calling
+that value as a procedure jumps to an invalid address. Win32 shows no
+difference, so the bug hides until a 64-bit build. Always `GetWindowLongPtr` /
+`SetWindowLongPtr` for `GWL_WNDPROC`, and hold the result in `NativeInt`, never
+`Longint`/`DWORD`.
+
+**2. Reading `GWL_WNDPROC` after the VCL has subclassed returns the VCL hook,
+not the original.** Measured on an MDI client window: the value at
+`GetWindowLongPtr(ClientHandle, GWL_WNDPROC)` sat in the application's own
+address space, while `GetClassLongPtr(ClientHandle, GCL_WNDPROC)` — the real
+`MDICLIENT` class procedure — sat in `user32`. Feeding the first to
+`CallWindowProc` re-enters the hook. Anything the VCL captured *before*
+subclassing (`FDefClientProc` and friends) cannot be recovered this way; call
+`inherited` and let the VCL use its own saved pointer.
+
+**3. A form's handle is not its client area's handle.** `Self.Handle` and
+`ClientHandle` returned different procedures on both platforms. Passing one
+window's procedure together with another window's handle compiles, runs, and
+dispatches the wrong code against the wrong window.
+
+**Consuming a message can be load-bearing.** Not calling `inherited` looks like
+an oversight and is sometimes the only thing preventing a feedback loop: the
+default handler re-applies the state the override just cleared, the resulting
+`SWP_FRAMECHANGED` regenerates the message, and it never settles. Measured in
+this kit at 796,240 handler entries in 30 seconds at 100% CPU. Before "fixing" a
+missing `inherited`, check whether the default handler writes back the state
+being changed — and when the omission is deliberate, say so in a comment with
+the measurement, or the next reader will fix it again.
+
 ## Set constructors stop at 255 (verified by compilation)
 
 A set's element ordinal must fit in `0..255`, so an `in [...]` test against
@@ -150,6 +187,61 @@ there. When an error like this lands on a line whose syntax is plainly fine,
 check whether one of its identifiers is also declared locally under a
 different case. Single-letter locals (`c`, `i`, `s`) next to single-letter
 helpers are the usual pairing — give one of the two a longer name.
+
+## Exposing a record-typed lock or state: pointer, never value (measured)
+
+A property that hands out a **record** — a lock, a counter, any mutable state —
+must return `P<Record>`, not the record. Three shapes were compiled and run on
+Delphi 37.0 Win32, each calling a mutating method three times:
+
+| Property shape | Real field after 3 calls |
+|---|---|
+| `read GetRecByValue` (getter returns the record) | **0** |
+| `read FField` (read specifier is the field itself) | 3 |
+| `read GetPtr` (getter returns `P<Record>`) | 3 |
+
+The value-returning getter mutates a temporary that dies at end of statement.
+It compiles, runs, emits no warning and protects nothing — for a lock that
+means every "guarded" section runs unguarded. The field-backed form happens to
+work because the compiler reaches the field directly, but it breaks the moment
+someone writes `L := Obj.Safe;` (measured: the copy's counter advanced, the
+original's did not), and it cannot be used at all when the getter must be
+virtual — which is exactly what a shared lock needs (see below).
+
+Applies to `TRadLock`/`TRadOSLock` in `rad.core`, and to any record carrying
+counters, handles or ownership.
+
+## One data structure, one lock — route it through a virtual getter
+
+When objects in a hierarchy share the *same* underlying data — a child JSON
+document that points into its parent's tree, a view over a parent buffer —
+giving the child its own lock means two locks guarding one structure, and
+writers through parent and child never see each other. Neither compiler nor
+test notices; only a race in production does.
+
+`TAbstractLockable` therefore routes every lock method through a **virtual**
+`GetLock: PRadLock`. A child overrides it to return the root's lock and holds
+an interface reference to the root so the pointer cannot dangle. Anything that
+does not share data overrides nothing.
+
+Two regression assertions in this kit exist purely to keep that honest
+(`rad_jsonthread` 11 and 14, `rad_jsoncontract` 05): with the override removed,
+a writer going through the child stops blocking on the root's held write lock,
+and a child of a thread-safe root starts reporting `ThreadSafe = False`. Both
+were verified to fail before passing.
+
+## Interfaces: a contract can inherit a lock surface (verified)
+
+`IJson = interface(ILockable)` works and costs the implementer nothing: a class
+descending from a base that already implements `ILockable` satisfies the derived
+interface without redeclaring a single lock method. A property whose read
+specifier is a method of the *ancestor* interface (`property ThreadSafe: Boolean
+read IsThreadSafe;`) also compiles. Both were compiled and run before being
+relied on.
+
+Prefer this over making callers discover the capability through
+`Supports(X, ILockable, ...)` when locking is part of what the type is for —
+grouping several calls under one lock is otherwise invisible in the API.
 
 ## Prohibitions
 

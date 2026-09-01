@@ -12,12 +12,32 @@ uses
   DUnitX.TestFramework,
   System.SysUtils,
   System.Classes,
+  System.IOUtils,
   System.SyncObjs,
   System.Rtti,
   Winapi.Windows,
   rad.cache;
 
 type
+  {$M+}
+  TCacheJsonClass = class
+  private
+    FName: string;
+    FValue: Integer;
+  published
+    property Name: string read FName write FName;
+    property Value: Integer read FValue write FValue;
+  end;
+  {$M-}
+
+  {$RTTI EXPLICIT FIELDS([vcPublic])}
+  TCacheJsonRecord = record
+  public
+    Name: string;
+    Value: Integer;
+  end;
+  {$RTTI INHERIT METHODS([]) PROPERTIES([]) FIELDS([])}
+
   ISmartCacheTestArayuzu = interface
     ['{7E6C6C5A-9B3E-4B0A-9A3E-4C1E6F2D8A11}']
     function DegerAl: Integer;
@@ -87,6 +107,45 @@ type
 
     [Test]
     procedure TekHandlerKaldirma;
+
+    [Test]
+    procedure LoadJson_GecerliNesneyiKilitlenmedenYukler;
+
+    [Test]
+    procedure LoadJson_BozukGirdideMevcutVeriyiKorur;
+
+    [Test]
+    procedure FileLoad_AClearFirstFalse_MevcutVeriyiKorur;
+
+    [Test]
+    procedure FileSaveLoad_JsonGidisDonusu;
+
+    [Test]
+    procedure FileSave_SifreIstegiDuzMetinYazmaz;
+
+    [Test]
+    procedure FileSave_DesteklenmeyenDegerdeMevcutDosyayiKorur;
+
+    [Test]
+    procedure FileSave_ClassRecordVariant_MormotJsonKullanir;
+
+    [Test]
+    procedure FileSave_YamlMormotDonusumunuKullanir;
+
+    [Test]
+    procedure AutoSave_DegisikliktenSonraArkaPlandaKaydeder;
+
+    [Test]
+    procedure AutoSave_KapanistaBekleyenDegisikligiKaydeder;
+
+    [Test]
+    procedure AutoSave_DosyaGeciciKilitliykenYenidenDener;
+
+    [Test]
+    procedure AutoSave_ThreadSafeOlmayanCacheIcinReddedilir;
+
+    [Test]
+    procedure IkiCacheOrnegi_BirbirininDurumunuPaylasmaz;
 
     [Test]
     [Category('Eşzamanlılık')]
@@ -329,11 +388,11 @@ begin
     Cache.AddOrSet('c', 3);
 
     Anahtarlar := Cache.Keys;
-    Assert.AreEqual(3, Length(Anahtarlar), 'Keys üç anahtar dönmeliydi');
+    Assert.AreEqual<Integer>(3, Length(Anahtarlar), 'Keys üç anahtar dönmeliydi');
 
     // Anlık kopya: sonradan yapılan ekleme, alınmış diziyi etkilemez.
     Cache.AddOrSet('d', 4);
-    Assert.AreEqual(3, Length(Anahtarlar), 'Keys anlık görüntü olmalıydı (canlı görünüm değil)');
+    Assert.AreEqual<Integer>(3, Length(Anahtarlar), 'Keys anlık görüntü olmalıydı (canlı görünüm değil)');
     Assert.AreEqual(4, Cache.Count, 'Cache''in kendisi 4 kayıt içermeliydi');
   finally
     Cache.Free;
@@ -459,6 +518,346 @@ begin
     Assert.AreEqual(2, Tetik2, 'H2 hâlâ kayıtlı olduğu için tetiklenmeye devam etmeliydi');
   finally
     Cache.Free;
+  end;
+end;
+
+function GeciciCacheDosyasi(const AUzanti: string): string;
+begin
+  Result := TPath.Combine(TPath.GetTempPath,
+    ChangeFileExt(TPath.GetRandomFileName, AUzanti));
+end;
+
+procedure TSmartCacheTestleri.LoadJson_GecerliNesneyiKilitlenmedenYukler;
+var
+  Cache: TSmartCache;
+begin
+  Cache := TSmartCache.Create;
+  try
+    Assert.AreEqual(0, Cache.LoadJson('{"aile":{"baba":42},"aktif":true}'));
+    Assert.AreEqual<Int64>(42, Cache.Get<Int64>('aile.baba', -1));
+    Assert.IsTrue(Cache.Get('aktif', False));
+  finally
+    Cache.Free;
+  end;
+end;
+
+procedure TSmartCacheTestleri.LoadJson_BozukGirdideMevcutVeriyiKorur;
+var
+  Cache: TSmartCache;
+  HataOlustu: Boolean;
+begin
+  Cache := TSmartCache.Create;
+  try
+    Cache.AddOrSet('korunacak', 7);
+    HataOlustu := False;
+    try
+      Cache.LoadJson('{bozuk json');
+    except
+      on ESmartCacheJson do
+        HataOlustu := True;
+    end;
+    Assert.IsTrue(HataOlustu);
+    Assert.AreEqual(7, Cache.Get('korunacak', -1));
+  finally
+    Cache.Free;
+  end;
+end;
+
+procedure TSmartCacheTestleri.FileLoad_AClearFirstFalse_MevcutVeriyiKorur;
+var
+  Cache: TSmartCache;
+  Dosya: string;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  TFile.WriteAllText(Dosya, '{"yeni":2}', TEncoding.UTF8);
+  Cache := TSmartCache.Create;
+  try
+    Cache.AddOrSet('eski', 1);
+    Assert.IsTrue(Cache.FileLoad(Dosya, False));
+    Assert.AreEqual(1, Cache.Get('eski', -1));
+    Assert.AreEqual<Int64>(2, Cache.Get<Int64>('yeni', -1));
+  finally
+    Cache.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.FileSaveLoad_JsonGidisDonusu;
+var
+  Kaynak: TSmartCache;
+  Hedef: TSmartCache;
+  Dosya: string;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  Kaynak := TSmartCache.Create;
+  try
+    Kaynak.AddOrSet('sayi', 42);
+    Kaynak.AddOrSet('metin', 'Merhaba Dünya');
+    Kaynak.AddOrSet('bayrak', True);
+    Kaynak.FileSave(Dosya);
+
+    Hedef := TSmartCache.Create;
+    try
+      Assert.IsTrue(Hedef.FileLoad(Dosya));
+      Assert.AreEqual<Int64>(42, Hedef.Get<Int64>('sayi', -1));
+      Assert.AreEqual('Merhaba Dünya', Hedef.Get('metin', ''));
+      Assert.IsTrue(Hedef.Get('bayrak', False));
+    finally
+      Hedef.Free;
+    end;
+  finally
+    Kaynak.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.FileSave_SifreIstegiDuzMetinYazmaz;
+var
+  Cache: TSmartCache;
+  Dosya: string;
+  HataOlustu: Boolean;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  Cache := TSmartCache.Create;
+  try
+    Cache.AddOrSet('gizli', 'deger');
+    HataOlustu := False;
+    try
+      Cache.FileSave(Dosya, True);
+    except
+      on ESmartCacheJson do
+        HataOlustu := True;
+    end;
+    Assert.IsTrue(HataOlustu);
+    Assert.IsFalse(TFile.Exists(Dosya),
+      'ACipher=True iken düz metin dosyası yazılmamalıydı');
+  finally
+    Cache.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.FileSave_DesteklenmeyenDegerdeMevcutDosyayiKorur;
+const
+  ONCEKI_ICERIK = 'önceki içerik';
+var
+  Cache: TSmartCache;
+  Arayuz: IInterface;
+  Dosya: string;
+  HataOlustu: Boolean;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  TFile.WriteAllText(Dosya, ONCEKI_ICERIK, TEncoding.UTF8);
+  Cache := TSmartCache.Create;
+  try
+    Arayuz := TInterfacedObject.Create;
+    Cache.AddOrSet('arayuz', Arayuz);
+    HataOlustu := False;
+    try
+      Cache.FileSave(Dosya);
+    except
+      on ESmartCacheJson do
+        HataOlustu := True;
+    end;
+    Assert.IsTrue(HataOlustu);
+    Assert.AreEqual(ONCEKI_ICERIK, TFile.ReadAllText(Dosya, TEncoding.UTF8));
+  finally
+    Cache.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.FileSave_ClassRecordVariant_MormotJsonKullanir;
+var
+  Cache: TSmartCache;
+  Dosya: string;
+  Icerik: string;
+  Kayit: TCacheJsonRecord;
+  Nesne: TCacheJsonClass;
+  Varyant: Variant;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  Cache := TSmartCache.Create;
+  try
+    Nesne := TCacheJsonClass.Create;
+    try
+      Nesne.Name := 'sinif';
+      Nesne.Value := 11;
+      Kayit.Name := 'kayit';
+      Kayit.Value := 22;
+      Varyant := 'varyant';
+
+      Cache.AddOrSet('class', Nesne);
+      Cache.AddOrSet('record', TValue.From<TCacheJsonRecord>(Kayit));
+      Cache.AddOrSet('variant', TValue.FromVariant(Varyant));
+      Cache.FileSave(Dosya);
+
+      Icerik := TFile.ReadAllText(Dosya, TEncoding.UTF8);
+      Assert.Contains(Icerik, '"sinif"');
+      Assert.Contains(Icerik, '"kayit"');
+      Assert.Contains(Icerik, '"variant":"varyant"');
+    finally
+      Nesne.Free;
+    end;
+  finally
+    Cache.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.FileSave_YamlMormotDonusumunuKullanir;
+var
+  Cache: TSmartCache;
+  Dosya: string;
+  Icerik: string;
+begin
+  Dosya := GeciciCacheDosyasi('.yaml');
+  Cache := TSmartCache.Create;
+  try
+    Cache.AddOrSet('ad', 'RAD');
+    Cache.AddOrSet('sayi', 42);
+    Cache.FileSave(Dosya);
+    Icerik := TFile.ReadAllText(Dosya, TEncoding.UTF8);
+    Assert.IsFalse(Icerik.TrimLeft.StartsWith('{'),
+      'YAML dosyası kanonik JSON yerine JsonToYaml çıktısı olmalıydı.');
+    Cache.Clear;
+    Assert.IsTrue(Cache.FileLoad(Dosya));
+    Assert.AreEqual('RAD', Cache.Get('ad', ''));
+  finally
+    Cache.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.AutoSave_DegisikliktenSonraArkaPlandaKaydeder;
+var
+  Cache: TSmartCache;
+  Dosya: string;
+  SonTick: UInt64;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  if TFile.Exists(Dosya) then
+    TFile.Delete(Dosya);
+  Cache := TSmartCache.Create(True);
+  try
+    Cache.SaveFileName := Dosya;
+    Cache.AutoSaveDelaySeconds := 5;
+    Cache.AutoSave := True;
+    Cache.AddOrSet('arkaPlan', 42);
+
+    SonTick := GetTickCount64 + 8000;
+    while (not TFile.Exists(Dosya)) and (GetTickCount64 < SonTick) do
+      TThread.Sleep(25);
+
+    Assert.IsTrue(TFile.Exists(Dosya));
+    Assert.Contains(TFile.ReadAllText(Dosya, TEncoding.UTF8), '"arkaPlan":42');
+  finally
+    Cache.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.AutoSave_KapanistaBekleyenDegisikligiKaydeder;
+var
+  Cache: TSmartCache;
+  Dosya: string;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  if TFile.Exists(Dosya) then
+    TFile.Delete(Dosya);
+  Cache := TSmartCache.Create(True);
+  Cache.SaveFileName := Dosya;
+  Cache.AutoSave := True;
+  Cache.AddOrSet('kapanis', True);
+  Cache.Free;
+  try
+    Assert.IsTrue(TFile.Exists(Dosya));
+    Assert.Contains(TFile.ReadAllText(Dosya, TEncoding.UTF8), '"kapanis":true');
+  finally
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.AutoSave_DosyaGeciciKilitliykenYenidenDener;
+var
+  Cache: TSmartCache;
+  Dosya: string;
+  Kilit: TFileStream;
+  SonTick: UInt64;
+begin
+  Dosya := GeciciCacheDosyasi('.json');
+  TFile.WriteAllText(Dosya, '{}', TEncoding.UTF8);
+  Cache := TSmartCache.Create(True);
+  try
+    Cache.SaveFileName := Dosya;
+    Cache.AutoSave := True;
+    Kilit := TFileStream.Create(Dosya, fmOpenReadWrite or fmShareExclusive);
+    try
+      Cache.AddOrSet('kilitSonrasi', 7);
+      TThread.Sleep(5500);
+    finally
+      Kilit.Free;
+    end;
+
+    SonTick := GetTickCount64 + 4000;
+    while (not TFile.ReadAllText(Dosya, TEncoding.UTF8).Contains('kilitSonrasi')) and
+          (GetTickCount64 < SonTick) do
+      TThread.Sleep(25);
+    Assert.Contains(TFile.ReadAllText(Dosya, TEncoding.UTF8), '"kilitSonrasi":7');
+  finally
+    Cache.Free;
+    if TFile.Exists(Dosya) then
+      TFile.Delete(Dosya);
+  end;
+end;
+
+procedure TSmartCacheTestleri.AutoSave_ThreadSafeOlmayanCacheIcinReddedilir;
+var
+  Cache: TSmartCache;
+  HataOlustu: Boolean;
+begin
+  Cache := TSmartCache.Create(False);
+  try
+    HataOlustu := False;
+    try
+      Cache.AutoSave := True;
+    except
+      on ESmartCacheAutoSave do
+        HataOlustu := True;
+    end;
+    Assert.IsTrue(HataOlustu);
+  finally
+    Cache.Free;
+  end;
+end;
+
+procedure TSmartCacheTestleri.IkiCacheOrnegi_BirbirininDurumunuPaylasmaz;
+var
+  Birinci: TSmartCache;
+  Ikinci: TSmartCache;
+begin
+  Birinci := TSmartCache.Create;
+  try
+    Birinci.AddOrSet('birinci', 1);
+    Ikinci := TSmartCache.Create;
+    try
+      Ikinci.AddOrSet('ikinci', 2);
+      Assert.AreEqual(1, Birinci.Count);
+      Assert.AreEqual(1, Ikinci.Count);
+    finally
+      Ikinci.Free;
+    end;
+    Assert.AreEqual(1, Birinci.Get('birinci', -1));
+  finally
+    Birinci.Free;
   end;
 end;
 

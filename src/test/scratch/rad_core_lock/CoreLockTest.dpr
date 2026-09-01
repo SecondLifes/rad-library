@@ -192,6 +192,78 @@ begin
   L.ReadUnlock;
 end;
 
+procedure EnabledBayragi;
+var
+  L: TRadLock;
+  O: TRadOSLock;
+  LPatladi: Boolean;
+begin
+  Writeln;
+  Writeln('=== Enabled: yazilabilir ama on kosullu ===');
+
+  { 1) Paylasilmamis, kilitlenmemis kayitta serbestce degistirilebilir. }
+  L.Init(True);
+  C(L.Enabled, '55 Init(True) -> Enabled True');
+  L.Enabled := False;
+  C(not L.Enabled, '56 kilit tutulmuyorken kapatilabildi');
+  L.ReadLock;                   { kapali: islemsiz }
+  C(not L.IsLocked, '57 kapali kilitte ReadLock islemsiz');
+  L.ReadUnlock;
+  L.Enabled := True;
+  C(L.Enabled, '58 tekrar acilabildi');
+
+  { 2) Acik ve TUTULUYORKEN degistirmek YASAK - sessiz bozulma yerine hata. }
+  L.ReadLock;
+  LPatladi := False;
+  try
+    L.Enabled := False;
+  except
+    on E: ERadLock do LPatladi := True;
+  end;
+  C(LPatladi, '59 kilit TUTULURKEN Enabled degistirmek ERadLock firlatti');
+  C(L.IsLocked, '60 bekci calisti, kilit BOZULMADAN duruyor');
+  L.ReadUnlock;
+  C(not L.IsLocked, '61 birakma normal calisti - sayac tutarli');
+
+  { 3) Ayni sozlesme TRadOSLock icin de gecerli (tek satirlik tip degisimi
+       vaadi bozulmasin diye). }
+  O.Init(True);
+  O.Enabled := False;
+  C(not O.Enabled, '62 TRadOSLock: kapatilabildi');
+  O.Enabled := True;
+  O.WriteLock;
+  LPatladi := False;
+  try
+    O.Enabled := False;
+  except
+    on E: ERadLock do LPatladi := True;
+  end;
+  C(LPatladi, '63 TRadOSLock: tutulurken degistirmek ERadLock firlatti');
+  O.WriteUnlock;
+  O.Done;
+
+  { 4) TAbstractLockable uzerinden ayni kapi: ThreadSafe salt okunur ama
+       kilide Safe ile ulasilip degistirilebiliyor - ayni bekci gecerli. }
+  var LN := TAbstractLockable.Create;
+  try
+    C(LN.ThreadSafe, '64 varsayilan ThreadSafe True');
+    LN.Safe^.Enabled := False;
+    C(not LN.ThreadSafe, '65 Safe^.Enabled ile kapatilinca ThreadSafe False');
+    LN.Safe^.Enabled := True;
+    LN.ReadLock;
+    LPatladi := False;
+    try
+      LN.Safe^.Enabled := False;
+    except
+      on E: ERadLock do LPatladi := True;
+    end;
+    C(LPatladi, '66 nesne kilitliyken Safe^.Enabled de reddediliyor');
+    LN.ReadUnlock;
+  finally
+    LN.Free;
+  end;
+end;
+
 procedure ArayuzUzerinden;
 var
   LNesne: TAbstractLockable;
@@ -216,11 +288,12 @@ begin
 
   LNesne := TAbstractLockable.Create;
   try
-    // Lock ISARETCI dondurur: uzerinde kilitlemek GERCEK alani etkiler
-    LNesne.Lock.ReadLock;
-    C(LNesne.Lock.IsLocked, '29 Lock isaretcisi gercek kilidi veriyor');
-    LNesne.Lock.ReadUnlock;
-    C(not LNesne.Lock.IsLocked, '30 isaretci uzerinden birakma da gercek');
+    // Safe ISARETCI dondurur: uzerinde kilitlemek GERCEK alani etkiler
+    // (property eskiden Lock adiniydi; ad degisti, test guncellendi)
+    LNesne.Safe.ReadLock;
+    C(LNesne.Safe.IsLocked, '29 Safe isaretcisi gercek kilidi veriyor');
+    LNesne.Safe.ReadUnlock;
+    C(not LNesne.Safe.IsLocked, '30 isaretci uzerinden birakma da gercek');
   finally
     LNesne.Free;
   end;
@@ -468,6 +541,7 @@ begin
     ParantezYardimcilari;
     AssertVeIstisna;
     ArayuzUzerinden;
+    EnabledBayragi;
     CokThread;
     OkurlarUpdateIleParalel;
     OSTemel;

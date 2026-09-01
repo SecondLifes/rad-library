@@ -1,10 +1,10 @@
-unit rad.cipher;
+﻿unit rad.cipher;
 
 {
   RAD Library — sifreleme katmani.
 
   Bagimliliklar: rad.core (istisna agaci) + mORMot crypt. Baska rad.* birimi
-  YOK — bu birim rad.config'in altinda durur, ustunde degil.
+  YOK — bu birim rad.cache'in altinda durur, ustunde degil.
 
   ===========================================================================
   BU KATMANIN NE OLDUGU — ve ne OLMADIGI
@@ -112,7 +112,7 @@ type
   /// <summary>Bayt dizisi sifreleyen/cozen soyutlama.</summary>
   /// <remarks>
   ///   Bilerek DAR tutuldu: sadece bayt girer, bayt cikar. Base64, zarf,
-  ///   dosya bicimi gibi seyler bu arayuzun isi DEGIL — onlar rad.config'in
+  ///   dosya bicimi gibi seyler bu arayuzun isi DEGIL — onlar rad.cache'in
   ///   sorumlulugunda. Boylece testlerde sahte bir cipher yazmak uc satir
   ///   surer ve ileride farkli bir anahtar kaynagi (parola, vault, HSM)
   ///   eklemek bu birimi hic degistirmez.

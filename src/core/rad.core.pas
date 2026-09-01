@@ -1,11 +1,11 @@
-unit rad.core;
+﻿unit rad.core;
 
 {
   RAD Library — cekirdek birim.
 
   Buranin kurali: hicbir rad.* birimine bagimli olmaz. Taban tipler, taban
   siniflar, ortak sabitler ve ortak istisna agaci burada yasar; ustteki her
-  birim (rad.config, rad.cache, rad.json, ...) buradan beslenir, tersi olmaz.
+  birim (rad.cache, rad.json, ...) buradan beslenir, tersi olmaz.
 
   ===========================================================================
   IKI KILIT TIPI — AYNI YUZ, FARKLI SOZLESME
@@ -96,13 +96,30 @@ unit rad.core;
   * TRadOSLock omur sonunda Done ISTER (isletim sistemi kaynagi birakir).
     TRadLock'ta Done yoktur, gerekmez. Tek asimetri budur.
 
-  * ThreadSafe bayragi calisma zamaninda DEGISTIRILEMEZ. JCL'in
-    TJclAbstractLockable'i degistirilebilir yapar (JclAbstractContainers.pas,
-    SetThreadSafe); olculdu, bozuk oldugu kanitlandi: bayrak ReadLock ile
-    ReadUnlock ARASINDA degisirse unlock atlanir, okuma sayaci sizar ve o
-    kilit uzerindeki her WriteLock sonsuza kadar doner. Ters yonde sayac
-    altina tasar. Bu yuzden burada setter yok, alan ters mantikla tutuluyor
-    (FDisabled) ve sifirlanmis bellek guvenli tarafa dusuyor.
+  * Enabled bayragi YAZILABILIR ama ON KOSULLUDUR: degistirildigi anda kilit
+    TUTULMUYOR olmali. Tutuluyorsa setter ERadLock firlatir.
+
+    Sebep: ReadLock ile ReadUnlock IKI AYRI andir ve ikisi de bu bayraga
+    bakar. Bayrak aralarinda degisirse cift bozulur — acikken kapatirsan
+    unlock atlanir, okuma sayaci SIZAR ve o kilitteki her WriteLock sonsuza
+    kadar doner; kapaliyken acarsan hic alinmamis bir kilit birakilir ve
+    sayac ALTTAN TASAR. JCL'in TJclAbstractLockable'i (JclAbstractContainers.
+    pas, SetThreadSafe) bunu bekcisiz yapar ve ayni sekilde bozulur.
+
+    Bekcinin GOREMEDIGI tek durum, kilit KAPALIYKEN acmaktir: kapali kilitte
+    IsLocked her zaman False doner, dolayisiyla "ReadLock cagirdi ama islemsiz
+    gecti" durumundaki thread gorunmez. Bu yuzden pratik kural: bayragi, nesne
+    baska thread'lerle PAYLASILMADAN once ayarla (kur -> tek thread'de yukle ->
+    ac -> dagit).
+
+    Setter alttaki kilit primitifine DOKUNMAZ. Init cagirmasi cazip gorunur ama
+    olculdu (2026-08-24): Init tabanli bir setter tutulan kilitte IsLocked'i
+    False'a dusuruyor, ReadLock icindeyken WriteLock aninda geciyor — yani
+    karsilikli dislama sessizce kayboluyor; TRadOSLock'ta ayrica her cagri bir
+    OS kritik bolumu sizdiriyor (Init, Done cagirmadan yeniden kurar).
+
+    Alan ters mantikla tutuluyor (FDisabled), boylece sifirlanmis bellek
+    guvenli tarafa — "kilit etkin" — dusuyor.
 
   * DEGER OLARAK KOPYALAMAYIN (L2 := L1). Kopya, kilit sayaclarinin ikinci
     bir kopyasini ve TRadOSLock'ta ayni kritik bolumun ikinci bir sahibini
@@ -112,12 +129,24 @@ unit rad.core;
 interface
 
 uses
-  System.SysUtils,
+  Winapi.Windows, Winapi.Messages, System.SysUtils,System.Classes,Data.DB,
   mormot.core.base,  // TRWLock/TOSLock'un inline metotlarinin ACILABILMESI icin
                      // sart: olmadan derleyici H2443 verip inline'i geri ceviriyor
+  mormot.core.variants, mormot.core.fmt,
   mormot.core.os;    // TRWLock, TOSLock
 
+const
+  WM_CMD = WM_USER + 2000;
+  WM_EVENT_AFTERSHOW = WM_CMD + 1;
+  WM_EVENT_LOAD = WM_CMD + 2;
+
 type
+
+
+IDBComponent = interface
+
+end;
+
 
 {$REGION 'Istisnalar'}
 
@@ -128,6 +157,86 @@ type
   ERadLock = class(ERadCore);
 
 {$ENDREGION}
+
+
+{$REGION 'TResult<T>'}
+
+  /// <summary>Basarili/basarisiz sonucu hata mesajiyla birlikte tasir.</summary>
+  /// <remarks>
+  ///   DIKKAT - Success/Failure/FromException hepsi `class function ... static`,
+  ///   yani YENI bir kayit URETIR, mevcut olani DEGISTIRMEZ. Dogru kullanim
+  ///   ATAMADIR:
+  ///   <code>
+  ///   rs := TResult&lt;Boolean&gt;.Failure('...');   // DOGRU
+  ///   rs.Failure('...');                          // DERLENIR, HICBIR SEY YAPMAZ
+  ///   </code>
+  ///   Ikincisi derleyiciden ses cikarmaz (Delphi static class function'i ornek
+  ///   uzerinden cagirmaya izin verir) ve donen kaydi sessizce atar.
+  /// </remarks>
+  TResult<T> = record
+  private
+    FValue: T;
+    FErrorMsg: string;
+    FSuccess: Boolean;
+    function GetValue: T;
+  public
+    { BASLANGIC DURUMU - olculdu, tahmin degil.
+
+      Bu operator eklenmeden once yerel bir TResult<T> degiskeninin FSuccess
+      alani COP degeri tasiyordu: derleyici yerel kayitta yalnizca YONETILEN
+      alanlari (burada FErrorMsg: string) sifirlar, Boolean gibi yonetilmeyen
+      alanlar yigindan ne geldiyse onu korur.
+
+      Sonucu sadece "rastgele True" degildi: 0/1 disinda bir bayt (olcumde
+      $02) tasiyan Boolean icin hem `if X` hem `not X` sifirdan farkli cikar,
+      yani ayni degisken iki zit soruya birden "evet" der. Gercek bir
+      _ConnectTest cagrisi bu yuzden basarisiz baglantida True donuyordu.
+
+      Artik baslangic deterministik ve GUVENLI TARAFTA: basarisiz. }
+    class operator Initialize(out ADest: TResult<T>);
+
+    { --- URETEN bicim: yeni bir kayit dondurur, ATANMALIDIR --- }
+
+    { Başarı durumunda sonuç üretir }
+    class function Success(const AValue: T): TResult<T>; static;
+    { Hata durumunda mesajla sonuç üretir }
+    class function Failure(const AErrorMsg: string): TResult<T>; static;
+    { Exception durumunda otomatik hata sonucu üretir }
+    class function FromException(const E: Exception): TResult<T>; static;
+
+    { --- DEGISTIREN bicim: kaydin KENDISINI gunceller ---
+
+      Yukaridaki uclunun tersine bunlar bir sey dondurmez, dolayisiyla
+      "cagirdim ama hicbir sey olmadi" hatasi YAPILAMAZ - bir procedure'un
+      sonucunu yanlislikla atmak mumkun degildir.
+
+      Asil kullanim yeri closure'lardir; disaridaki bir degiskeni yerinde
+      guncellemek gerektiginde uretilen kaydi elle geri atamak zorunda
+      kalmazsiniz:
+      <code>
+      .OnError  (procedure(t: TRadTask) begin rs.SetFailure(t.ErrorMsg) end)
+      .OnSuccess(procedure(t: TRadTask) begin rs.SetSuccess(True)       end)
+      </code> }
+
+    /// <summary>Kaydi BASARILI duruma alir; hata mesajini temizler.</summary>
+    procedure SetSuccess(const AValue: T);
+    /// <summary>Kaydi BASARISIZ duruma alir; degeri sifirlar.</summary>
+    procedure SetFailure(const AErrorMsg: string);
+    /// <summary>Kaydi istisnanin mesajiyla BASARISIZ duruma alir.</summary>
+    procedure SetException(const E: Exception);
+
+    { Güvenli veri okuma pattern'i }
+    function TryGetValue(out AValue: T): Boolean;
+
+    { Özellikler }
+    property Value: T read GetValue;
+    property ErrorMsg: string read FErrorMsg;
+    property IsSuccess: Boolean read FSuccess;
+
+  end;
+
+{$ENDREGION}
+
 
 {$REGION 'TRadLock — cok okur / tek yazar'}
 
@@ -250,11 +359,38 @@ type
     /// </remarks>
     procedure AssertUnlocked;
 
-    /// <summary>Kilitleme etkin mi (Init ile belirlenir, degistirilemez).</summary>
-    function Enabled: Boolean;   {$IFDEF HASINLINE} inline; {$ENDIF}
+    function GetEnabled: Boolean;                       {$IFDEF HASINLINE} inline; {$ENDIF}
+    procedure SetEnabled(const AValue: Boolean);
+
+    /// <summary>Kilitleme etkin mi. YAZILABILIR, ama on kosulu vardir.</summary>
+    /// <remarks>
+    ///   ON KOSUL: degistirildigi anda bu kilit TUTULMUYOR olmalidir. Tutuluyorsa
+    ///   setter ERadLock firlatir — sessizce bozmaktansa yuksek sesle durur.
+    ///
+    ///   NEDEN on kosul var: ReadLock ile ReadUnlock IKI AYRI andir ve ikisi de
+    ///   bu bayraga bakar. Bayrak aralarinda degisirse cift bozulur —
+    ///   acikken kapatirsan unlock atlanir ve okuma sayaci SIZAR (o kilitteki
+    ///   her WriteLock sonsuza kadar doner); kapaliyken acarsan hic alinmamis
+    ///   bir kilit birakilir ve sayac ALTTAN TASAR.
+    ///
+    ///   BEKCININ GOREMEDIGI TEK DURUM: kilit KAPALIYKEN acmak. IsLocked kapali
+    ///   kilitte her zaman False dondugu icin, o sirada "ReadLock cagirdi ama
+    ///   islemsiz gecti" durumundaki bir thread gorunmez; sonra ReadUnlock
+    ///   ettiginde sayac alttan tasar. Bu yuzden pratik kural degismiyor:
+    ///   bayragi nesne BASKA THREAD'LERLE PAYLASILMADAN once ayarla.
+    ///
+    ///   Setter alttaki TRWLock'a DOKUNMAZ (Init cagirmaz): bekci sayesinde
+    ///   ortada silinecek bir kilit durumu zaten yoktur, ve Init cagirmak
+    ///   TRadOSLock'ta OS kaynagi sizdirirdi (Init, Done cagirmadan yeniden
+    ///   kurar). Olculdu (2026-08-24): Init tabanli bir setter, tutulan bir
+    ///   kilitte IsLocked'i False'a dusuruyor ve ReadLock icindeyken WriteLock
+    ///   aninda geciyordu — karsilikli dislama sessizce kayboluyordu.
+    /// </remarks>
+    property Enabled: Boolean read GetEnabled write SetEnabled;
   end;
 
 {$ENDREGION}
+
 
 {$REGION 'TRadOSLock — dislayici, cekirdek beklemeli'}
 
@@ -350,11 +486,21 @@ type
     /// <remarks>DESTRUCTOR ICINDEN CAGIRMAYIN.</remarks>
     procedure AssertUnlocked;
 
-    /// <summary>Kilitleme etkin mi (Init ile belirlenir, degistirilemez).</summary>
-    function Enabled: Boolean;   {$IFDEF HASINLINE} inline; {$ENDIF}
+    function GetEnabled: Boolean;                       {$IFDEF HASINLINE} inline; {$ENDIF}
+    procedure SetEnabled(const AValue: Boolean);
+
+    /// <summary>Kilitleme etkin mi. Sozlesme TRadLock ile AYNI - gerekce orada.</summary>
+    /// <remarks>
+    ///   Burada ek bir sebep daha var: setter FLock'a dokunmaz. Dokunsaydi
+    ///   (Init cagirsaydi) her degisim bir OS kritik bolumu sizdirirdi, cunku
+    ///   TRadOSLock.Init, Done cagirmadan FLock.Init yapar ve FLockCount'u
+    ///   sifirlayip ozyineleme sayimini bozar.
+    /// </remarks>
+    property Enabled: Boolean read GetEnabled write SetEnabled;
   end;
 
 {$ENDREGION}
+
 
 {$REGION 'ILockable / TAbstractLockable'}
 
@@ -364,6 +510,7 @@ type
   ///   iki farkla: guncelleme seviyesi acikca yer alir, ve ThreadSafe
   ///   YAZILABILIR degildir — yalnizca okunur.
   /// </remarks>
+
   ILockable = interface
     ['{0EA1D538-09FC-412E-862D-55FA7296C447}']
     procedure ReadLock;
@@ -373,6 +520,7 @@ type
     procedure UpdateLock;
     procedure UpdateUnlock;
     function  IsThreadSafe: Boolean;
+    function GetSafe: PRadLock;
   end;
 
   /// <summary>ILockable'i TRadLock'a delege eden taban sinif.</summary>
@@ -384,16 +532,40 @@ type
   ///
   ///   TRadOSLock isteyen bir taban sinif henuz YOK: ihtiyac ciktiginda
   ///   ayni sablonla eklenir (tek fark alan tipi ve destructor'da Done).
+  ///
+  ///   PAYLASILAN KILIT: butun kilit metotlari kendi FLock'una DEGIL,
+  ///   GetLock'un dondurdugu isaretciye gider ve GetLock SANALDIR. Bir soyagac
+  ///   ayni veriyi paylasan nesneler uretiyorsa (ornek: rad.json'daki alt
+  ///   belgeler — IDocDict agacin icine REFERANSLA bakar, kopya degildir)
+  ///   cocuk GetLock'u override edip KOKUN kilidini dondurur; boylece iki
+  ///   kilit tek veri yapisini korumaya calismaz. Override etmeyen sinif icin
+  ///   davranis degismez: GetLock kendi FLock'unu dondurur.
   /// </remarks>
   TAbstractLockable = class(TInterfacedObject, ILockable)
+  private
+    procedure SetThreadSafe(const Value: Boolean);
   protected
-    FLock: TRadLock;
-    function GetLock: PRadLock;  {$IFDEF HASINLINE} inline; {$ENDIF}
+    FSafe: TRadLock;
+    /// <summary>Kilit metotlarinin GERCEK hedefi. Varsayilan: kendi FLock'u.</summary>
+    /// <remarks>
+    ///   SANALDIR ve bu yuzden inline DEGILDIR: paylasilan kilit senaryosunda
+    ///   cocugun kokun kilidine yonlendirebilmesi buna bagli. Sanal cagrinin
+    ///   maliyeti kilit isleminin yaninda olculemez.
+    /// </remarks>
+    function GetSafe: PRadLock; virtual;
   public
     /// <param name="AThreadSafe">
     ///   Nesnenin omru boyunca sabittir; sonradan degistirilemez.
     /// </param>
-    constructor Create(const AThreadSafe: Boolean = True); reintroduce; virtual;
+    { Kilit ETKIN olarak kurar. Sifirlanmis bellek zaten "etkin" demektir
+      (birim basligi), o yuzden burada Init cagrilmaz. }
+    constructor Create; overload; virtual;
+    { Kilidi bastan devre disi birakmak icin: Create(False).
+
+      VARSAYILAN DEGER YOK, ve bu zorunlu: `AThreadSafe: Boolean = True`
+      yazilirsa parametresiz `Create` ile bu asiri yukleme AYNI cagriya uyar ve
+      derleyici E2251 "Ambiguous overloaded call to 'Create'" verir. }
+    constructor Create(const AThreadSafe: Boolean); reintroduce; overload; virtual;
 
     { ILockable }
     procedure ReadLock;          {$IFDEF HASINLINE} inline; {$ENDIF}
@@ -413,12 +585,100 @@ type
     ///   property gecici kopya uretme riski tasirdi, yazilabilir olsaydi da
     ///   kilit durumu tek atamada ezilebilirdi.
     /// </remarks>
-    property Lock: PRadLock read GetLock;
+    property Safe: PRadLock read GetSafe;
+
+    /// <summary>Kilit etkin mi. SALT OKUNUR - omur boyu sabittir.</summary>
+    /// <remarks>
+    ///   SETTER YOK, ve bu bilincli: yazilabilir bir bayrak OLCULEREK bozuk
+    ///   bulundu (2026-08-24, Delphi 37.0 Win32). Setter FSafe.Init cagirmak
+    ///   zorundadir, Init ise TRWLock'u da SIFIRLAR - yani CANLI kilit durumunu
+    ///   siler:
+    ///   <code>
+    ///   o.ReadLock;                 // IsLocked = True
+    ///   o.ThreadSafe := False;      // IsLocked = False  &lt;-- tutulan kilit ucdu
+    ///   o.WriteLock;                // ANINDA gecti - oysa ReadLock icinde
+    ///                               //   WriteLock KILITLENMELIYDI
+    ///   </code>
+    ///   Sonuc: bir thread korumali bolumdeyken baskasi yazabilir; karsilikli
+    ///   dislama sessizce kaybolur. JEDI'nin ayni desendeki SetThreadSafe'i
+    ///   (birim basligi) yalnizca sayac sizdiriyordu; bu daha kotusunu yapar.
+    ///
+    ///   Korumasiz bir ornek gerekiyorsa KURUCUDA sec: Create(False).
+    /// </remarks>
+    property ThreadSafe: Boolean read IsThreadSafe write SetThreadSafe;
   end;
 
 {$ENDREGION}
 
 implementation
+
+{$REGION 'TResult<T>'}
+
+{ TResult<T> }
+
+class operator TResult<T>.Initialize(out ADest: TResult<T>);
+begin
+  { YALNIZCA yonetilmeyen alana dokunulur. FErrorMsg (string) ve yonetilen bir
+    T, bu operator cagrilmadan once derleyici tarafindan zaten sifirlanmistir;
+    buraya yazmak gereksiz olmakla kalmaz, sifirlama SIRASINA bagimlilik
+    yaratirdi. Olculdu: dokunulmamis kayitta ErrorMsg='' iken FSuccess cop. }
+  ADest.FSuccess := False;
+end;
+
+procedure TResult<T>.SetSuccess(const AValue: T);
+begin
+  FValue    := AValue;
+  FSuccess  := True;
+  FErrorMsg := '';
+end;
+
+procedure TResult<T>.SetFailure(const AErrorMsg: string);
+begin
+  FValue    := Default(T);   // basarisiz sonucun degeri okunmamali; yine de bayat veri birakma
+  FSuccess  := False;
+  FErrorMsg := AErrorMsg;
+end;
+
+procedure TResult<T>.SetException(const E: Exception);
+begin
+  SetFailure(E.Message);
+end;
+
+class function TResult<T>.Success(const AValue: T): TResult<T>;
+begin
+  Result.FValue := AValue;
+  Result.FSuccess := True;
+  Result.FErrorMsg := '';
+end;
+
+class function TResult<T>.Failure(const AErrorMsg: string): TResult<T>;
+begin
+  Result.FSuccess := False;
+  Result.FErrorMsg := AErrorMsg;
+  // FValue default(T) olarak kal�r (Managed record de�ilse manuel s�f�rlanabilir)
+end;
+
+class function TResult<T>.FromException(const E: Exception): TResult<T>;
+begin
+  Result := TResult<T>.Failure(E.Message);
+end;
+
+function TResult<T>.GetValue: T;
+begin
+  if not FSuccess then
+    raise EInvalidOpException.Create('Hatalı bir sonucun degeri okunamaz. Hata: ' + FErrorMsg);
+  Result := FValue;
+end;
+
+function TResult<T>.TryGetValue(out AValue: T): Boolean;
+begin
+  Result := FSuccess;
+  if Result then
+    AValue := FValue;
+end;
+
+{$ENDREGION}
+
 
 {$REGION 'TRadLock'}
 
@@ -428,9 +688,23 @@ begin
   FLock.Init;
 end;
 
-function TRadLock.Enabled: Boolean;
+function TRadLock.GetEnabled: Boolean;
 begin
   Result := not FDisabled;
+end;
+
+procedure TRadLock.SetEnabled(const AValue: Boolean);
+begin
+  { BEKCI: kilit tutuluyorken bayragi degistirmek, acik olan bir lock/unlock
+    ciftini bozar. Sessizce bozmak yerine burada duruyoruz. Gerekce ve
+    bekcinin goremedigi tek durum: tipin bildirimindeki aciklama. }
+  if IsLocked then
+    raise ERadLock.Create(
+      'TRadLock.Enabled: kilit TUTULURKEN degistirilemez. Acik bir lock/unlock ' +
+      'cifti bozulur (sayac sizar ya da alttan tasar). Bayragi, nesne baska ' +
+      'thread"lerle paylasilmadan once ayarlayin.');
+  { Alttaki kilide DOKUNULMAZ: bekci gectiyse sifirlanacak bir durum yok. }
+  FDisabled := not AValue;
 end;
 
 procedure TRadLock.ReadLock;
@@ -512,6 +786,7 @@ end;
 
 {$ENDREGION}
 
+
 {$REGION 'TRadOSLock'}
 
 procedure TRadOSLock.Init(AEnabled: Boolean);
@@ -530,9 +805,23 @@ begin
   FLockCount := 0;
 end;
 
-function TRadOSLock.Enabled: Boolean;
+function TRadOSLock.GetEnabled: Boolean;
 begin
   Result := not FDisabled;
+end;
+
+procedure TRadOSLock.SetEnabled(const AValue: Boolean);
+begin
+  { BEKCI: kilit tutuluyorken bayragi degistirmek, acik olan bir lock/unlock
+    ciftini bozar. Sessizce bozmak yerine burada duruyoruz. Gerekce ve
+    bekcinin goremedigi tek durum: tipin bildirimindeki aciklama. }
+  if IsLocked then
+    raise ERadLock.Create(
+      'TRadOSLock.Enabled: kilit TUTULURKEN degistirilemez. Acik bir lock/unlock ' +
+      'cifti bozulur (sayac sizar ya da alttan tasar). Bayragi, nesne baska ' +
+      'thread"lerle paylasilmadan once ayarlayin.');
+  { Alttaki kilide DOKUNULMAZ: bekci gectiyse sifirlanacak bir durum yok. }
+  FDisabled := not AValue;
 end;
 
 procedure TRadOSLock.Enter;
@@ -628,52 +917,71 @@ end;
 
 {$ENDREGION}
 
+
 {$REGION 'TAbstractLockable'}
 
 constructor TAbstractLockable.Create(const AThreadSafe: Boolean);
 begin
-  inherited Create;
-  FLock.Init(AThreadSafe);
+  Create;
+  FSafe.Init(AThreadSafe);
+
 end;
 
-function TAbstractLockable.GetLock: PRadLock;
+constructor TAbstractLockable.Create;
 begin
-  Result := @FLock;
+  inherited Create;
 end;
+
+function TAbstractLockable.GetSafe: PRadLock;
+begin
+  Result := @FSafe;
+end;
+
+{ Asagidakilerin hepsi FLock'a DEGIL GetLock^'a gider: paylasilan kilit
+  senaryosunda (bkz. tip basligi) cocuk GetLock'u override eder ve butun
+  kilit yuzeyi tek noktadan yonlendirilmis olur. }
 
 function TAbstractLockable.IsThreadSafe: Boolean;
 begin
-  Result := FLock.Enabled;
+  Result := FSafe.Enabled;
 end;
 
 procedure TAbstractLockable.ReadLock;
 begin
-  FLock.ReadLock;
+  FSafe.ReadLock;
 end;
 
 procedure TAbstractLockable.ReadUnlock;
 begin
-  FLock.ReadUnlock;
+  FSafe.ReadUnlock;
+end;
+
+procedure TAbstractLockable.SetThreadSafe(const Value: Boolean);
+begin
+   if Self = nil then
+    raise ERadLock.Create('SetThreadSafe: nesne nil - Create cagrilmamis ' +
+      'ya da nesne yok edilmis olabilir.');
+  FSafe.Enabled := Value;    { bekci zaten iceride: kilitliyse ERadLock }
 end;
 
 procedure TAbstractLockable.WriteLock;
 begin
-  FLock.WriteLock;
+  FSafe.WriteLock;
 end;
 
 procedure TAbstractLockable.WriteUnlock;
 begin
-  FLock.WriteUnlock;
+  FSafe.WriteUnlock;
 end;
 
 procedure TAbstractLockable.UpdateLock;
 begin
-  FLock.UpdateLock;
+  FSafe.UpdateLock;
 end;
 
 procedure TAbstractLockable.UpdateUnlock;
 begin
-  FLock.UpdateUnlock;
+  FSafe.UpdateUnlock;
 end;
 
 {$ENDREGION}

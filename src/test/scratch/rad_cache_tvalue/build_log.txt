@@ -1,6 +1,6 @@
 Embarcadero Delphi for Win32 compiler version 37.0
 Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
-24372 lines, 0.22 seconds, 2460536 bytes code, 134036 bytes data.
+181920 lines, 0.41 seconds, 3463868 bytes code, 194600 bytes data.
   Fixture : rad
   -------------------------------------------------
      Fixture : rad.cache
@@ -36,6 +36,84 @@ Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
              Test : rad.cache.Tests.TSmartCacheTestleri.TekHandlerKaldirma
              -------------------------------------------------
              Executing Test : TekHandlerKaldirma
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.LoadJson_GecerliNesneyiKilitlenmedenYukler
+             -------------------------------------------------
+             Executing Test : LoadJson_GecerliNesneyiKilitlenmedenYukler
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.LoadJson_BozukGirdideMevcutVeriyiKorur
+             -------------------------------------------------
+             Executing Test : LoadJson_BozukGirdideMevcutVeriyiKorur
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.FileLoad_AClearFirstFalse_MevcutVeriyiKorur
+             -------------------------------------------------
+             Executing Test : FileLoad_AClearFirstFalse_MevcutVeriyiKorur
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.FileSaveLoad_JsonGidisDonusu
+             -------------------------------------------------
+             Executing Test : FileSaveLoad_JsonGidisDonusu
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.FileSave_SifreIstegiDuzMetinYazmaz
+             -------------------------------------------------
+             Executing Test : FileSave_SifreIstegiDuzMetinYazmaz
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.FileSave_DesteklenmeyenDegerdeMevcutDosyayiKorur
+             -------------------------------------------------
+             Executing Test : FileSave_DesteklenmeyenDegerdeMevcutDosyayiKorur
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.FileSave_ClassRecordVariant_MormotJsonKullanir
+             -------------------------------------------------
+             Executing Test : FileSave_ClassRecordVariant_MormotJsonKullanir
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.FileSave_YamlMormotDonusumunuKullanir
+             -------------------------------------------------
+             Executing Test : FileSave_YamlMormotDonusumunuKullanir
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.AutoSave_DegisikliktenSonraArkaPlandaKaydeder
+             -------------------------------------------------
+             Executing Test : AutoSave_DegisikliktenSonraArkaPlandaKaydeder
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.AutoSave_KapanistaBekleyenDegisikligiKaydeder
+             -------------------------------------------------
+             Executing Test : AutoSave_KapanistaBekleyenDegisikligiKaydeder
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.AutoSave_DosyaGeciciKilitliykenYenidenDener
+             -------------------------------------------------
+             Executing Test : AutoSave_DosyaGeciciKilitliykenYenidenDener
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.AutoSave_ThreadSafeOlmayanCacheIcinReddedilir
+             -------------------------------------------------
+             Executing Test : AutoSave_ThreadSafeOlmayanCacheIcinReddedilir
+             
+               Success.
+            
+             Test : rad.cache.Tests.TSmartCacheTestleri.IkiCacheOrnegi_BirbirininDurumunuPaylasmaz
+             -------------------------------------------------
+             Executing Test : IkiCacheOrnegi_BirbirininDurumunuPaylasmaz
              
                Success.
             
@@ -111,9 +189,9 @@ Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
    
 
 Done testing.
-Tests Found   : 15
+Tests Found   : 28
 Tests Ignored : 0
-Tests Passed  : 15
+Tests Passed  : 28
 Tests Leaked  : 0
 Tests Failed  : 0
 Tests Errored : 0

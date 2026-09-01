@@ -1,12 +1,15 @@
-unit Help.uni;
+ï»¿unit Help.uni;
 
 interface
 
 uses System.Classes, System.SysUtils,Data.DB,System.JSON, Uni, MemDS, VirtualTable,
 SqlTimSt,Help.DB,System.Rtti,DBAccess
+,rad.core,rad.thread   // TRadTask - _ConnectTestAsync imzasinda gectigi icin ARAYUZDE
+              // olmali. Dongu riski yok: rad.thread yalnizca System/Winapi/
+              // mormot birimlerine bagli, hicbir Help.* birimini bilmiyor.
 ,DASQLGenerator,CRAccess,SqlClassesUni
 ,DAScript, UniScript,Variants
-,mormot.db.core
+
   {$IFDEF MSWINDOWS}
    ,UniDacVcl
   {$ELSEIF ANDROID}
@@ -43,7 +46,17 @@ type
    //function _AsUni:TUniConnection;
    //function _AsDAConnection:TCustomDAConnection;
   public
-    function _DBType:TSqlDBDefinition;
+    //function _DBType:TSqlDBDefinition;
+        { Fluent config }
+    function _SetProvider (const AValue: string): TUniConnection;
+    function _SetServer   (const AValue: string): TUniConnection;
+    function _SetDatabase (const AValue: string): TUniConnection;
+    function _SetUsername (const AValue: string): TUniConnection;
+    function _SetPassword (const AValue: string): TUniConnection;
+    function _SetPort  (AValue: Integer): TUniConnection;
+    function _SetPool     (AMin: Integer = 1; AMax: Integer = 10): TUniConnection;
+
+
     function _Script:TUniScript;
     function _NewConnection:TUniConnection;
     procedure _Thread(AProc:TProc<TUniConnection>);
@@ -83,7 +96,51 @@ type
     function _ExitsTable(const ATableName:string):Boolean;
 
 
-    function _ConnectTest(const AConnectionString:string=''):Boolean;
+    function _ConnectTest(const AConnectionString:string=''):TResult<Boolean>;
+
+    /// <summary>
+    ///   Baglantiyi ARKA PLANDA dener. Cagiran ANINDA doner; UI hicbir an
+    ///   bloke olmaz. BASLATILMAMIS bir TRadTask dondurur - cagiran zincirler
+    ///   ve Start der (repo kurali; bkz. TRadConnection.ExecAsync).
+    /// </summary>
+    /// <remarks>
+    ///   Sonuc kanali:
+    ///     OnSuccess -> baglanti kuruldu
+    ///     OnError   -> kurulamadi; SEBEBI t.ErrorMsg'dedir
+    ///   Iki geri cagirim da ANA THREAD'de calisir (TRadTask.FireCallback
+    ///   Synchronize/ForceQueue ile marshall eder), dolayisiyla iclerinde
+    ///   dogrudan VCL'e dokunmak guvenlidir.
+    ///
+    ///   _ConnectTest'ten FARKI: o, Wait ile cagirani bloke eder (mesaj
+    ///   pompalayarak). Pompalamak formu "canli" gosterir ama YENIDEN GIRISE
+    ///   acar - kullanici ayni dugmeye tekrar basabilir, formu kapatabilir.
+    ///   Bu surumde oyle bir pencere yoktur.
+    ///
+    ///   ZAMAN ASIMI ICIN WithTimeout KULLANMAYIN. TRadTask'in zaman asimi
+    ///   ISBIRLIKCIDIR - yalnizca checkpoint'lerde bakilir ve bloke olmus bir
+    ///   Connect cagrisini KESEMEZ. Dogru yer saglayicinin kendi secenegidir:
+    ///     cn.SpecificOptions.Values['ConnectionTimeout'] := '10';
+    ///   (PostgreSQLUniProvider.pas:110 - varsayilan 15 saniye.)
+    /// </remarks>
+    /// <example>
+    ///   <code>
+    ///   DM.cn._ConnectTestAsync
+    ///     .OnSuccess(procedure(t: TRadTask)
+    ///       begin
+    ///         ModalResult := mrOk;      // Close CAGIRMAYIN: modal formda
+    ///       end)                        // Close, ModalResult'i mrCancel yapar
+    ///     .OnError(procedure(t: TRadTask)
+    ///       begin
+    ///         ShowMessage(t.ErrorMsg);
+    ///       end)
+    ///     .OnFinally(procedure(t: TRadTask)
+    ///       begin
+    ///         btnOk.Enabled := True;
+    ///       end)
+    ///     .Start;
+    ///   </code>
+    /// </example>
+    function _ConnectTestAsync(const AConnectionString:string=''):TRadTask;
 
 
    {$IFDEF MSWINDOWS}
@@ -181,13 +238,17 @@ type
    end;
  {$ENDREGION}
 
-
+ {
  const
   UNIDAC_PROVIDER: array[TSqlDBDefinition.dOracle..high(TSqlDBDefinition)] of string = (
     'Oracle', 'SQL Server', 'Access', 'MySQL', 'SQLite', 'InterBase',
     'NexusDB', 'PostgreSQL', 'DB2', '', 'MySQL');
+ }
 implementation
   uses
+  { rad.thread BURADAN KALDIRILDI - artik ARAYUZ uses'inda (bkz. birim basi).
+    Ayni birimi iki uses cumlesinde birden bildirmek E2004 'Identifier
+    redeclared' verir. }
   System.StrUtils,System.DateUtils,System.NetEncoding,System.TypInfo,System.Character
 
   //,Help.SQL.MSSQL
@@ -236,36 +297,93 @@ function Test(const AConnectionString:string=''):Boolean;
 
     End;
 
-Function TUniConnectionHelper._ConnectTest(const AConnectionString:string=''): Boolean;
-
+Function TUniConnectionHelper._ConnectTest(const AConnectionString:string=''): TResult<Boolean>;
 var
- AResult:Boolean;
- TempStr:string;
+ rs       : TResult<Boolean>;
 Begin
- AResult:=False;
- TempStr:=ConnectString;
- try
-   if not AConnectionString.IsEmpty then ConnectString:=AConnectionString;
-   if ProviderName.IsEmpty or Server.IsEmpty or Username.IsEmpty or Password.IsEmpty  then
-  Exit;
+ rs.SetFailure('Baglanti denemesi tamamlanmadi.');
 
-  {$IFDEF MSWINDOWS}
-     //WaitProc( Procedure Begin AResult:=Test(ConnectString); End , True, True );
-  {$ELSE}
-     AResult:=Test;
-  {$ENDIF}
+ {$IFDEF MSWINDOWS}
+   _ConnectTestAsync(AConnectionString)
+   .OnError  (procedure (t:TRadTask) begin rs.SetFailure(t.ErrorMsg) end)
+  .OnSuccess(procedure (t:TRadTask) begin rs.SetSuccess(True) end)
+  .Wait;
+ {$ELSE}
+  if Test(LConnStr) then
+    rs.SetSuccess(True)
+  else
+    rs.SetFailure('Baglanti kurulamadi.');
+ {$ENDIF}
 
-
- finally
-    ConnectString:=TempStr;
-    Result:=AResult;
- end;
+ Result := rs;
 
 End;
 
 
+function TUniConnectionHelper._ConnectTestAsync(const AConnectionString: string): TRadTask;
+var
+  LConnStr: string;
+begin
+  { ANLIK KOPYA - CAGIRAN THREAD'DE alinir, closure'a DEGERLE gecer.
+
+    _ConnectTest'in yaptigi gibi `Self.ConnectString`'i is parcaciginin
+    ICINDEN okumak burada calismaz. Orada Wait cagirani bloke ettigi icin iki
+    thread hicbir zaman ayni anda calismiyordu; bu surumde cagiran hemen geri
+    doner, yani kullanici gorev kosarken Server/Password alanlarini
+    degistirebilir. O durumda arka plan, kullanicinin denedigini SANDIGI
+    ayarlarla degil, sonradan yazdiklariyla baglanmaya calisirdi.
+
+    ConnectString'in tek tek ozelliklerden derlendigi dogrulandi:
+    TCustomDAConnection.GetConnectionString -> FConnectionStringBuilder
+    (DBAccess.pas:5821), yani Server/Port/Username/Password/ProviderName/
+    Database atandiktan sonra okumak tam dizeyi verir. }
+  if AConnectionString.Trim <> '' then
+    LConnStr := AConnectionString
+  else
+    LConnStr := Self.ConnectString;
+
+  Result := TRadTask.Create(
+    procedure(t: TRadTask)
+    var
+      LTemp: TUniConnection;
+    begin
+      { AYRI baglanti nesnesi. Self'e arka plandan HIC dokunulmaz - denenen
+        baglanti basarili olsa bile cagiranin kendi baglantisinin durumu
+        degismez; bu bir TEST, bir baglanma degil. }
+      LTemp := TUniConnection.Create(nil);
+      try
+        LTemp.ConnectString := LConnStr;
+        LTemp.LoginPrompt   := False;   // arka planda diyalog acilamaz
+        LTemp.PerformConnect(False);
+        //LTemp.Connect;
+
+        { UniDAC basarisizlikta istisna atar, ama sozlesmeyi sessiz bir
+          "Connected=False"a birakmiyoruz: bu da OnError'a gitsin ki cagiran
+          tek bir hata yolu gorsun. }
+        if not LTemp.Connected then
+          raise EDatabaseError.Create('Baglanti kurulamadi (istisna atilmadi).');
+
+        t.SetData('ok', True);
+      finally
+        if LTemp.Connected then
+          LTemp.Disconnect;
+        LTemp.Free;
+      end;
+    end)
+    .SetName('UniConnectTest')
+    { Saglayici COM tabanli olabilir (OLE DB, ADO koprulu saglayicilar).
+      Mevcut _ConnectTest de ayni modeli kullaniyor - tutarli kaliyoruz. }
+    .SetCOM(ctmMultiThreaded);
+
+  { BILEREK Start EDILMEZ. Cagiran once OnSuccess/OnError/OnFinally zincirini
+    kurar, sonra Start der. Ayrica Start gorevi kendi serbest birakir
+    (TRadTask.DoFree), dolayisiyla BASLATILMIS bir gorevi dondurmek sarkan
+    isaretci olurdu. Repo genelinde ayni kalip: TRadConnection.ExecAsync. }
+end;
+
 function TUniConnectionHelper._ServerDate: TDateTime;
 begin
+ {
   case _DBType of
     TSqlDBDefinition.dMSSQL: Result := _sqlResults('SELECT GETDATE() AS dt', Now, 'dt');
     TSqlDBDefinition.dPostgreSQL: Result := _sqlResults('SELECT NOW() AS dt', Now, 'dt');
@@ -274,9 +392,55 @@ begin
   else
     Result := Now;
   end;
+ }
 end;
 
 
+
+function TUniConnectionHelper._SetDatabase( const AValue: string): TUniConnection;
+begin
+  inherited Database := AValue;
+  Result := Self;
+end;
+
+function TUniConnectionHelper._SetPassword( const AValue: string): TUniConnection;
+begin
+ inherited Password := AValue;
+ Result := Self;
+end;
+
+function TUniConnectionHelper._SetPool(AMin, AMax: Integer): TUniConnection;
+begin
+  Pooling                    := True;
+  PoolingOptions.MinPoolSize := AMin;
+  PoolingOptions.MaxPoolSize := AMax;
+  PoolingOptions.Validate    := True;
+  Result := Self;
+end;
+
+function TUniConnectionHelper._SetPort(AValue: Integer): TUniConnection;
+begin
+  Port   := AValue;
+  Result := Self;
+end;
+
+function TUniConnectionHelper._SetProvider( const AValue: string): TUniConnection;
+begin
+   ProviderName := AValue;
+  Result := Self;
+end;
+
+function TUniConnectionHelper._SetServer(const AValue: string): TUniConnection;
+begin
+ inherited Server := AValue;
+  Result := Self;
+end;
+
+function TUniConnectionHelper._SetUsername( const AValue: string): TUniConnection;
+begin
+  inherited Username := AValue;
+  Result := Self;
+end;
 
 function TUniConnectionHelper._CreateQuery: TUniQuery;
 begin
@@ -326,7 +490,7 @@ begin
 
 end;
 
-
+ {
 function TUniConnectionHelper._DBType:TSqlDBDefinition ;
 begin
     for Result := Low(UNIDAC_PROVIDER) to high(UNIDAC_PROVIDER) do
@@ -337,7 +501,7 @@ begin
   Result := TSqlDBDefinition.dUnknown;
 
 end;
-
+}
 procedure TUniConnectionHelper._DoEof(SQL: string; AProc:TProc<TDataset>);
 var
   dr:Boolean;
@@ -521,18 +685,18 @@ function TUniConnectionHelper._NewConnection: TUniConnection;
 begin
 Result := TUniConnection.Create(nil);
   try
-    // Ana baðlantýnýn tüm kritik ayarlarýný kopyala
+    // Ana baï¿½lantï¿½nï¿½n tï¿½m kritik ayarlarï¿½nï¿½ kopyala
     Result.ProviderName := Self.ProviderName;
     Result.ConnectString := Self.ConnectString;
     Result.LoginPrompt := False;
 
-    // Pooling ayarlarý (Bunlar ana baðlantýdan da okunabilir)
-    Result.PoolingOptions.MaxPoolSize := 100; // Ýhtiyaca göre artýrýlabilir
+    // Pooling ayarlarï¿½ (Bunlar ana baï¿½lantï¿½dan da okunabilir)
+    Result.PoolingOptions.MaxPoolSize := 100; // ï¿½htiyaca gï¿½re artï¿½rï¿½labilir
     Result.PoolingOptions.MinPoolSize := 5;
     Result.PoolingOptions.ConnectionLifetime := 60; // Saniye cinsinden
     Result.Pooling := True;
     Result.SpecificOptions.Values['Pooling'] := 'True';
-    // ÖNEMLÝ: Burada Connect demiyoruz, sadece nesneyi hazýrlýyoruz.
+    // ï¿½NEMLï¿½: Burada Connect demiyoruz, sadece nesneyi hazï¿½rlï¿½yoruz.
   except
     FreeAndNil(Result);
     raise;
@@ -555,26 +719,26 @@ var
 begin
 if not Assigned(AProc) then Exit;
 
-  // Yeni bir baðlantý nesnesi oluþtur (Zarf)
+  // Yeni bir baï¿½lantï¿½ nesnesi oluï¿½tur (Zarf)
   cn := _NewConnection;
   try
     try
-      // Connect çaðrýsý Pooling=True olduðu için
-      // fiziksel baðlantý açmaz, POOL'dan boþta olaný alýr.
+      // Connect ï¿½aï¿½rï¿½sï¿½ Pooling=True olduï¿½u iï¿½in
+      // fiziksel baï¿½lantï¿½ aï¿½maz, POOL'dan boï¿½ta olanï¿½ alï¿½r.
       cn.Connect;
 
-      // Ýþlemi thread-safe olarak çalýþtýr
+      // ï¿½ï¿½lemi thread-safe olarak ï¿½alï¿½ï¿½tï¿½r
       AProc(cn);
 
     finally
-      // Disconnect çaðrýsý fiziksel baðlantýyý kapatmaz,
-      // POOL'a "benim iþim bitti, baþkasý kullanabilir" diye iade eder.
+      // Disconnect ï¿½aï¿½rï¿½sï¿½ fiziksel baï¿½lantï¿½yï¿½ kapatmaz,
+      // POOL'a "benim iï¿½im bitti, baï¿½kasï¿½ kullanabilir" diye iade eder.
       if cn.Connected then
         cn.Disconnect;
     end;
   finally
-    // Nesneyi serbest býrakýyoruz.
-    // Pooling aktif olduðu için fiziksel socket açýk kalýr ve pool'da bekler.
+    // Nesneyi serbest bï¿½rakï¿½yoruz.
+    // Pooling aktif olduï¿½u iï¿½in fiziksel socket aï¿½ï¿½k kalï¿½r ve pool'da bekler.
     cn.Free;
   end;
 end;
@@ -645,7 +809,7 @@ end;
 
 function TDADataSetyHelper._DataService: TDADataSetService;
 begin
- //Assert(not Self.Active,'Dataset Kapalý');
+ //Assert(not Self.Active,'Dataset Kapalï¿½');
  Result:=TDBAccessUtils.GetDataSetService(Self);
 
  //TDBAccessUtils.GetSQLInfo(Self).ParseTablesInfo()
@@ -695,25 +859,26 @@ var
   LCurrentID: Variant;
   LOperator, LOrderDir, LSQL: string;
 begin
+  {
   Result := Null;
-  LKeyField := Self.KeyFields; // ID alanýn (UUID/LUID)
+  LKeyField := Self.KeyFields; // ID alanï¿½n (UUID/LUID)
 
   if LKeyField.IsEmpty then Exit;
   LCurrentID := Self.FieldByName(LKeyField).Value;
   if VarIsNull(LCurrentID) then Exit;
 
-  // Yön ve Operatör Belirleme
+  // Yï¿½n ve Operatï¿½r Belirleme
   case AGetID of
-    0: begin LOperator := 'IS NOT NULL'; LOrderDir := 'ASC';  end; // Ýlk
+    0: begin LOperator := 'IS NOT NULL'; LOrderDir := 'ASC';  end; // ï¿½lk
     1: begin LOperator := 'IS NOT NULL'; LOrderDir := 'DESC'; end; // Son
     2: begin LOperator := '> :ID';       LOrderDir := 'ASC';  end; // Sonraki
-    3: begin LOperator := '< :ID';       LOrderDir := 'DESC'; end; // Önceki
+    3: begin LOperator := '< :ID';       LOrderDir := 'DESC'; end; // ï¿½nceki
   else Exit;
   end;
 
   LQuery := _AsUni._CreateQuery;
   try
-    // DB Tipine göre SQL (PostgreSQL için LIMIT 1, MSSQL için TOP 1)
+    // DB Tipine gï¿½re SQL (PostgreSQL iï¿½in LIMIT 1, MSSQL iï¿½in TOP 1)
     case _AsUni._DBType of
       TSqlDBDefinition.dMSSQL:
         LSQL := Format('SELECT TOP 1 %s FROM %s WHERE %s %s ORDER BY %s %s',
@@ -740,6 +905,7 @@ begin
   finally
     LQuery.Free;
   end;
+ }
 end;
 
 procedure TDADataSetyHelper._KeyFieldNames(const AProc:TProc<TStrings>);

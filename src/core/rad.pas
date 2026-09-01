@@ -4,135 +4,86 @@ interface
 
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes
-  ,System.TypInfo
+  ,System.TypInfo,System.Rtti
 
   ,mormot.core.base,mormot.core.os,mormot.core.variants,mormot.core.text,mormot.core.rtti
   ,mormot.core.json,mormot.core.buffers
-  ,JclBase,JclSynch
+
+  , JclBase, JclSysInfo
+  , rad.core , rad.cache, rad.config
+  , Dext.Types.UUID
   ;
 
 
-
+const
+ Cache  : function :ISmartCache = rad.cache.Cache;
+ //Config : function :ISmartCache = rad.cache.Config;
 type
+  TFileVersion1 = class(mormot.core.os.TFileVersion);
+  TUUID = Dext.Types.UUID.TUUID;
 
-    ILockable = interface
-      ['{A23A24A4-8A7F-446C-9A14-28107790B45C}']
-      procedure ReadLock;
-      procedure ReadUnlock;
-      procedure WriteLock;
-      procedure WriteUnlock;
-      procedure Lock;
-      procedure Unlock;
-      procedure SetThreadSafe(const Value: Boolean);
-    end;
+  TFoldersSystem = record
+   const
+    WindowsFolder: function : string =JclSysInfo.GetWindowsFolder;  // C:\Windows
+    WindowsSystemFolder: function : string =JclSysInfo.GetWindowsSystemFolder;  // C:\Windows\system32
+    WindowsTempFolder: function : string =JclSysInfo.GetWindowsTempFolder; // C:\Users\SECOND~1\AppData\Local\Temp
+    ProgramFilesFolder: function : string =JclSysInfo.GetProgramFilesFolder;  // C:\Program Files
+    DesktopFolder: function : string =JclSysInfo.GetDesktopFolder; // C:\Users\SecondLife\Desktop
+    ProgramsFolder: function : string =JclSysInfo.GetProgramsFolder;   // C:\Users\SecondLife\AppData\Roaming\Microsoft\Windows\Start Menu\Programs
+    DesktopDirectoryFolder: function : string =JclSysInfo.GetDesktopDirectoryFolder;  // C:\Users\SecondLife\Desktop
+    CommonDocumentsFolder: function : string =JclSysInfo.GetCommonDocumentsFolder;  // C:\Users\Public\Documents
+    ProfileFolder: function : string =JclSysInfo.GetProfileFolder;  // C:\Users\SecondLife
+    CommonProgramsFolder: function : string =JclSysInfo.GetCommonProgramsFolder; // C:\ProgramData\Microsoft\Windows\Start Menu\Programs
+    CommonDesktopdirectoryFolder: function : string =JclSysInfo.GetCommonDesktopdirectoryFolder; // C:\Users\Public\Desktop
+    CommonAppdataFolder: function : string =JclSysInfo.GetCommonAppdataFolder;  // C:\ProgramData
+    AppdataFolder: function : string =JclSysInfo.GetAppdataFolder;          // C:\Users\SecondLife\AppData\Roaming
+    LocalAppData: function : string =JclSysInfo.GetLocalAppData;            // C:\Users\SecondLife\AppData\Local
+    CommonFilesFolder: function : string =JclSysInfo.GetCommonFilesFolder; // C:\Program Files\Common Files
+  end;
 
-{
-    TAbstractLockable = class(TInterfacedObject, ILockable)
-  private
 
-    protected
-      FThreadSafe: Boolean;
-      FSafe     :TRWLock;
-    public
-      procedure ReadLock;
-      procedure ReadUnlock;
-      procedure WriteLock;
-      procedure WriteUnlock;
-      procedure Lock;
-      procedure Unlock;
-      procedure SetThreadSafe(const Value: Boolean);
-
-      constructor Create; virtual;
-      destructor Destroy; override;
-
-      property Safe: TRWLock read FSafe write FSafe;
-      property ThreadSafe: Boolean read FThreadSafe write SetThreadSafe;
-    end;
-   }
-
-  { TResult<T>: Operasyon sonuularını yönetmek için optimize edilmiş record.
-    Bellek ayırma (allocation) maliyeti yoktur, stack üzerinde �al���r. }
-  TResult<T> = record
-  private
-    FValue: T;
-    FErrorMsg: string;
-    FSuccess: Boolean;
-    function GetValue: T;
+  TFileVersion = class(mormot.core.os.TFileVersion)
   public
-    { Başarı durumunda sonuç üretir }
-    class function Success(const AValue: T): TResult<T>; static;
-    { Hata durumunda mesajla sonuç üretir }
-    class function Failure(const AErrorMsg: string): TResult<T>; static;
-    { Exception durumunda otomatik hata sonucu üretir }
-    class function FromException(const E: Exception): TResult<T>; static;
-
-    { Güvenli veri okuma pattern'i }
-    function TryGetValue(out AValue: T): Boolean;
-
-    { Özellikler }
-    property Value: T read GetValue;
-    property ErrorMsg: string read FErrorMsg;
-    property IsSuccess: Boolean read FSuccess;
-
+    Name      : string;      // urun adi (ProductName)
+    Company   : string;
+    Copyright : string;
+    Web       : string;
+    Email     : string;
+    Tel       : string;
+   function AppInfo :string;
   end;
 
+  TFolders = record
+  private
+    FApp  : string;
+    function GetStr(const Index: Integer): string;
+  public
+  sistem:TFoldersSystem;
 
-  TUtils = class
-    //const
-     //Hash32      : function (const Text: RawByteString): cardinal = mormot.core.base.Hash32;
-     //Join        : function (const Args: array of RawByteString): RawUtf8 = mormot.core.base.Join;
-    private
-    public
-    class procedure InUI(AProc: TProc); static;
+  property App: string index 0 read GetStr;
+
   end;
 
 
 
 
-/// Verilen bir class'ı RTTI ile inceleyip, onu fluent/interface tabanlı bir sisteme
-/// çevirecek HAZIR PASCAL KAYNAK KODUNU (string olarak) üretir. Üretilen kod
-/// ÇALIŞTIRILMAZ/derlenmez — yalnızca metindir; gözden geçirip projeye elle eklemen gerekir.
-///
-/// Kurallar:
-///   - Interface adı: class adı 'T' ile başlıyorsa 'I' + (T'siz hali), değilse 'I' + ad.
-///   - İmplementasyon class adı: class adı + 'Fluent'.
-///   - Her zaman bir "AsInstance: <ClassName>" eklenir — sarmalanan ham örneğe kaçış kapısı.
-///   - Class'ta DOĞRUDAN tanımlı (kalıtılmamış), public/published her BASİT property için:
-///       function Set<Prop>(const a<Prop>: <Tip>): I<Isim>;  (fluent, zincire devam eder)
-///       function Get<Prop>: <Tip>;
-///     Event property'ler (TNotifyEvent gibi method-type) de aynı kurala tabidir.
-///   - İNDEKSLİ (array) property'ler (ör. property Items[Index: Integer]: T) için:
-///       function Set<Prop>(<index parametreleri>; const aValue: <Tip>): I<Isim>;
-///       function Get<Prop>(<index parametreleri>): <Tip>;
-///   - DOĞRUDAN tanımlı her public method (property accessor'ları hariç, onlar zaten
-///     private/protected olduğu için otomatik elenir) AYNI isim ve imzayla pass-through
-///     olarak eklenir (fluent DEĞİLDİR, orijinal dönüş tipini korur). Aynı isimde birden
-///     fazla (overload) metod varsa üretilen kodda 'overload;' otomatik eklenir.
-///   - Constructor'a AAutoFree: Boolean = False parametresi eklenir; True verilirse
-///     wrapper'ın destructor'ı FInstance.Free çağırır (varsayılan False — sarmalanan
-///     örneğin ömrü hâlâ çağıranın sorumluluğundadır).
-///
-/// DİKKAT — Parametre/dönüş tipi adları: RTTI (TRttiType.Name) tabanlıdır ve TEST EDİLDİ
-/// (bkz. rad.utils.Tests.pas → GenerikArrayParametreliMetodDaUretilir): ör. TArray<TValue>
-/// gibi generic bir tip TAM NİTELİKLİ olarak üretilir (TArray<System.Rtti.TValue>) — bu
-/// hâlâ geçerli/derlenebilir Pascal'dır, sadece kısaltılmamıştır.
-///
-/// DİKKAT — Class helper sızıntısı (RTTI seviyesinde DÜZELTİLEMEZ): AClass'ın DECLARE
-/// EDİLDİĞİ unit'te o an AKTİF olan bir class helper (ör. "TObjectHelper = class helper
-/// for TObject") varsa, derleyici o helper'ın metodlarını AClass'ın RTTI'sine SANKİ
-/// DOĞRUDAN TANIMLIYMIŞ GİBİ gömer — Meth.Parent bile AClass'ı gösterir, ayırt edilemez
-/// (gerçek derleme/testte doğrulandı: DUnitX.Utils.TObjectHelper.Log/Status/WriteLn,
-/// TDenemeSinifi hiç tanımlamadığı hâlde üretilen koda karıştı). Bu, üretici fonksiyonun
-/// bir kusuru değil, Delphi'nin derleme zamanında RTTI'ye "o anki görünür" tüm üyeleri
-/// gömmesinin doğal sonucu — çalışma zamanı RTTI'sinden ayıklanamaz. ÜRETİLEN KODU HER
-/// ZAMAN GÖZDEN GEÇİR; beklenmeyen fazladan metod görürsen elle çıkar.
-///
-/// NOT: Record desteği (GenerateFluentCode(ATypeInfo: PTypeInfo)) denendi ve KALDIRILDI —
-/// gerçek derleme/testte (bkz. rad.utils.Tests.pas geçmişi) Delphi 13.1 Athens'in
-/// System.Rtti'sinde record property'lerinin TRttiProperty olarak HİÇ yansıtılmadığı
-/// (GetDeclaredProperties boş döndüğü) tespit edildi — en geniş {$RTTI} direktifiyle bile
-/// değişmedi. Yalnızca class destekleniyor.
-function GenerateFluentCode(AClass: TClass): string;
+  TRadApp  = class
+   class var Folders : TFolders;
+   private
+    class var FDefaultApp : TRadApp;
+   public
+    Info:TFileVersion;
+    constructor Create(const aAppName:string='');
+    destructor Destroy; override;
+
+    //function Config:ISmartCache;
+
+  end;
+
+
+// GenerateFluentCode / GenerateFluentUnit buradan KALDIRILDI — tek kaynak artik
+// rad.utils.pas. Iki birebir kopya vardi; ayni projede iki unit birlikte uses
+// edildiginde uses sirasina gore biri digerini golgeliyordu.
 
 /// 1/10 ms toleranslı TDateTime karşılaştırma (float yuvarlama hatalarına karşı)
 /// Kaynak: vendor\gabr42\GpDelphiUnits\src\GpTimezone.pas (DateEQ/DateLT/.../DateGE)
@@ -151,355 +102,31 @@ function FixDT(const ADate: TDateTime): TDateTime;
 function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
 
 
+function RadApp: TRadApp;
+
+function Config :IRadConfig;
+
 implementation
 uses
-mormot.core.datetime, System.Rtti, System.Generics.Collections,
-System.DateUtils;
+System.Generics.Collections, System.DateUtils, System.IOUtils
+,mormot.core.datetime
+//, JclSynch
 
-{ GenerateFluentCode }
+;
 
-function GenerateFluentCode(AClass: TClass): string;
-var
-  Ctx: TRttiContext;
-  RttiType: TRttiInstanceType;
-  InstanceTypeName, InterfaceName, ImplName: string;
-  MemberDecls, DeclBody, ImplBody: TStringBuilder;
-  MethodOverloadCount: TDictionary<string, Integer>;
-  Prop: TRttiProperty;
-  IdxProp: TRttiIndexedProperty;
-  Meth: TRttiMethod;
-
-  function InterfaceNameFor(const ATypeName: string): string;
-  begin
-    if (Length(ATypeName) > 1) and (ATypeName[1] = 'T') then
-      Result := 'I' + Copy(ATypeName, 2, MaxInt)
-    else
-      Result := 'I' + ATypeName;
-  end;
-
-  function ParamListFor(const AParams: TArray<TRttiParameter>): string;
-  var
-    P: TRttiParameter;
-    LPrefix: string;
-  begin
-    Result := '';
-    for P in AParams do
-    begin
-      if pfConst in P.Flags then LPrefix := 'const '
-      else if pfVar in P.Flags then LPrefix := 'var '
-      else if pfOut in P.Flags then LPrefix := 'out '
-      else LPrefix := '';
-      if Result <> '' then Result := Result + '; ';
-      Result := Result + LPrefix + P.Name + ': ' + P.ParamType.Name;
-    end;
-  end;
-
-  function ArgListFor(const AParams: TArray<TRttiParameter>): string;
-  var
-    P: TRttiParameter;
-  begin
-    Result := '';
-    for P in AParams do
-    begin
-      if Result <> '' then Result := Result + ', ';
-      Result := Result + P.Name;
-    end;
-  end;
-
-  // İndeksli property'nin index parametrelerini (value HARİÇ) ReadMethod/WriteMethod'dan çıkarır.
-  function IndexParamsOf(const AIdxProp: TRttiIndexedProperty): TArray<TRttiParameter>;
-  begin
-    if Assigned(AIdxProp.ReadMethod) then
-      Result := AIdxProp.ReadMethod.GetParameters
-    else if Assigned(AIdxProp.WriteMethod) then
-    begin
-      Result := AIdxProp.WriteMethod.GetParameters;
-      SetLength(Result, Length(Result) - 1); // son parametre value'dur, index değil
-    end
-    else
-      SetLength(Result, 0);
-  end;
-
-  function MethodSignature(const AMeth: TRttiMethod; AOverload: Boolean): string;
-  var
-    LParams: string;
-  begin
-    LParams := ParamListFor(AMeth.GetParameters);
-    if LParams <> '' then LParams := '(' + LParams + ')';
-    if AMeth.MethodKind = mkFunction then
-      Result := 'function ' + AMeth.Name + LParams + ': ' + AMeth.ReturnType.Name + ';'
-    else
-      Result := 'procedure ' + AMeth.Name + LParams + ';';
-    if AOverload then
-      Result := Result + ' overload;';
-  end;
-
-  function IsOverloaded(const AMethodName: string): Boolean;
-  var
-    LCount: Integer;
-  begin
-    Result := MethodOverloadCount.TryGetValue(AMethodName, LCount) and (LCount > 1);
-  end;
-
+function Config :IRadConfig;
 begin
-  if AClass = nil then
-    raise Exception.Create('GenerateFluentCode: AClass nil olamaz.');
-
-  Ctx := TRttiContext.Create;
-  try
-    RttiType := Ctx.GetType(AClass) as TRttiInstanceType;
-    InstanceTypeName := RttiType.Name;
-    InterfaceName := InterfaceNameFor(InstanceTypeName);
-    ImplName := InstanceTypeName + 'Fluent';
-
-    // Aynı isimde birden fazla (overload) public metod var mı — 'overload;' kararı için.
-    MethodOverloadCount := TDictionary<string, Integer>.Create;
-    try
-      for Meth in RttiType.GetDeclaredMethods do
-      begin
-        if Meth.Parent <> RttiType then Continue; // class helper metodlarını dışarıda bırak
-        if Meth.Visibility < mvPublic then Continue;
-        if Meth.MethodKind in [mkConstructor, mkDestructor, mkClassProcedure, mkClassFunction] then Continue;
-        var LCount: Integer;
-        if MethodOverloadCount.TryGetValue(Meth.Name, LCount) then
-          MethodOverloadCount[Meth.Name] := LCount + 1
-        else
-          MethodOverloadCount.Add(Meth.Name, 1);
-      end;
-
-      MemberDecls := TStringBuilder.Create;
-      DeclBody := TStringBuilder.Create;
-      ImplBody := TStringBuilder.Create;
-      try
-        // ================= Ortak üye (property/indeksli/method) İMZA listesi =================
-        // Bu blok, interface VE impl class tanımında AYNEN tekrar kullanılır — iki taraf
-        // asla birbirinden sapmasın diye TEK bir kaynaktan üretilir.
-        MemberDecls.AppendLine('    function AsInstance: ' + InstanceTypeName + ';');
-        MemberDecls.AppendLine('');
-
-        for Prop in RttiType.GetDeclaredProperties do
-        begin
-          if Prop.Parent <> RttiType then Continue; // class helper property'lerini dışarıda bırak
-          if Prop.Visibility < mvPublic then Continue;
-          if Prop.IsWritable then
-            MemberDecls.AppendLine('    function Set' + Prop.Name + '(const a' + Prop.Name + ': ' +
-              Prop.PropertyType.Name + '): ' + InterfaceName + ';');
-          if Prop.IsReadable then
-            MemberDecls.AppendLine('    function Get' + Prop.Name + ': ' + Prop.PropertyType.Name + ';');
-        end;
-
-        for IdxProp in RttiType.GetIndexedProperties do
-        begin
-          if IdxProp.Parent <> RttiType then Continue; // yalnızca doğrudan tanımlı
-          if IdxProp.Visibility < mvPublic then Continue;
-
-          var LIdxParamText := ParamListFor(IndexParamsOf(IdxProp));
-          if IdxProp.IsWritable then
-          begin
-            var LSetParams: string;
-            if LIdxParamText <> '' then
-              LSetParams := LIdxParamText + '; const aValue: ' + IdxProp.PropertyType.Name
-            else
-              LSetParams := 'const aValue: ' + IdxProp.PropertyType.Name;
-            MemberDecls.AppendLine('    function Set' + IdxProp.Name + '(' + LSetParams + '): ' +
-              InterfaceName + ';');
-          end;
-          if IdxProp.IsReadable then
-          begin
-            var LGetParams: string;
-            if LIdxParamText <> '' then LGetParams := '(' + LIdxParamText + ')' else LGetParams := '';
-            MemberDecls.AppendLine('    function Get' + IdxProp.Name + LGetParams + ': ' +
-              IdxProp.PropertyType.Name + ';');
-          end;
-        end;
-
-        MemberDecls.AppendLine('');
-        for Meth in RttiType.GetDeclaredMethods do
-        begin
-          if Meth.Parent <> RttiType then Continue; // class helper metodlarını dışarıda bırak
-          if Meth.Visibility < mvPublic then Continue;
-          if Meth.MethodKind in [mkConstructor, mkDestructor, mkClassProcedure, mkClassFunction] then Continue;
-          MemberDecls.AppendLine('    ' + MethodSignature(Meth, IsOverloaded(Meth.Name)));
-        end;
-
-        // ================= INTERFACE =================
-        DeclBody.AppendLine('  ' + InterfaceName + ' = interface');
-        DeclBody.Append(MemberDecls.ToString);
-        DeclBody.AppendLine('  end;');
-        DeclBody.AppendLine('');
-
-        // ================= İMPLEMENTASYON CLASS TANIMI =================
-        DeclBody.AppendLine('  ' + ImplName + ' = class(TInterfacedObject, ' + InterfaceName + ')');
-        DeclBody.AppendLine('  strict private');
-        DeclBody.AppendLine('    FInstance: ' + InstanceTypeName + ';');
-        DeclBody.AppendLine('    FAutoFree: Boolean;');
-        DeclBody.AppendLine('  public');
-        DeclBody.AppendLine('    constructor Create(AInstance: ' + InstanceTypeName + '; AAutoFree: Boolean = False);');
-        DeclBody.AppendLine('    destructor Destroy; override;');
-        DeclBody.Append(MemberDecls.ToString);
-        DeclBody.AppendLine('  end;');
-
-        // ================= İMPLEMENTASYON GÖVDELERİ =================
-        ImplBody.AppendLine('constructor ' + ImplName + '.Create(AInstance: ' + InstanceTypeName +
-          '; AAutoFree: Boolean = False);');
-        ImplBody.AppendLine('begin');
-        ImplBody.AppendLine('  inherited Create;');
-        ImplBody.AppendLine('  FInstance := AInstance;');
-        ImplBody.AppendLine('  FAutoFree := AAutoFree;');
-        ImplBody.AppendLine('end;');
-        ImplBody.AppendLine('');
-        ImplBody.AppendLine('destructor ' + ImplName + '.Destroy;');
-        ImplBody.AppendLine('begin');
-        ImplBody.AppendLine('  if FAutoFree then');
-        ImplBody.AppendLine('    FInstance.Free;');
-        ImplBody.AppendLine('  inherited;');
-        ImplBody.AppendLine('end;');
-        ImplBody.AppendLine('');
-
-        ImplBody.AppendLine('function ' + ImplName + '.AsInstance: ' + InstanceTypeName + ';');
-        ImplBody.AppendLine('begin');
-        ImplBody.AppendLine('  Result := FInstance;');
-        ImplBody.AppendLine('end;');
-        ImplBody.AppendLine('');
-
-        for Prop in RttiType.GetDeclaredProperties do
-        begin
-          if Prop.Parent <> RttiType then Continue; // class helper property'lerini dışarıda bırak
-          if Prop.Visibility < mvPublic then Continue;
-          if Prop.IsWritable then
-          begin
-            ImplBody.AppendLine('function ' + ImplName + '.Set' + Prop.Name + '(const a' + Prop.Name + ': ' +
-              Prop.PropertyType.Name + '): ' + InterfaceName + ';');
-            ImplBody.AppendLine('begin');
-            ImplBody.AppendLine('  FInstance.' + Prop.Name + ' := a' + Prop.Name + ';');
-            ImplBody.AppendLine('  Result := Self;');
-            ImplBody.AppendLine('end;');
-            ImplBody.AppendLine('');
-          end;
-          if Prop.IsReadable then
-          begin
-            ImplBody.AppendLine('function ' + ImplName + '.Get' + Prop.Name + ': ' + Prop.PropertyType.Name + ';');
-            ImplBody.AppendLine('begin');
-            ImplBody.AppendLine('  Result := FInstance.' + Prop.Name + ';');
-            ImplBody.AppendLine('end;');
-            ImplBody.AppendLine('');
-          end;
-        end;
-
-        for IdxProp in RttiType.GetIndexedProperties do
-        begin
-          if IdxProp.Parent <> RttiType then Continue;
-          if IdxProp.Visibility < mvPublic then Continue;
-
-          var LIdxParamsArr := IndexParamsOf(IdxProp);
-          var LIdxParamText := ParamListFor(LIdxParamsArr);
-          var LIdxArgText := ArgListFor(LIdxParamsArr);
-
-          if IdxProp.IsWritable then
-          begin
-            var LSetParams: string;
-            if LIdxParamText <> '' then
-              LSetParams := LIdxParamText + '; const aValue: ' + IdxProp.PropertyType.Name
-            else
-              LSetParams := 'const aValue: ' + IdxProp.PropertyType.Name;
-            ImplBody.AppendLine('function ' + ImplName + '.Set' + IdxProp.Name + '(' + LSetParams + '): ' +
-              InterfaceName + ';');
-            ImplBody.AppendLine('begin');
-            ImplBody.AppendLine('  FInstance.' + IdxProp.Name + '[' + LIdxArgText + '] := aValue;');
-            ImplBody.AppendLine('  Result := Self;');
-            ImplBody.AppendLine('end;');
-            ImplBody.AppendLine('');
-          end;
-          if IdxProp.IsReadable then
-          begin
-            var LGetParams: string;
-            if LIdxParamText <> '' then LGetParams := '(' + LIdxParamText + ')' else LGetParams := '';
-            ImplBody.AppendLine('function ' + ImplName + '.Get' + IdxProp.Name + LGetParams + ': ' +
-              IdxProp.PropertyType.Name + ';');
-            ImplBody.AppendLine('begin');
-            ImplBody.AppendLine('  Result := FInstance.' + IdxProp.Name + '[' + LIdxArgText + '];');
-            ImplBody.AppendLine('end;');
-            ImplBody.AppendLine('');
-          end;
-        end;
-
-        for Meth in RttiType.GetDeclaredMethods do
-        begin
-          if Meth.Parent <> RttiType then Continue; // class helper metodlarını dışarıda bırak
-          if Meth.Visibility < mvPublic then Continue;
-          if Meth.MethodKind in [mkConstructor, mkDestructor, mkClassProcedure, mkClassFunction] then Continue;
-
-          var LParams := ParamListFor(Meth.GetParameters);
-          if LParams <> '' then LParams := '(' + LParams + ')';
-          var LArgs := ArgListFor(Meth.GetParameters);
-          if LArgs <> '' then LArgs := '(' + LArgs + ')';
-
-          if Meth.MethodKind = mkFunction then
-            ImplBody.AppendLine('function ' + ImplName + '.' + Meth.Name + LParams + ': ' +
-              Meth.ReturnType.Name + ';')
-          else
-            ImplBody.AppendLine('procedure ' + ImplName + '.' + Meth.Name + LParams + ';');
-          ImplBody.AppendLine('begin');
-          if Meth.MethodKind = mkFunction then
-            ImplBody.AppendLine('  Result := FInstance.' + Meth.Name + LArgs + ';')
-          else
-            ImplBody.AppendLine('  FInstance.' + Meth.Name + LArgs + ';');
-          ImplBody.AppendLine('end;');
-          ImplBody.AppendLine('');
-        end;
-
-        Result := DeclBody.ToString + sLineBreak +
-          '// ---------------------------------------------------------------------------' + sLineBreak +
-          '// Implementasyon gövdeleri (unit''in implementation bölümüne eklenecek)' + sLineBreak +
-          '// ---------------------------------------------------------------------------' + sLineBreak +
-          ImplBody.ToString;
-      finally
-        MemberDecls.Free;
-        DeclBody.Free;
-        ImplBody.Free;
-      end;
-    finally
-      MethodOverloadCount.Free;
-    end;
-  finally
-    Ctx.Free;
-  end;
+  if TRadConfig.Config = nil then
+    TRadConfig.Config :=rad.config.TRadConfig.Create;
+  Result :=TRadConfig.Config;
 end;
 
-{ TResult<T> }
-
-class function TResult<T>.Success(const AValue: T): TResult<T>;
-begin
-  Result.FValue := AValue;
-  Result.FSuccess := True;
-  Result.FErrorMsg := '';
-end;
-
-class function TResult<T>.Failure(const AErrorMsg: string): TResult<T>;
-begin
-  Result.FSuccess := False;
-  Result.FErrorMsg := AErrorMsg;
-  // FValue default(T) olarak kal�r (Managed record de�ilse manuel s�f�rlanabilir)
-end;
-
-class function TResult<T>.FromException(const E: Exception): TResult<T>;
-begin
-  Result := TResult<T>.Failure(E.Message);
-end;
-
-function TResult<T>.GetValue: T;
-begin
-  if not FSuccess then
-    raise EInvalidOpException.Create('Hatal� bir sonucun degeri okunamaz. Hata: ' + FErrorMsg);
-  Result := FValue;
-end;
-
-function TResult<T>.TryGetValue(out AValue: T): Boolean;
-begin
-  Result := FSuccess;
-  if Result then
-    AValue := FValue;
-end;
+function RadApp: TRadApp;
+ begin
+  if TRadApp.FDefaultApp = nil then
+   TRadApp.FDefaultApp := TRadApp.Create();
+  Result:=TRadApp.FDefaultApp;
+ end;
 
 const
   CDateTolerance: Double = 1.157407407407407E-9; // ~0.1 ms, TDateTime gün biriminde
@@ -560,23 +187,64 @@ begin
 end;
 
 
-{ TUtils }
 
-class procedure TUtils.InUI(AProc: TProc);
+
+
+{ TFolders }
+
+function TFolders.GetStr(const Index: Integer): string;
 begin
-  if TThread.CurrentThread.ThreadID = MainThreadID then
-    AProc()
+  case Index of
+   0 : begin
+        if FApp.IsEmpty then
+         FApp:=IncludeTrailingPathDelimiter(TPath.GetFullPath(ParamStr(0)));
+       end;
+  end;
+end;
+
+
+constructor TRadApp.Create(const aAppName: string);
+begin
+ Info := TFileVersion.Create(ParamStr(0));
+ Info.Name    := Info.ProductName; //GetFileNameWithoutExtOrPath(Info.fFileName)
+ //Info.AppName :=ExtractFileName(Info.fFileName);
+ if not Assigned(TRadApp.FDefaultApp) then
+  TRadApp.FDefaultApp:=Self;
+
+end;
+
+destructor TRadApp.Destroy;
+begin
+  Info.Free;
+  inherited;
+end;
+
+
+
+procedure wInit;
+begin
+  //DocDict(StringFromFile(pmcFileName));
+end;
+
+{ TFileVersion }
+
+function TFileVersion.AppInfo: string;
+begin
+  if self = nil then
+    FastAssignNew(result)
   else
-    TThread.ForceQueue(nil, procedure begin AProc() end);
+    result := _fmt('%s - v%s (%s-%s)', [Name, DetailedOrVoid, OS_TEXT,CPU_ARCH_TEXT]);
+
 end;
 
 Initialization
-
+ wInit;
 
 finalization
 
 
 end.
+
 
 
 

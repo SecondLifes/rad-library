@@ -52,7 +52,8 @@ requires
   vquery370,
   Jcl,
   JvCore,
-  JvStdCtrls;
+  JvStdCtrls,
+  dxSkinsCoreRS37;
 
 contains
   Rad.Register in 'Rad.Register.pas',
@@ -69,7 +70,9 @@ contains
   rad.cmd in '..\core\rad.cmd.pas',
   rad.eventbus in '..\core\rad.eventbus.pas',
   rad.thread in '..\core\rad.thread.pas',
-  rad.util in '..\core\rad.util.pas';
+  rad.utils in '..\core\rad.utils.pas',
+  rad.core in '..\core\rad.core.pas',
+  Rad.Dev in '..\component\Rad.Dev.pas';
 
 end.
 

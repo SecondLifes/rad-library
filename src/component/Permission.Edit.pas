@@ -8,29 +8,80 @@ uses
   System.Actions, Vcl.ActnList, cxGraphics, cxControls, cxLookAndFeels,
   cxLookAndFeelPainters, cxFilter, cxCustomData, cxStyles,
   dxScrollbarAnnotations, cxTL, cxTextEdit, cxTLdxBarBuiltInMenu,
-  cxInplaceContainer,
+  cxInplaceContainer,cxDB,
 
   mormot.core.variants, mormot.core.base, mormot.core.json, Vcl.Menus, cxButtons,
-  rad.permission;
+  Data.DB,        // TDataSet / TField - DataSet ve TreeField ozellikleri icin
+  rad.core,       // ERadCore - kitin istisna agacinin koku
+  rad.permission, cxContainer, cxEdit, cxDBEdit;
+
+resourcestring
+  SRadPermNoLink    = 'TRadPermission "%s": DataSet ve TreeField atanmadan alana yazilamaz.';
+  SRadPermClosed    = 'TRadPermission "%s": "%s" dataset''i kapali; alan okunup yazilamaz.';
+  SRadPermNoField   = 'TRadPermission "%s": "%s" dataset''inde "%s" adli alan yok.';
+  SRadPermNoRecord  = 'TRadPermission "%s": "%s" dataset''inde gecerli kayit yok (bos).';
 
 
 type
+
+  /// <summary>Bu bilesenin kendi istisna tipi.</summary>
+  ERadPermission = class(ERadCore);
+
+  /// <summary>Yetki TANIMLARININ nerede saklanacagi.</summary>
+  /// <remarks>
+  ///   psDfm      : tanimlar formun/DM'in DFM'ine gomulur. Veritabanina hic
+  ///                dokunulmaz; DataSet/DBField atanmis olsa bile.
+  ///   psDatabase : tanimlar DataSet.DBField alanindan okunur ve oraya yazilir.
+  ///                DFM'e YAZILMAZ - iki kaynak olsaydi biri bayatlar ve hangi
+  ///                surumun gecerli oldugu belirsizlesirdi.
+  ///
+  ///   Bu secim TASARIM ZAMANINDA da gecerlidir: bilesenin isi tanimlari IDE'de
+  ///   duzenlemektir (cagri Rad.Editor'daki bilesen editorunden gelir), yani
+  ///   psDatabase secildiginde IDE'den canli veritabanina yazilir. Bilincli
+  ///   secimdir; eskiden burada kosulsuz bir csDesigning korumasi vardi ve her
+  ///   tasarim zamani kaydini SESSIZCE iptal ediyordu.
+  /// </remarks>
+  TRadPermissionStorage = (psDfm, psDatabase);
 
   TRadPermission = class(TComponent)
   private
     FTree: RawUtf8;      // tüm yetki tanımları — DFM'e yazılır
     FData: IPermission;  // izin verilenler — DB'den yüklenir
+    FStorage: TRadPermissionStorage;
+    FDataBinding : TcxDBDataBinding;
+
+    /// <summary>
+    ///   Bagli alani cozer. ARaise=False iken "baglanti yok" sessizdir
+    ///   (bilesen alansiz da calisir); True iken sebep istisna olur.
+    /// </summary>
     procedure TreeRead(Reader: TReader);
     procedure TreeWrite(Writer: TWriter);
+    function GetDataBinding: TcxDBDataBinding;
+    procedure SetDataBinding(const Value: TcxDBDataBinding);
   protected
     procedure DefineProperties(Filer: TFiler); override;
     procedure Loaded; override;
   public
     constructor Create(AOwner: TComponent); override;
+
+    /// <summary>Tanimlari bagli alandan okur. Baglanti yoksa False, istisna yok.</summary>
+    function LoadFromField: Boolean;
+    /// <summary>
+    ///   Tanimlari bagli alana yazar. Baglanti eksikse ISTISNA atar - burasi
+    ///   veri KAYBI noktasi, sessiz basarisizlik olmamali.
+    /// </summary>
+    function SaveToField: Boolean;
+
     procedure Edit;
     procedure Show;
+
+    /// <summary>Yetki tanimlari (JSON). DFM ve/veya bagli alanla beslenir.</summary>
+    property Tree: RawUtf8 read FTree write FTree;
     property Data: IPermission read FData;
   published
+    /// <summary>Tanimlar nereye kaydedilsin: DFM mi, veritabani mi.</summary>
+    property Storage: TRadPermissionStorage read FStorage write FStorage default psDfm;
+    property DataBinding: TcxDBDataBinding read GetDataBinding write SetDataBinding;
   end;
 
   TcxTreeListHack = class(cxTL.TcxTreeList)
@@ -64,6 +115,8 @@ type
     YetkiKodunuKopyala1: TMenuItem;
     IDFix1: TMenuItem;
     actFix: TAction;
+    itmSablon: TMenuItem;
+    itmSablonlar: TMenuItem;
     procedure act_appendExecute(Sender: TObject);
     procedure act_expandExecute(Sender: TObject);
     procedure cxTreeDblClick(Sender: TObject);
@@ -71,11 +124,16 @@ type
         TDragState; var Accept: Boolean);
     procedure btn_okClick(Sender: TObject);
     procedure actFixExecute(Sender: TObject);
+    procedure itmSablonClick(Sender: TObject);
+    procedure SablonClick(Sender: TObject);
+    procedure cxTreeEditValueChanged(Sender: TcxCustomTreeList; AColumn: TcxTreeListColumn);
+    procedure Col_kodPropertiesValidate(Sender: TObject; var DisplayValue: TcxEditValue; var ErrorText: TCaption; var Error: Boolean);
   private
     { Private declarations }
+    FRootName : string;
     FJson:IDocDict;
     FEditMode:Boolean;
-    procedure LoadJson(const Json:IDocAny; const ANode:TcxTreeListNode);
+    procedure LoadJson(const Json:IDocAny; ANode:TcxTreeListNode);
     procedure OnAddNode(Sender: TcxCustomTreeList; ANode: TcxTreeListNode);
 
     procedure Fix;
@@ -85,9 +143,10 @@ type
     procedure Ekle(const AList: IDocList; const ANode: TcxTreeListNode);
   public
     { Public declarations }
-    procedure ReLoad(const AJsonStr:RawUtf8; const IsEdit:Boolean=false);
-    //class function View(const AControl:TWinControl):TPermission_Edit;
-    class procedure Load(const AJsonStr:PRawUtf8; const IsEdit:Boolean=false);
+    procedure ReLoad(const aRootName:string);
+
+    procedure Load(const AJsonStr:PRawUtf8); overload;
+    class procedure Load(const AJsonStr:PRawUtf8; const IsEdit:Boolean); overload;
     procedure AfterConstruction; override;
     function MakeJson:RawUtf8;
 
@@ -101,14 +160,24 @@ type
 //var Permission_Edit: TPermission_Edit;
 
 implementation
-  uses mormot.core.text,Clipbrd;
+  uses mormot.core.text,
+       mormot.core.unicode,   // StringToUtf8 / Utf8ToString - alan <-> RawUtf8 donusumu
+       Clipbrd,
+       help.vcl
+       ;
 {$R *.dfm}
 
 type
     TcxTreeListNodeHelper = class helper for TcxTreeListNode
+    function _KodeFix(const ACode:string):string;
+    function _Kod:string;
+    function _SetKod(aKod:string):TcxTreeListNode;
     function _AsStrBase:string;
     function _AsString(ALevel:Integer=0; const ABirles:Boolean=True):string;
-    function _AddNode(const AKod, ACaption:string;const AChecked:Boolean):TcxTreeListNode;
+    function _AddNode(AKod, ACaption:string;const AChecked:Boolean):TcxTreeListNode;
+    //function _FindID(const AKod:string):TcxTreeListNode;
+    function _FindChildID(const AKod:string):TcxTreeListNode;
+    //function _IDCheck(const AKod:string):Boolean;
    end;
 
 procedure TPermission_Edit.actFixExecute(Sender: TObject);
@@ -157,7 +226,11 @@ procedure TPermission_Edit.btn_okClick(Sender: TObject);
 begin
 try
   MakeJson;
-  GetParentForm(Self).ModalResult:=mrOk;
+  if SameText(FRootName,'permisson') then
+    GetParentForm(Self).ModalResult:=mrOk
+  else
+    ReLoad('permisson');
+
 except
  on E: Exception do
   begin
@@ -165,6 +238,31 @@ except
 
   end;
 end;
+end;
+
+procedure TPermission_Edit.Col_kodPropertiesValidate(Sender: TObject; var DisplayValue: TcxEditValue; var ErrorText: TCaption; var Error: Boolean);
+var
+ edt :TcxTextEdit absolute Sender;
+ s:string;
+begin
+
+  if not VarSameValue(edt.EditingValue,edt.EditValue) then
+   begin
+    s:=VarToStrDef(edt.EditingValue,'');
+    if s = '' then
+     begin
+       ErrorText :='ID ler Boş olamaz';
+       Error:=True;
+
+     end
+    else if (cxTree.FocusedNode <> nil) and ( cxTree.FocusedNode.Parent._FindChildID(s) <> nil)  then
+     begin
+       ErrorText :='Bu id kullanılmış ('+s+')';
+       Error:=True;
+     end;
+
+
+   end;
 end;
 
 procedure TPermission_Edit.cxTreeDblClick(Sender: TObject);
@@ -176,6 +274,14 @@ procedure TPermission_Edit.cxTreeDragOver(Sender, Source: TObject; X, Y:
     Integer; State: TDragState; var Accept: Boolean);
 begin
  Accept := FEditMode;
+end;
+
+procedure TPermission_Edit.cxTreeEditValueChanged(Sender: TcxCustomTreeList; AColumn: TcxTreeListColumn);
+begin
+  //ShowMessage(BoolToStr(Col_kod.Editing,true)+sLineBreak+AColumn.value+sLineBreak+AColumn.EditValue);
+
+  //if (AColumn = Col_kod) and (SameText(Col_kod.EditValue,Col_kod.Value)) then
+  //ShowMessage(Col_kod.Value+sLineBreak+Col_kod.EditValue)
 end;
 
 procedure TPermission_Edit.Fix;
@@ -215,11 +321,28 @@ begin
     if (not nd.HasChildren) and (nd.Checked) then
      list.Append(nd.Texts[1]);
   end;
- Result:=list.Json; //.ToJson(TTextWriterJsonFormat.jsonUnquotedPropNameCompact,[]);
+ Result:=list.Json; //.ToJson(TTextWriterJsonFormat.jsonCompact,[]);
 
 end;
 
-class procedure TPermission_Edit.Load(const AJsonStr:PRawUtf8; const IsEdit:Boolean=false);
+procedure TPermission_Edit.itmSablonClick(Sender: TObject);
+begin
+  if itmSablon.Checked then
+   begin
+    ReLoad('sablon');
+    Col_adi.Caption.Text:='Şablon Adı';
+    Col_kod.Caption.Text:='Şablon Kodu';
+   end
+  else
+   begin
+    ReLoad('permisson');
+    Col_adi.Caption.Text:='Yetki Adı';
+    Col_kod.Caption.Text:='Yetki Kodu';
+   end;
+
+end;
+
+class procedure TPermission_Edit.Load(const AJsonStr:PRawUtf8; const IsEdit:Boolean);
  var
   fr:TPermission_Edit;
   frm:TForm;
@@ -234,24 +357,20 @@ begin
   fr.Align:=alClient;
 
   try
-   fr.FJson:=DocDict(AJsonStr^,mFastExtended);
-   fr.FJson.PathDelim:='.';
-
    fr.EditMode:=IsEdit;
-
-   if not fr.FJson.Exists('permisson') then
-   fr.FJson.A['permisson']:=DocList(mFastExtended);
-
-   fr.LoadJson(fr.FJson.A['permisson'],fr.cxTree.Root);
-   TcxTreeListHack(fr.cxTree).OnAddNode:=fr.OnAddNode;
-
+   fr.Load(AJsonStr);
 
    if frm.ShowModal = mrOk then
     begin
      if IsEdit then
       begin
 
-       AJsonStr^:=fr.FJson.ToJson(TTextWriterJsonFormat.jsonUnquotedPropNameCompact,[]);
+       { STANDART JSON zorunlu: belge mFast ile acilir (mFastExtended DEGIL) ve
+         bicim jsonCompact'tir. mFastExtended, ToJson'a hangi bicimi verirsen
+         ver anahtarlari TIRNAKSIZ yazar - olculdu - ve PostgreSQL json/jsonb
+         kolonu bunu "json tipi icin gecersiz girdi sozdizimi" diye reddeder.
+         mFast eski genisletilmis kayitlari da okuyabilir, yani gecis sorunsuz. }
+       AJsonStr^:=fr.FJson.ToJson(TTextWriterJsonFormat.jsonCompact,[]);
       end;
     end;
 
@@ -261,7 +380,15 @@ begin
 
 end;
 
-procedure TPermission_Edit.LoadJson(const Json:IDocAny; const ANode:TcxTreeListNode);
+
+procedure TPermission_Edit.Load(const AJsonStr: PRawUtf8);
+begin
+ FJson:=DocDict(AJsonStr^,mFast);
+ FJson.PathDelim:='.';
+ ReLoad('permisson');
+end;
+
+procedure TPermission_Edit.LoadJson(const Json:IDocAny; ANode:TcxTreeListNode);
 var
  v:TDocDictFields;
  val:TDocValue;
@@ -269,7 +396,17 @@ var
 
  nd:TcxTreeListNode;
 begin
-
+  if ANode = nil then
+   begin
+     if cxTree.FocusedNode = nil then
+      begin
+        Exit;
+      end
+     else
+      begin
+        ANode:=cxTree.FocusedNode;
+      end;
+   end;
 
   if Json.Kind = dvUndefined then
    begin
@@ -354,13 +491,13 @@ begin
     end;
 
     // ID boşsa hata
-    if CurrentID.IsEmpty then
+    if SameText(FRootName,'permisson') and CurrentID.IsEmpty then
     begin
       raise EInvalidOpException.CreateFmt('"%s (%s)" için ID boş olamaz.', [nd.Texts[1], nd.Texts[0]]);
     end;
 
     // Hiyerarşik kontrol
-    if not ExpectedParentID.IsEmpty then
+    if SameText(FRootName,'permisson') and (not ExpectedParentID.IsEmpty) then
     begin
       if ExpectedParentID <> ParentID then
       begin
@@ -371,7 +508,7 @@ begin
     else
     begin
       // Kök seviyesindeyse parent yoksa ExpectedParentID boş olmalı
-      if not ParentID.IsEmpty then
+      if SameText(FRootName,'permisson') and (not ParentID.IsEmpty) then
       begin
         raise EInvalidOpException.CreateFmt(
           'Beklenen parent "%s", fakat "%s" bulunamadı.', [ANode.Parent.Texts[1].Trim, nd.Texts[1]]);
@@ -402,13 +539,12 @@ begin
 end;
 
 function TPermission_Edit.MakeJson:RawUtf8;
-
 begin
   //Fix;
-  FJson.A['permisson'].Clear;
-  Ekle(FJson.A['permisson'], cxTree.Root);
+  FJson.A[FRootName].Clear;
+  Ekle(FJson.A[FRootName], cxTree.Root);
 
-  Result := FJson.ToJson(TTextWriterJsonFormat.jsonUnquotedPropNameCompact, []);
+  Result := FJson.ToJson(TTextWriterJsonFormat.jsonCompact, []);
 
 
 end;
@@ -421,31 +557,66 @@ begin
 
 end;
 
-procedure TPermission_Edit.ReLoad(const AJsonStr: RawUtf8; const IsEdit: Boolean);
+
+procedure TPermission_Edit.SablonClick(Sender: TObject);
+var
+ itm : TMenuItem absolute sender;
+ aList: IDocList;
 begin
-   if FJson <> nil then
-    FJson :=nil;
+  try
+    aList:=FJson.L['sablon'].O[itm.Tag].L['child'];
+    if aList<>nil then
+     begin
+      LoadJson(aList,nil);
+     end;
+  finally
 
-    FJson:=DocDict(AJsonStr,mFastExtended);
-    FJson.PathDelim:='.';
-
-   cxTree.Clear;
-
-   EditMode:=IsEdit;
-
-   if not FJson.Exists('permisson') then
-   FJson.A['permisson']:=DocList(mFastExtended);
-
-   LoadJson(FJson.A['permisson'],cxTree.Root);
-   TcxTreeListHack(cxTree).OnAddNode:=OnAddNode;
-
+  end;
 
 end;
+
+procedure TPermission_Edit.ReLoad(const aRootName:string);
+var
+ i:Integer;
+begin
+   if FJson <> nil then
+   FRootName :=aRootName;
+   if not FJson.Exists(FRootName) then
+      FJson.A[FRootName]:=DocList(mFast);
+   //FJson.A[FRootName].Clear;
+
+   //cxTree.BeforeUpdate;
+
+   cxTree.Clear;
+   LoadJson(FJson.A[FRootName],cxTree.Root);
+   TcxTreeListHack(cxTree).OnAddNode:=OnAddNode;
+   if SameText(FRootName,'permisson') then
+    begin
+     itmSablonlar._ClearSubMenu;
+     if FJson.Exists('sablon') then
+      begin
+       for i := 0 to FJson.L['sablon'].Len -1 do
+        begin
+         itmSablonlar._Add(FJson.L['sablon'].O[i].S['name'])
+         ._SetClick(SablonClick)
+         ._SetTag(i)
+         ._SetHint(FJson.L['sablon'].O[i].S['id']);
+        end;
+      end;
+
+
+    end;
+
+end;
+
+
+
 
 procedure TPermission_Edit.SetEditMode(const Value: Boolean);
 begin
   FEditMode := Value;
   pnlAlt.Visible:=Value;
+  itmSablon.Visible:=Value;
   cxTree.OptionsData.Editing:=Value;
   cxTree.OptionsData.Appending:=Value;
   cxTree.OptionsData.Inserting:=Value;
@@ -471,7 +642,7 @@ var
  list:IDocList;
 begin
  list:=DocList(Value);
- 
+
  j:=cxTree.AbsoluteCount -1;
  for i := 0 to j do
   begin
@@ -483,16 +654,24 @@ end;
 
 { TcxTreeListNodeHelper }
 
-function TcxTreeListNodeHelper._AddNode(const AKod, ACaption: string; const AChecked: Boolean): TcxTreeListNode;
+function TcxTreeListNodeHelper._AddNode(AKod,ACaption: string; const AChecked: Boolean): TcxTreeListNode;
 begin
-  Result:=Self.AddChild;
-  Result.Texts[0]:=ACaption;
-  if Self = self.Root then
-   Result.Texts[1]:=AKod
-  else
-   Result.Texts[1]:=Texts[1]+'.'+AKod;
-  Result.CheckGroupType:=ncgCheckGroup;
-  Result.Checked:=AChecked;
+ AKod :=_KodeFix(Self._Kod+'.'+AKod);
+
+ Result :=_FindChildID(AKod);
+ if Result = nil then
+  begin
+   Result:=Self.AddChild;
+   Result.Texts[0]:=ACaption.Trim;
+   //if Self = self.Root then
+   // Result.Texts[1]:=Trim(AKod)
+   //else
+   Result._SetKod(AKod);
+   Result.CheckGroupType:=ncgCheckGroup;
+   Result.Checked:=AChecked;
+   end
+   else
+     ShowMessage(Format('Bu id kullanılıyor. (%s -> %s)',[AKod,ACaption]))
 end;
 
 function TcxTreeListNodeHelper._AsStrBase: string;
@@ -528,6 +707,35 @@ begin
 
 end;
 
+function TcxTreeListNodeHelper._FindChildID(const AKod: string): TcxTreeListNode;
+begin
+   for var i := 0 to Self.Count -1 do
+   begin
+     if SameText(Self.Items[i]._Kod,AKod) then
+      Exit(Self.Items[i]);
+   end;
+ result:=nil
+end;
+
+
+
+function TcxTreeListNodeHelper._Kod: string;
+begin
+ Result:=Trim(Self.Texts[1]);
+end;
+
+function TcxTreeListNodeHelper._KodeFix(const ACode: string): string;
+begin
+result:=ACode.Replace(' ','');
+if result[1] ='.' then
+System.Delete(result,1,1);
+end;
+
+function TcxTreeListNodeHelper._SetKod(aKod: string): TcxTreeListNode;
+begin
+self.Texts[1]:=aKod;
+end;
+
 { TcxTreeListHack }
 
 function TcxTreeListHack.AddNode(ANode, ARelative: TcxTreeListNode;
@@ -543,11 +751,22 @@ constructor TRadPermission.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FData := NewPermission;
+  FDataBinding :=TcxDBDataBinding.Create(Self,Self);
+  { published 'default psDfm' ile AYNI olmak ZORUNDA (kit kurali,
+    component-patterns.md): ayrisirsa DFM'e yazilmayan bir deger, sonraki
+    yuklemede baska bir davranisa donusur. }
+  FStorage := psDfm;
 end;
 
 procedure TRadPermission.DefineProperties(Filer: TFiler);
   function DoWrite: Boolean;
   begin
+    { psDatabase'de tanimlarin tek kaynagi veritabanidir. DFM'e de yazsaydik
+      iki kopya olurdu; dataset kapaliyken acilan bir form bayat DFM kopyasini
+      tasir ve sonra onu veritabanina geri yazabilirdi. }
+    if FStorage = psDatabase then
+      Exit(False);
+
     if Filer.Ancestor = nil then
       Result := FTree <> ''
     else
@@ -570,18 +789,91 @@ end;
 procedure TRadPermission.Loaded;
 begin
   inherited;
+  if (not (csDesigning in ComponentState)) and (Storage = psDatabase)  then
+    LoadFromField;
+
+
+end;
+
+procedure TRadPermission.SetDataBinding(const Value: TcxDBDataBinding);
+begin
+ FDataBinding.Assign(Value);
+end;
+
+function TRadPermission.LoadFromField: Boolean;
+begin
+  Result := FDataBinding.IsDataSourceLive;
+  if Result then
+    FTree := StringToUtf8(FDataBinding.Field.AsString);
+end;
+
+function TRadPermission.SaveToField: Boolean;
+var
+  LBizAldik: Boolean;
+begin
+  if not FDataBinding.IsDataSourceLive then
+  begin
+   raise ERadPermission.CreateFmt('Hata :%s -> %s',[FDataBinding.DataSource.Name,FDataBinding.DataField]);
+   Exit;
+  end;
+  { Dataset ZATEN duzenleme modundaysa Post ETMEYIZ. Etseydik cagiranin
+    ayni kayittaki DIGER bekleyen degisikliklerini de, o daha hazir
+    olmadan islerdik - bilesenin isi yetki alanini yazmak, cagiranin kayit
+    akisini yonetmek degil. O durumda alani doldurup birakiyoruz; Post
+    cagirana ait. }
+
+  LBizAldik := not (FDataBinding.DataSource.State in [dsEdit, dsInsert]);
+  if LBizAldik then
+    FDataBinding.SetEditMode;
+
+  FDataBinding.Field.AsString := Utf8ToString(FTree);
+
+  if LBizAldik then
+    FDataBinding.UpdateDataSource;
+
+  Result := True;
 end;
 
 procedure TRadPermission.Edit;
+var
+  LOncekiTree: RawUtf8;
 begin
+  { Alan bagliysa DFM'deki kopya bayat olabilir - duzenlemeye her zaman
+    kaynagin guncel hâliyle baslanir. }
+
+  LoadFromField;
+
+  LOncekiTree := FTree;
+
   if csAncestor in ComponentState then
     TPermission_Edit.Load(@FTree, False)
   else
     TPermission_Edit.Load(@FTree, True);
+
+  { TPermission_Edit.Load, @FTree'ye YALNIZCA ShowModal=mrOk VE IsEdit iken
+    yazar (bkz. o metodun govdesi). Dolayisiyla degerin degismis olmasi
+    "kullanici onayladi ve gercekten bir sey degisti" demektir. Iptal veya
+    salt-okunur acilista burasi calismaz - gereksiz Edit/Post yok. }
+  if FTree = LOncekiTree then
+    Exit;                    { iptal edildi ya da hicbir sey degismedi }
+
+  { psDfm: kaydetme isini DFM akisi yapar - bilesen editoru Designer.Modified
+    cagirir ve form kaydedilirken Tree DFM'e yazilir (bkz. DefineProperties).
+    psDatabase: SaveToField yazar ve yazamiyorsa SEBEBINI SOYLER - burasi veri
+    kaybi noktasi, sessiz basarisizlik yok. }
+  if FStorage = psDatabase then
+    SaveToField;
+end;
+
+function TRadPermission.GetDataBinding: TcxDBDataBinding;
+begin
+ Result:=FDataBinding;
 end;
 
 procedure TRadPermission.Show;
 begin
+  { Salt okunur goruntuleme: kaynaktan tazele, geri YAZMA. }
+  LoadFromField;
   TPermission_Edit.Load(@FTree, False);
 end;
 

@@ -128,6 +128,7 @@ object Permission_Edit: TPermission_Edit
     TabOrder = 1
     OnDblClick = cxTreeDblClick
     OnDragOver = cxTreeDragOver
+    OnEditValueChanged = cxTreeEditValueChanged
     Data = {
       00000500F70000000F00000044617461436F6E74726F6C6C6572310200000012
       000000546378537472696E6756616C7565547970651200000054637853747269
@@ -145,6 +146,8 @@ object Permission_Edit: TPermission_Edit
       Position.BandIndex = 0
     end
     object Col_kod: TcxTreeListColumn
+      PropertiesClassName = 'TcxTextEditProperties'
+      Properties.OnValidate = Col_kodPropertiesValidate
       Visible = False
       Caption.Text = 'Yetki Kodu'
       Width = 301
@@ -210,6 +213,14 @@ object Permission_Edit: TPermission_Edit
     end
     object IDFix1: TMenuItem
       Action = actFix
+    end
+    object itmSablonlar: TMenuItem
+      Caption = #350'ablonlar'
+    end
+    object itmSablon: TMenuItem
+      AutoCheck = True
+      Caption = #350'ablon Modu'
+      OnClick = itmSablonClick
     end
   end
 end

@@ -354,20 +354,14 @@ type
     FCmdExecutor : TRadCmdExecutor;
     FGlobalEvent : TRadDSNotifyEvent;
   private
+    FOnConnectSetting: TNotifyEvent;
     function  CloneConnection: TUniConnection;
     function  DoGenID(const AScope: string; const AInc: Cardinal = 1): Variant;
   public
     constructor Create(AOwner: TComponent); override;
     destructor  Destroy; override;
 
-    { Fluent config }
-    function Provider (const AValue: string): TRadConnection;
-    function Server   (const AValue: string): TRadConnection;
-    function Database (const AValue: string): TRadConnection;
-    function Username (const AValue: string): TRadConnection;
-    function Password (const AValue: string): TRadConnection;
-    function SetPort  (AValue: Integer): TRadConnection;
-    function Pool     (AMin: Integer = 1; AMax: Integer = 10): TRadConnection;
+
 
     { Bağlantı }
     function TryConnect: Boolean;
@@ -423,10 +417,11 @@ type
     procedure WithSavepoint(const AName: string; AProc: TProc);
 
   published
-    property Setting    : TRadConnectionSetting read FSetting     write FSetting;
-    property IDGenerator: TRadIDGenerator       read FIDGenerator write FIDGenerator;
-    property CmdExecutor: TRadCmdExecutor       read FCmdExecutor write FCmdExecutor;
-    property GlobalEvent: TRadDSNotifyEvent     read FGlobalEvent write FGlobalEvent;
+    property OnConnectSetting : TNotifyEvent          read FOnConnectSetting  write FOnConnectSetting;
+    property Setting          : TRadConnectionSetting read FSetting           write FSetting;
+    property IDGenerator      : TRadIDGenerator       read FIDGenerator       write FIDGenerator;
+    property CmdExecutor      : TRadCmdExecutor       read FCmdExecutor       write FCmdExecutor;
+    property GlobalEvent      : TRadDSNotifyEvent     read FGlobalEvent       write FGlobalEvent;
   end;
 
   { ── TRadQuery ────────────────────────────────────────────────────────────── }
@@ -1098,6 +1093,7 @@ function TRadConnection.CloneConnection: TUniConnection;
 begin
   Result := TUniConnection.Create(nil);
   Result.AssignConnect(Self);
+  Result.AfterConnect := Self.OnConnectSetting;
   if Pooling then
   begin
     Result.Pooling := True;
@@ -1108,52 +1104,7 @@ begin
   end;
 end;
 
-{ Fluent config }
 
-function TRadConnection.Provider(const AValue: string): TRadConnection;
-begin
-  ProviderName := AValue;
-  Result := Self;
-end;
-
-function TRadConnection.Server(const AValue: string): TRadConnection;
-begin
-  inherited Server := AValue;
-  Result := Self;
-end;
-
-function TRadConnection.Database(const AValue: string): TRadConnection;
-begin
-  inherited Database := AValue;
-  Result := Self;
-end;
-
-function TRadConnection.Username(const AValue: string): TRadConnection;
-begin
-  inherited Username := AValue;
-  Result := Self;
-end;
-
-function TRadConnection.Password(const AValue: string): TRadConnection;
-begin
-  inherited Password := AValue;
-  Result := Self;
-end;
-
-function TRadConnection.SetPort(AValue: Integer): TRadConnection;
-begin
-  Port   := AValue;
-  Result := Self;
-end;
-
-function TRadConnection.Pool(AMin, AMax: Integer): TRadConnection;
-begin
-  Pooling                    := True;
-  PoolingOptions.MinPoolSize := AMin;
-  PoolingOptions.MaxPoolSize := AMax;
-  PoolingOptions.Validate    := True;
-  Result := Self;
-end;
 
 { Bağlantı }
 

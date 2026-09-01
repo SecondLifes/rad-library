@@ -1,7 +1,6 @@
 object CoreForm: TCoreForm
   Left = 0
   Top = 0
-  BorderStyle = bsSingle
   Caption = 'CoreForm'
   ClientHeight = 476
   ClientWidth = 628
@@ -11,7 +10,6 @@ object CoreForm: TCoreForm
   Font.Height = -12
   Font.Name = 'Segoe UI'
   Font.Style = [fsBold]
-  Position = poMainFormCenter
-  OnClose = FormClose
+  Position = poScreenCenter
   TextHeight = 15
 end

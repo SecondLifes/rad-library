@@ -12,8 +12,9 @@ call "%RSVARS%" >nul
 
 set LOG=%~dp0build_log.txt
 set DUNITX=%BDS%\source\DUnitX
+set MORMOT=E:\system\dev\Delphi\src\git\synopse\mORMot2\src
 
-dcc32 -B -Q -NSSystem;System.Win;Winapi;Vcl -U"%DUNITX%;..\..\..\core;..\..\unit" -E"%~dp0bin" -N0"%~dp0dcu" "RunCacheTests.dpr" > "%LOG%" 2>&1
+dcc32 -B -Q -NSSystem;System.Win;Winapi;Vcl -U"%DUNITX%;..\..\..\core;..\..\unit;%MORMOT%;%MORMOT%\core" -I"%MORMOT%;%MORMOT%\core" -E"%~dp0bin" -N0"%~dp0dcu" "RunCacheTests.dpr" > "%LOG%" 2>&1
 set ERR=%ERRORLEVEL%
 type "%LOG%"
 if %ERR% NEQ 0 (

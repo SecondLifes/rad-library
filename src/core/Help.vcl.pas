@@ -5,8 +5,8 @@ uses
   Winapi.Windows, Winapi.Messages, System.ObjAuto ,System.SysUtils, System.Classes, UITypes,
   System.Generics.Collections, System.Actions, Vcl.Controls,
   Vcl.ActnList, System.Rtti, vcl.Forms, Vcl.Menus, Vcl.Dialogs,System.Threading
-  //,JvBrowseFolder
   ,mormot.core.base
+  ,rad.core
   ;
 
 type
@@ -25,10 +25,62 @@ type
  TFormEventType = (fetCreate, fetShow, fetActivate, fetClose, fetDeactivate, fetHide, fetFree, fetCaptionChange);
  TGlobalFormEvent = procedure(const AControl: TForm; const AEvent: TFormEventType) of object;
 
- IEventHandler1 = interface
-   ['{CCBD8574-8432-4CC7-80CA-BE9A31C81983}']
-   procedure DoEvent (const AControl: TWinControl; const AEvent: Integer);
-   procedure RegisterEvent(AEvent:TGlobalFormEvent);
+  { KOPRU (TFormEventBridge) BU SINIFA TAKILMAZ - bilerek.
+
+    Kopru bir TELAFI mekanizmasidir: duz TForm'un yasam dongusu kancasi
+    olmadigi icin pencere yordamini ele gecirip mesajlardan olay uretir.
+    TRadFormBase'in o kancalarinin hepsi ZATEN var ve daha fazlasini kapsar:
+
+      Kopru                          TRadFormBase
+      -----------------------------  --------------------------------
+      HookClose -> caFree            DoClose (FAutoFree ile ayni is)
+      CM_ACTIVATE   -> fetActivate   Activate
+      CM_DEACTIVATE -> fetDeactivate Deactivate
+      WM_CLOSE      -> fetClose      DoClose
+      WM_DESTROY    -> fetFree       DoDestroy
+      CM_TEXTCHANGED-> fetCaption... CMTextChanged (asagida eklendi)
+      (yok)                          DoCreate / DoShow / DoHide
+
+    Ikisini birden takmak CIFT TETIKLEME uretirdi: Activate hem kendi
+    olayini hem koprunun CM_ACTIVATE dalini calistirirdi. }
+  TRadFormBase = class(TForm)
+  private
+    FAutoFree   : Boolean;
+    FIsShow     : Boolean;
+    { Yasam dongusu kancalarinin CAGIRDIGI tek nokta. DoEvent'i dogrudan
+      cagirmiyorlar: DoEvent turev icin uzanti noktasidir ve `inherited`
+      cagirmayan bir override, global fabrika baglantisini sessizce
+      koparirdi. Buradan ikisi de garanti calisir. }
+    procedure NotifyEvent(const AEvent: TFormEventType);
+    procedure CMTextChanged(var Msg: TMessage); message CM_TEXTCHANGED;
+  protected
+    procedure ClientWndProc(var Message: TMessage); override;
+    procedure WmCMD(var Msg: TMessage); message WM_CMD;
+    //function  CmdSys(const AID:SmallInt):variant;
+    procedure DoCreate; override;
+    procedure DoShow; override;
+    procedure Activate; override;
+    procedure DoClose(var Action: TCloseAction); override;
+    procedure Deactivate; override;
+    procedure DoHide; override;
+    procedure DoDestroy; override;
+    procedure DoEvent(const AEvent: TFormEventType); virtual;
+
+  public
+    function _IsShowing:Boolean;
+    function _ShowWait: TForm;
+    property _AutoFree: Boolean read FAutoFree write FAutoFree;
+  {
+    function _ShowMDIChild: TForm;
+    begin
+
+     if FormStyle<>fsMDIChild then
+      begin
+       PostMessage(Self.Handle, WM_CMD,99, WM_EVENT_CREATE);
+      end else Show;
+
+    end;
+   }
   end;
 
   TPersistentHack = class(TPersistent)
@@ -64,6 +116,8 @@ type
     procedure DoWndProc(var Message: TMessage); override;
   public
     constructor CreateBridge(const AForm: TForm; const aAutoFree: Boolean); reintroduce;
+    /// Form yok edilirken fabrikanin sozlugunden de dusurur.
+    destructor Destroy; override;
     property AutoFree: Boolean read FAutoFree write FAutoFree;
   end;
 
@@ -101,7 +155,11 @@ type
     function _ValueGet(const AProp: RawUtf8): Variant;
     function _ValueSet(const AProp: RawUtf8; const v:Variant): Boolean;
     function _ValueGetPath(const APath: RawUtf8): Variant;
-    function _ValueSetPath(const APath, AValue: Variant): Boolean;
+    { APath RawUtf8: yol her zaman metindir. Variant olarak bildirilmesi
+      GetInstanceByPath cagrisinda ortuk donusume ve W1057 uyarisina yol
+      aciyordu. AValue Variant kalir - yazilan DEGER gercekten her tip
+      olabilir. }
+    function _ValueSetPath(const APath: RawUtf8; const AValue: Variant): Boolean;
     function _ValueGetPathText(const APath: RawUtf8): RawUtf8;
     function _ValueSetPathText(const APath, AValue: RawUtf8): Boolean;
 
@@ -113,15 +171,14 @@ type
   public
     function _ScaleToCurrentMonitor(const AValue: Integer): Integer;
     function _PositionEx(const ARect: TRect; AHorz: THorzAlign; AVert: TVertAlign; AOffset: Integer = 0): TWinControl; overload;
-    //function _PositionEx(const ARect: TRect; AHorz: THorzAlign; AVert: TVertAlign; AOffset: Integer = 0): TForm; overload;
     function _Position(const aRect: TRect; const aPosition: TWinPosition): TWinControl; overload;
     function _Position(const aPosition: TWinPosition; const aForm: TCustomForm = nil): TWinControl; overload;
   end;
 
-  TFrameHelper = class helper for TCustomFrame
-  public
-
-  end;
+  { TFrameHelper ve TChildFormHelper1 KALDIRILDI: ikisi de tamamen bostu.
+    Bos bir helper zararsiz gorunur ama zararlidir - Delphi'de bir tip icin
+    yalnizca EN YAKIN helper gorunur, bos bir helper ileride ara katmandaki
+    baska bir helper'i gizleyebilir. }
 
   TFormHelper = class helper for TCustomForm
   private
@@ -129,14 +186,44 @@ type
   public
    class function _New(const AFormStyle: TFormStyle=fsNormal; AOwner: TComponent = nil):TForm; overload;
 
-   class function _Modal(const AOnCreate:TProc<TCustomForm>=nil; const AOnBeforeFree:TProc<TCustomForm>=nil):TModalResult; overload;
-   class procedure _ModalAsync(const ALoadData: TFunc<TObject>; const AOnDataReady: TProc<TObject, TCustomForm>);
+   class function _Modal(const APosition:TPosition = TPosition.poScreenCenter; const AOnCreate:TProc<TCustomForm>=nil; const AOnBeforeFree:TProc<TCustomForm>=nil):TModalResult; overload;
+   /// <summary>
+   ///   Formu MODAL acar, ALoadData'yi arka planda calistirir, veri hazir
+   ///   olunca AOnDataReady'yi ANA THREAD'de cagirir.
+   /// </summary>
+   /// <remarks>
+   ///   SOZLESME:
+   ///   * Form bu metoda aittir: yaratir, modal gosterir, free eder.
+   ///   * LData da bu metoda aittir: AOnDataReady dondukten HEMEN SONRA
+   ///     free edilir. Geri cagirim ihtiyaci olani KOPYALAMALIDIR.
+   ///   * ALoadData istisna atarsa AOnError cagrilir (verilmemisse
+   ///     Application.ShowException) ve modal mrAbort ile kapanir.
+   ///   * Kullanici formu veri gelmeden kapatirsa AOnDataReady HIC
+   ///     cagrilmaz - sarkan isaretciye erisilmez.
+   /// </remarks>
+   class function _ModalAsync(const ALoadData: TFunc<TObject>;
+     const AOnDataReady: TProc<TObject, TCustomForm>;
+     const AOnError: TProc<Exception> = nil): TModalResult;
 
 
-   function DefClientProc: TFarProc;
+   { DefClientProc KALDIRILDI. Tek cagiran Core.Form.ClientWndProc idi ve o
+     artik `inherited` kullaniyor. Kaldirilma sebebi cagrisiz kalmasi degil,
+     BOZUK olmasiydi: GetWindowLong(Self.Handle, GWL_WNDPROC) formun
+     yordamini, ustelik VCL alt siniklamayi yaptiktan SONRA donduruyordu.
+     VCL'in gercek karsiligi FDefClientProc'tur ve ISTEMCI penceresinin
+     yordamini alt siniklamadan ONCE yakalar (Vcl.Forms.pas:7889). Alan
+     private oldugu icin taklit edilemez; dogru cozum ona ihtiyac
+     duymamaktir. Ayrinti: Core.Form.ClientWndProc'un basligi.
+
+     function TFormHelper.DefClientProc: TFarProc;
+    begin
+     Result := Pointer(GetWindowLong(self.Handle, GWL_WNDPROC));//Self.FDefClientProc;
+    end;
+     }
    function _ArgClas<T:class>(AProc:TProc<T>=nil):TArray<T>;
    function _AnimateShow(AFadeDuration: Integer = 200):TCustomForm;
 
+   function  _SetPosition(const APosition:TPosition):TCustomForm;
    function  _SetWindowsState(const AWindowState:TWindowState):TCustomForm;
    function  _SetStateNormal:TCustomForm;
    function  _SetStateMinimized:TCustomForm;
@@ -145,6 +232,7 @@ type
    // TCoreForm formları için
    function  _SetAutoFree(const aAutoFree:Boolean):TCustomForm;
 
+   //function _Modal(const AOnClose:TProc<TCustomForm>=nil):TModalResult; overload;
    function _Show: TCustomForm;
    function _ShowWait: TCustomForm;
    function _Hide: TCustomForm;
@@ -158,18 +246,16 @@ type
 
 
   TMenuItemHelp = class helper for TMenuItem
-
-
     function _AddOrGetPath(const ACaption:string):TMenuItem;
     function _AddOrGet(const ACaption:string):TMenuItem;
-    function _Add(const ACaption:string;const AAction:TAction; const AImgIndex:Integer=-1):TMenuItem;
-    class function _Create(const ACaption:string;const AAction:TAction; const AImgIndex:Integer=-1):TMenuItem;
+    function _Add(const ACaption:string; const AAction:TAction = nil; const AImgIndex:Integer=-1):TMenuItem;
+    class function _Create(const ACaption:string;const AAction:TAction = nil; const AImgIndex:Integer=-1):TMenuItem;
     function _Caption:string;
     function _TreeCaption(const ASplitter:string='\'):string;
-  end;
-
-  TChildFormHelper1 = class helper for TApplication
-    //procedure OpenChildForm(aForm: TForm);
+    function _SetHint(const aHint:string):TMenuItem;
+    function _SetTag(const aTag:Integer):TMenuItem;
+    function _SetClick(const aClick:TNotifyEvent):TMenuItem;
+    function _ClearSubMenu:TMenuItem;
   end;
 
   TMainMenuHelp = class helper for TMenu
@@ -231,7 +317,6 @@ type
 implementation
 uses
   System.TypInfo,
-  Core.Form,
   //Help.Str,
   mormot.core.rtti,
   cxGeometry,cxControls; //,JvJVCLUtils;
@@ -243,69 +328,170 @@ uses
    function _ValueGet(Instance: TObject):Variant;
   end;
 
-function ScreenWorkArea: TRect;
+  { _ModalAsync'in "form hala yasiyor mu" bayragi.
+
+    ARAYUZ olmasi sart: closure onu yakalayinca refcount artar, yani metot
+    donse bile nesne yasar. Duz bir Boolean yerel degisken olsaydi metot
+    dondugunde yigindan silinirdi ve closure serbest bellege bakardi -
+    duzeltmeye calistigimiz hatanin ta kendisi.
+
+    Yalnizca ANA THREAD'den okunup yazilir (Queue ve ShowModal'in finally'si
+    ikisi de ana thread'de), o yuzden ek bir kilide gerek yok. }
+  IRadAsyncCtx = interface
+    ['{2D9A4F17-6C83-4E5B-9A71-0F3E8B25C4D6}']
+    function Gecerli: Boolean;
+    procedure Iptal;
+  end;
+
+  TRadAsyncCtx = class(TInterfacedObject, IRadAsyncCtx)
+  private
+    FGecerli: Boolean;
+  public
+    constructor Create;
+    function Gecerli: Boolean;
+    procedure Iptal;
+  end;
+
+constructor TRadAsyncCtx.Create;
 begin
-  if Assigned(Screen.ActiveCustomForm) then
-    Result := Screen.MonitorFromWindow(Screen.ActiveCustomForm.Handle).WorkareaRect
-  else
+  inherited Create;
+  FGecerli := True;
+end;
+
+function TRadAsyncCtx.Gecerli: Boolean;
+begin
+  Result := FGecerli;
+end;
+
+procedure TRadAsyncCtx.Iptal;
+begin
+  FGecerli := False;
+end;
+
+function ScreenWorkArea(AControl: TWinControl = nil): TRect;
+var
+  LMon: TMonitor;
+begin
+  { AControl verilirse ONUN monitorunun calisma alani doner.
+
+    Eski hâl her zaman AKTIF formun monitorunu kullaniyordu. Cok monitorlu
+    bir kurulumda 2. ekrandaki bir formu _EnsureInWorkArea ile hizalamak,
+    aktif form 1. ekrandaysa formu 1. ekrana ITIYORDU - kullanicinin
+    baktigi yerden kaybolan bir pencere.
+
+    HandleAllocated kontrolu de onemli: .Handle okumak pencere tanitici-
+    sini ZORLA yarattirir. Henuz gosterilmemis bir kontrol icin bu istenmez;
+    o durumda birincil calisma alanina duseriz. }
+  LMon := nil;
+
+  if Assigned(AControl) and AControl.HandleAllocated then
+    LMon := Screen.MonitorFromWindow(AControl.Handle)
+  else if Assigned(Screen.ActiveCustomForm) and
+          Screen.ActiveCustomForm.HandleAllocated then
+    LMon := Screen.MonitorFromWindow(Screen.ActiveCustomForm.Handle);
+
+  if Assigned(LMon) then
+    Exit(LMon.WorkareaRect);
+
   {$IFDEF MSWINDOWS}
-  if not SystemParametersInfo(SPI_GETWORKAREA, 0, @Result, 0) then
+  if SystemParametersInfo(SPI_GETWORKAREA, 0, @Result, 0) then
+    Exit;
   {$ENDIF MSWINDOWS}
-    Result := Bounds(0, 0, Screen.Width, Screen.Height);
+  Result := Bounds(0, 0, Screen.Width, Screen.Height);
 end;
 
 { TFormHelper }
 
 
-function TFormHelper.DefClientProc: TFarProc;
-begin
- Result := Pointer(GetWindowLong(self.Handle, GWL_WNDPROC));//Self.FDefClientProc;
-end;
-
 function TFormHelper._AnimateShow(AFadeDuration: Integer):TCustomForm;
+const
+  CAdim = 25;
+var
+  LForm: TCustomForm;
+  LAdimMs: Integer;
 begin
-// Önce alpha channel'ı hazırla
+  { Eski hâlin uc sorunu vardi:
+
+    1) Result HIC atanmiyordu (W1035) -> cagirana cop isaretci donuyordu.
+
+    2) Anonim thread `Self`i yakaliyordu. Metot donduktan sonra form FREE
+       edilirse `Self` sarkan bir isaretcidir; `Self.ComponentState`
+       okumak SERBEST BIRAKILMIS BELLEGI okumaktir. Bu her zaman istisna
+       atmaz — cogu zaman cop deger okur ve kontrol gecer, sonra
+       AlphaBlendValue yazilir. Bos `except` de bunu gizliyordu.
+       Cozum: Screen.CustomForms uzerinden formun HALA VAR oldugunu
+       dogruluyoruz; serbest birakilmis bir form o listeden cikarilmis
+       olur, yani sarkan isaretciyi guvenle eleriz.
+
+    3) Sleep(AFadeDuration div 25): AFadeDuration < 25 ise bolum 0 verir ve
+       dongu bosa doner. Alt sinir koyuldu.
+
+    Bos `except` de kaldirildi: kitin kurali (delphi-conventions.md) genel
+    yakalamayi yasakliyor, ve burada yuttugu sey gercek bir bellek hatasiydi. }
+  Result := Self;
+  LForm := Self;
+  LAdimMs := AFadeDuration div CAdim;
+  if LAdimMs < 1 then
+    LAdimMs := 1;
+
   Self.AlphaBlendValue := 0;
   Self.AlphaBlend := True;
   Self.Show;
 
-  // Basit bir döngü veya TTimer/TThread ile opacity artırılır
   TThread.CreateAnonymousThread(procedure
   var
     i: Integer;
   begin
-    for i := 0 to 25 do
+    for i := 0 to CAdim do
     begin
       TThread.Synchronize(nil, procedure
+      var
+        j: Integer;
+        LHalaVar: Boolean;
       begin
-        try
-          if (Self <> nil) and not (csDestroying in Self.ComponentState) then
-             Self.AlphaBlendValue := i * 10;
-        except
-          // Form o sırada yok edildiyse hatayı yut, uygulamayı patlatma
-        end;
+        LHalaVar := False;
+        for j := 0 to Screen.CustomFormCount - 1 do
+          if Screen.CustomForms[j] = LForm then
+          begin
+            LHalaVar := True;
+            Break;
+          end;
+        if LHalaVar and not (csDestroying in LForm.ComponentState) then
+          LForm.AlphaBlendValue := i * 10;
       end);
-      Sleep(AFadeDuration div 25);
+      Sleep(LAdimMs);
     end;
   end).Start;
 end;
 
 function TFormHelper._ArgClas<T>(AProc: TProc<T>): TArray<T>;
 var
- i:Integer;
+  i, LSayi: Integer;
 begin
-   for i := 0 to ComponentCount -1 do
-     begin
-       if Components[i].ClassType = T then
-       begin
-         if Assigned(AProc) then AProc(Components[i] as T);
+  { `ClassType = T` TAM ESLESMEYDI: alt siniflari eliyordu. _ArgClas<TButton>
+    bir TBitBtn'i dondurmuyordu - oysa TBitBtn bir TButton'dur ve cagiran
+    bunu bekler. `is` ile miras zinciri de kapsaniyor.
 
-         SetLength(Result,length(Result)+1);
-         Result[length(Result)-1]:=Components[i] as T;
-       end;
+    Ayrica dizi her eslesmede birer buyutuluyordu (O(n^2) yeniden ayirma);
+    once sayilip TEK SEFERDE ayriliyor. }
+  LSayi := 0;
+  for i := 0 to ComponentCount - 1 do
+    if Components[i] is T then
+      Inc(LSayi);
 
-     end;
+  SetLength(Result, LSayi);
+  if LSayi = 0 then
+    Exit;
 
+  LSayi := 0;
+  for i := 0 to ComponentCount - 1 do
+    if Components[i] is T then
+    begin
+      if Assigned(AProc) then
+        AProc(T(Components[i]));
+      Result[LSayi] := T(Components[i]);
+      Inc(LSayi);
+    end;
 end;
 
 function TFormHelper._EnsureInWorkArea: TCustomForm;
@@ -314,7 +500,7 @@ var
   NewLeft, NewTop: Integer;
 begin
   Result := Self;
-  R := ScreenWorkArea;
+  R := ScreenWorkArea(Self);   // A-03: KENDI monitorumuz
 
   NewLeft := Self.Left;
   NewTop := Self.Top;
@@ -344,7 +530,7 @@ var
   NewW, NewH: Integer;
 begin
   Result := Self;
-  R := ScreenWorkArea;
+  R := ScreenWorkArea(Self);   // A-03: KENDI monitorumuz
 
   // 1. Mevcut genişlik ve yükseklik ekrana sığıyor mu?
   if (Width <= R.Width) and (Height <= R.Height) then
@@ -354,6 +540,13 @@ begin
   if not AAllowShrink then  Exit(Self._EnsureInWorkArea);
 
   // --- ÖLÇEKLEME MANTIĞI ---
+
+  { NOT - burada sifira bolme korumasi YOK, cunku GEREKMIYOR.
+    Bu noktaya ancak yukaridaki ilk kontrol basarisiz olunca gelinir, yani
+    Width > R.Width olmak zorundadir - dolayisiyla Width > 0'dir. Onceki bir
+    duzeltme turunda buraya bir (Width <= 0) korumasi eklenmisti; olculdu,
+    ULASILAMAZ oldugu gorulup kaldirildi. Sifir boyutlu form zaten ilk
+    kontrolden _EnsureInWorkArea'ya cikiyor. }
 
   // 3. Oranları Hesapla (Genişlik ve Yükseklik için ne kadar küçülmeli?)
   RatioW := R.Width / Width;
@@ -374,12 +567,18 @@ begin
   // Örn: Ratio 0.8 ise -> ScaleBy(80, 100) demektir.
   if Ratio < 1.0 then
   begin
-    Self.ScaleBy(Round(Ratio * 100), 100);
+    { DIKKAT — hedef boyutlar ScaleBy'DAN ONCE hesaplanmali.
 
-    // Not: ScaleBy bazen formun BoundsRect'ini anında güncellemeyebilir,
-    // manuel olarak boyutları da set etmek garantidir.
+      Eski hâlde once ScaleBy cagriliyor, sonra `NewW := Round(Width * Ratio)`
+      yaziliyordu. Ama ScaleBy Width'i ZATEN kucultmustu; ikinci carpim ayni
+      orani bir kez daha uyguluyor ve form iki kat kuculuyordu.
+      Ornek: 1000 genislik, Ratio 0.8 -> ScaleBy sonrasi 800, sonra
+      800*0.8 = 640. Beklenen 800 idi. }
     NewW := Round(Width * Ratio);
     NewH := Round(Height * Ratio);
+
+    Self.ScaleBy(Round(Ratio * 100), 100);
+
     // SetBounds ile hem boyutlandır hem ortala
     Self.SetBounds(
       R.Left + ((R.Width - NewW) div 2),
@@ -393,6 +592,11 @@ end;
 
 function TFormHelper._Hide: TCustomForm;
 begin
+  { DIKKAT - MODAL formda bu metot formu KAPATIR, gizlemez.
+    Modal bir formun kendi mesaj dongusu vardir; Hide onu gizlemez, yalnizca
+    ModalResult atamak dongudan cikarir. Yani ad "hide" olsa da modal
+    baglamda etkisi iptaldir. Adi degistirmek cagiranlari kirardi; davranis
+    korunuyor, sozlesme burada yaziliyor. }
 Result := Self;
   if fsModal in Self.FormState then
     Self.ModalResult := mrCancel
@@ -401,6 +605,8 @@ Result := Self;
 end;
 
 function TFormHelper._MakeMDIChild: TCustomForm;
+var
+  LGorunurdu: Boolean;
 begin
 Result := Self;
   // Sadece Main form MDI container ise ve kendisi zaten child değilse
@@ -408,16 +614,24 @@ Result := Self;
      (Application.MainForm.FormStyle = fsMDIForm) and
      (Self.FormStyle <> fsMDIChild) then
   begin
-    Self.Hide; // Görsel titremeyi önlemek için önce gizle
-    //Self.BorderStyle := bsNone; // MDI Child için genelde tercih edilir
+    { ONCEKI GORUNURLUK GERI VERILIYOR.
+
+      Eski hâl Hide cagirip FormStyle degistiriyor ve orada biriyordu; yorum
+      da "MDI child'lar genelde otomatik gorunur" diyordu - bu bir TAHMINDI.
+      FormStyle degisimi pencere tanitiсisini yeniden yaratir ama Visible'i
+      True yapmaz; Hide zaten False yapmisti. Yani form GIZLI kaliyordu ve
+      cagiran bunu goremiyordu.
+      Bu metodun isi stili degistirmek; gorunurluk kararini degistirmek
+      degil. Girerken ne ise cikarken de o. }
+    LGorunurdu := Self.Visible;
+    Self.Hide;   // stil degisimindeki gorsel titremeyi onler
     Self.FormStyle := fsMDIChild;
-    // Window handle recreate edildikten sonra tekrar gösterilmesi gerekebilir
-    // Ancak MDI child'lar genelde otomatik görünür.
+    Self.Visible := LGorunurdu;
   end;
 end;
 
 
-class function TFormHelper._Modal(const AOnCreate, AOnBeforeFree: TProc<TCustomForm>): TModalResult;
+class function TFormHelper._Modal(const APosition:TPosition; const AOnCreate, AOnBeforeFree: TProc<TCustomForm>): TModalResult;
 var
   LForm: TCustomForm;
 begin
@@ -425,6 +639,7 @@ begin
   LForm := TFormClass(Self).Create(nil); // Owner nil, çünkü manuel free edeceğiz
   try
     if Assigned(AOnCreate) then AOnCreate(LForm);
+    LForm.Position:=APosition;
     Result := LForm.ShowModal;
 
     // Form kapandıktan sonra ama yok edilmeden önce son bir işlem (örn: veri okuma)
@@ -435,28 +650,93 @@ begin
   end;
 end;
 
-class procedure TFormHelper._ModalAsync(const ALoadData: TFunc<TObject>; const AOnDataReady: TProc<TObject, TCustomForm>);
+class function TFormHelper._ModalAsync(const ALoadData: TFunc<TObject>;
+  const AOnDataReady: TProc<TObject, TCustomForm>;
+  const AOnError: TProc<Exception>): TModalResult;
+var
+  LForm: TCustomForm;
+  LGecerli: IRadAsyncCtx;
 begin
-var LForm := Self.Create(nil);
+  { ESKI HALIN BES AYRI SORUNU VARDI - hepsi sessizdi:
 
-  // Form hemen açılır, kullanıcı bekletilmez
-  LForm.Show;
+    1) Adi "Modal" ama Show cagiriyordu; metot hemen donuyordu.
+    2) Form Create(nil) ile SAHIPSIZ yaratiliyor ve hicbir yerde free
+       edilmiyordu -> her cagrida bir form siziyordu.
+    3) LData'yi "AOnDataReady icinde free edin" diyordu, ama AOnDataReady
+       nil ise kimse etmiyordu -> sizinti.
+    4) ALoadData istisna atarsa TTask onu yutuyordu: form bos kaliyor,
+       kullanici hicbir sey gormuyor, hata kayboluyordu.
+    5) EN AGIRI: kullanici formu veri gelmeden kapatirsa LForm SARKAN
+       ISARETCI oluyordu ve geri cagirim olu nesneye erisiyordu.
 
-  TTask.Run(procedure
-  var
-    LData: TObject;
-  begin
-    // Ağır iş burada (DB sorgusu vs.)
-    LData := ALoadData();
+    Cozumun cekirdegi MODAL olmasi: ShowModal kendi mesaj dongusunu
+    calistirdigi icin TThread.Queue o dongu ayaktayken tetiklenir, yani
+    form yasarken doldurulur. Yine de kullanici veri gelmeden kapatabilir;
+    onun icin sayilan bir baglam nesnesi tutuyoruz. Closure onu tutar
+    (refcount canli kalir), metot form olmeden once Iptal isaretler.
+    Queue tetiklendiginde baglam iptal ise HICBIR SEYE dokunmaz. }
 
-    TThread.Queue(nil, procedure
-    begin
-      //LData nesnesini OnDataReady içinde Free etmeyi unutmayın
-      if Assigned(AOnDataReady) then
-        AOnDataReady(LData, LForm);
+  LGecerli := TRadAsyncCtx.Create;
+  LForm := TFormClass(Self).Create(nil);
+  try
+    TTask.Run(
+      procedure
+      var
+        LData: TObject;
+        LHata: TObject;
+      begin
+        LData := nil;
+        LHata := nil;
+        try
+          LData := ALoadData();
+        except
+          // Istisnayi TASIYORUZ: ana thread'de bildirilecek. Eski hâlde
+          // TTask onu sessizce yutuyordu.
+          LHata := AcquireExceptionObject;
+        end;
 
-    end);
-  end);
+        TThread.Queue(nil,
+          procedure
+          begin
+            if not LGecerli.Gecerli then
+            begin
+              // Form kapandi: forma da geri cagirima da DOKUNMA, sadece temizle.
+              LData.Free;
+              LHata.Free;
+              Exit;
+            end;
+
+            try
+              if LHata <> nil then
+              begin
+                if Assigned(AOnError) then
+                  AOnError(Exception(LHata))
+                else
+                  Application.ShowException(Exception(LHata));
+                LForm.ModalResult := mrAbort;
+                Exit;
+              end;
+
+              if Assigned(AOnDataReady) then
+                AOnDataReady(LData, LForm);
+            finally
+              { LData BU METODA aittir ve geri cagirim dondukten hemen sonra
+                silinir. Geri cagirim ihtiyaci olani kopyalamalidir. Eski
+                "siz free edin" kurali, AOnDataReady nil oldugunda sizinti
+                birakiyordu. }
+              LData.Free;
+              LHata.Free;
+            end;
+          end);
+      end);
+
+    Result := LForm.ShowModal;
+  finally
+    { ONCE iptal, SONRA free. Sirasi onemli: bu iki satirin arasinda
+      Queue tetiklenirse baglam zaten iptal oldugu icin forma dokunmaz. }
+    LGecerli.Iptal;
+    LForm.Free;
+  end;
 end;
 
 
@@ -491,8 +771,14 @@ end;
 function TFormHelper._SetAutoFree(const aAutoFree: Boolean): TCustomForm;
 begin
  Result:=self;
- if Self is TCoreForm then TCoreForm(Self).AutoFree:=aAutoFree;
+ if Self is TRadFormBase then TRadFormBase(Self)._AutoFree:=aAutoFree;
 
+end;
+
+function TFormHelper._SetPosition(const APosition: TPosition): TCustomForm;
+begin
+ result:=Self;
+ TForm(Self).Position:=APosition;
 end;
 
 function TFormHelper._SetStateMaximized: TCustomForm;
@@ -565,24 +851,52 @@ Result := Self;
 end;
 
 function TFormHelper._ShowWait: TCustomForm;
+const
+  CZamanAsimiMs = 5000;   // form hic aktiflesmezse burada takilip kalmayalim
+var
+  LBitis: UInt64;
 begin
-
-   while not Active do
-   Application.ProcessMessages;
+  { Eski hâli `while not Active do Application.ProcessMessages;` idi. Iki
+    ayri sorun:
+      * Result HIC atanmiyordu (W1035) -> cagirana COP ISARETCI donuyordu.
+      * Form hicbir zaman Active olmazsa (gizliyse, baska uygulama odagi
+        aldiysa, modal bir pencere ustteyse) dongu SONSUZA kadar donuyor ve
+        cekirdegi %100 mesgul ediyordu. Cikis kosulu yoktu.
+    Simdi hem Result atanir hem de zaman asimi var. }
+  Result := Self;
+  if not Showing then
+    Self.Show;
+  LBitis := GetTickCount64 + CZamanAsimiMs;
+  while (not Active) and (GetTickCount64 < LBitis) do
+  begin
+    Application.ProcessMessages;
+    Sleep(1);   // bosa donmeyi engeller
+  end;
 end;
 
 { TWinControlHelper }
 
 function TWinControlHelper._Position(const aRect: TRect; const aPosition: TWinPosition): TWinControl;
 begin
-      case aPosition of
-        wpTopLeft:    Result := _PositionEx(aRect, haInsideLeft,  vaInsideTop);
-        wpTopRight:   Result := _PositionEx(aRect, haInsideRight, vaInsideTop);
-        wpBottomLeft: Result := _PositionEx(aRect, haInsideLeft,  vaInsideBottom);
-        wpBottomRight:Result := _PositionEx(aRect, haInsideRight, vaInsideBottom);
-        wpCenter:     Result := _PositionEx(aRect, haCenter,      vaCenter);
-        wpCustom:     Result := Self as TForm;
-        end;
+  { Result ONCE atanir. Case'in else dali yok; atanmadan birakilirsa
+    fonksiyon COP BIR ISARETCI dondurur (W1035) ve cagiran onu TWinControl
+    sanip uzerinde metot cagirirsa erisim ihlali olur. TWinPosition'a
+    ileride bir uye eklendiginde bu sessizce olurdu. }
+  Result := Self;
+
+  case aPosition of
+    wpTopLeft:    Result := _PositionEx(aRect, haInsideLeft,  vaInsideTop);
+    wpTopRight:   Result := _PositionEx(aRect, haInsideRight, vaInsideTop);
+    wpBottomLeft: Result := _PositionEx(aRect, haInsideLeft,  vaInsideBottom);
+    wpBottomRight:Result := _PositionEx(aRect, haInsideRight, vaInsideBottom);
+    wpCenter:     Result := _PositionEx(aRect, haCenter,      vaCenter);
+    { wpCustom: konumu CAGIRAN belirler, burada dokunmuyoruz.
+      Eskiden `Result := Self as TForm` yaziyordu; bunun iki sorunu vardi:
+      hicbir sey konumlandirmiyordu (yani `as` tamamen bosunaydi), ve Self
+      bir TForm degilse EInvalidCast FIRLATIYORDU — bir TPanel'i wpCustom
+      ile cagirmak patliyordu. Result zaten yukarida Self. }
+    wpCustom:     ;
+  end;
 end;
 
 
@@ -606,7 +920,7 @@ end;
 function TWinControlHelper._Position(const aPosition: TWinPosition; const aForm: TCustomForm): TWinControl;
 begin
   if AForm=nil then
-    Result:=_Position(ScreenWorkArea,aPosition)
+    Result:=_Position(ScreenWorkArea(Self),aPosition)   // A-03
   else
     Result:=_Position(AForm.BoundsRect,aPosition)
 end;
@@ -619,6 +933,27 @@ var
 begin
   Result := Self;
 
+  { Bos referans dikdortgeni: hesap yapma, kontrolu YERINDE birak.
+
+    ARect iki kaynaktan gelir: ScreenWorkArea, ya da baska bir formun
+    BoundsRect'i (_Position'in aForm'lu asiri yuklemesi). O form henuz
+    gosterilmemisse BoundsRect (0,0,0,0) olabilir; o zaman
+
+      NewLeft := ARect.Right  - Width   ->  0 - 400 = -400
+      NewTop  := ARect.Bottom - Height  ->  0 - 300 = -300
+
+    cikar ve kontrol EKRAN DISINA tasinir. Kullanici hicbir sey gormez,
+    hata da almaz. Yerinde birakmak en kotu ihtimalle yanlis konum verir,
+    ama gorunur birakir.
+
+    IsEmpty, IsRectEmpty uzerinden calisir (System.Types:1676): sifir
+    alanli dikdortgenlerin yani sira TERS CEVRILMIS olanlari da yakalar.
+
+    Bu kontrol en basta: bail-out edeceksek asagidaki Position degisikligi
+    dahil hicbir yan etki birakmamaliyiz. }
+  if ARect.IsEmpty then
+    Exit;
+
   {
    MdiChil Formlar iin olabilir
    if Application.MainForm <> nil then  LockWindowUpdate(Application.MainForm.ClientHandle);
@@ -628,8 +963,39 @@ begin
     // Not: Eğer parent değişecekse Parent.Handle kullanılabilir.
     //SendMessage(Self.Handle, WM_SETREDRAW, WParam(False), 0);
     //Self.Perform(WM_SETREDRAW, 0, 0); // Çizimi durdur
+    { VCL, form konumunu bizden SONRA ezer — sessizce, hata vermeden:
+
+        * poDefaultPosOnly VARSAYILANDIR (Vcl.Forms.pas:5440) ve pencere
+          yaratilirken konumu CW_USEDEFAULT yapar (a.g.e. 7737), yani
+          Windows nereye isterse koyar.
+        * poScreenCenter / poDesktopCenter / poMainFormCenter /
+          poOwnerFormCenter ise CMShowingChanged icinde, OnShow'dan SONRA
+          formu yeniden konumlandirir (a.g.e. 9448).
+
+      Ikisi de sessiz: konum tutmaz ama istisna da alinmaz. Bu yuzden
+      poDesigned'a cekiyoruz — cagiran zaten "formu buraya koy" diyor,
+      bu VCL'e "sen karar verme" demenin ta kendisi.
+
+      YAN ETKI: bu fonksiyon bir forma uygulandiginda Position ozelligini
+      DEGISTIRIR. Bilerek sessiz; istisna firlatmak cagirani her seferinde
+      elle poDesigned yazmaya zorlardi, kazanci olmazdi.
+
+      Test TForm, TCustomForm DEGIL: Position, TCustomForm'da protected
+      (a.g.e. 1044); disaridan erisilebilir hale gelmesi TForm'un onu
+      yeniden yayimlamasiyla olur (a.g.e. 1315). TCustomForm ile test edip
+      TForm'a cast etmek, TForm olmayan bir form soyu icin denetimsiz bir
+      cast olurdu — su an alan yerlesimi ayni oldugu icin calisir, ama
+      tesadufen. }
+    if Self is TForm then
+      if TForm(Self).Position <> poDesigned then
+        TForm(Self).Position := poDesigned;
+
     Self.LockDrawing;
+
     try
+      //if self is TCustomForm then
+      // TForm(self).Position := poDesigned;
+
       // --- Yatay Hesaplama ---
       case AHorz of
         haInsideLeft:   NewLeft := ARect.Left + AOffset;
@@ -671,24 +1037,51 @@ end;
 
 constructor TFormEventBridge.CreateBridge(const AForm: TForm; const aAutoFree: Boolean);
 begin
+  { Eski hâlde AForm bir TCoreForm ise `inherited Create` HIC CAGRILMIYORDU.
+    Sonucu: TComponent kurucusu calismadigi icin nesnenin sahibi yoktu -
+    kimse Free etmiyordu, yani her TCoreForm icin bir bridge SIZIYORDU.
+    Ustelik FControl/FOldProc nil kaliyor, nesne yari kurulmus donuyordu.
 
- if AForm is TCoreForm then
-  AForm._SetAutoFree(aAutoFree)
- else
+    Simdi inherited HER DURUMDA cagriliyor (nesne gecerli ve forma ait
+    olsun diye). TCoreForm'a ozel olan tek sey OnClose kancasinin
+    takilmamasi: TCoreForm AutoFree'yi kendi yonetiyor, iki mekanizma ust
+    uste binmemeli. }
+  if AForm = nil then
+    raise Exception.Create('TFormEventBridge: AForm nil olamaz');
+
+  inherited Create(AForm);
+  AutoFree := aAutoFree;
+
+  if AForm is TRadFormBase then
   begin
-    inherited Create(AForm);
-    AutoFree := aAutoFree;
-    if AForm = nil then Exit;
-
-    FOldClose := AForm.OnClose;
-    AForm.OnClose := HookClose;
-
+    // TCoreForm kapanis davranisini kendi yonetir; OnClose'u ele gecirmiyoruz.
+    AForm._SetAutoFree(aAutoFree);
+    Exit;
   end;
 
-
+  FOldClose := AForm.OnClose;
+  AForm.OnClose := HookClose;
 end;
 
 
+
+destructor TFormEventBridge.Destroy;
+begin
+  { SARKAN ISARETCI DUZELTMESI.
+
+    TFormFactory.Get<T> formu FForms sozlugune ekliyordu, ama sozlukten
+    DUSUREN kimse yoktu - UnregisterForm yazilmisti ve hicbir yerden
+    cagrilmiyordu. Bridge AutoFree=True ile formu kapanista yok ettigi
+    icin sozlukte serbest birakilmis bir nesnenin adresi kaliyordu; ayni
+    anahtarla ikinci Get<T> o olu isaretciyi donduruyordu.
+
+    Bridge forma ait oldugu icin form yok edilirken bu destructor da
+    calisir - dusurmek icin dogru yer burasi. }
+  if Assigned(GlobalFormFactory) and Assigned(FControl) and
+     (FControl is TCustomForm) then
+    GlobalFormFactory.UnregisterForm(TCustomForm(FControl));
+  inherited Destroy;
+end;
 
 procedure TFormEventBridge.HookClose(Sender: TObject; var Action: TCloseAction);
 begin
@@ -700,11 +1093,21 @@ end;
 
 
  procedure TFormEventBridge.DoWndProc(var Message: TMessage);
-var
- s:string;
 begin
-   //if Assigned(FOldProc) then
-  FOldProc(Message);
+  { FOldProc kontrolu ACIK olmali: Assigned testi yorumda birakilmisti ve
+    hook takilamadigi her durumda burada nil cagrilirdi. }
+  if Assigned(FOldProc) then
+    FOldProc(Message);
+
+  { GlobalFormFactory initialization'da YARATILMIYOR (asagida yorumda) ve
+    hicbir yerde otomatik kurulmuyor. Nil kontrolu olmadan her mesajda
+    erisim ihlali olurdu. Kontrolu buraya koyuyoruz, otomatik yaratmiyoruz:
+    yasam dongusunu kimin yonettigi cagiranin karari. }
+  if not Assigned(GlobalFormFactory) then
+    Exit;
+  if not Assigned(FControl) then
+    Exit;   // Notification opRemove'da nil'lenmis olabilir
+
    case Message.Msg of
     CM_ACTIVATE: GlobalFormFactory.DoEvent(TForm(FControl),TFormEventType.fetActivate);
     CM_DEACTIVATE:GlobalFormFactory.DoEvent(TForm(FControl),TFormEventType.fetDeactivate);
@@ -729,11 +1132,18 @@ end;
 
 
 destructor TFormFactory.Destroy;
-var
- frm:TCustomForm;
 begin
-  for frm in FForms.Values do
-   TForm(frm).Free;
+  { FABRIKA FORMLARI FREE ETMEZ - iki sebeple:
+
+    1) CIFT SERBEST BIRAKMA. New<T> formu bir Owner ile yaratir (verilmezse
+       Application). Sahip zaten yok edecek; fabrika da ederse ayni nesne
+       iki kez serbest birakilir.
+
+    2) SOZLUK DEGISIRKEN UZERINDE DONULUYORDU. `for frm in FForms.Values`
+       icinde Free cagrilinca bridge'in destructor'i UnregisterForm'u
+       tetikler, o da FForms.Remove yapar - numaralandirici gecersizlesir.
+
+    Fabrika yalnizca KAYIT tutar, SAHIPLIK iddia etmez. }
   FForms.Free;
   inherited;
 end;
@@ -749,54 +1159,65 @@ end;
 procedure TFormFactory.UnregisterForm(const AForm: TCustomForm);
 var
   LKey: string;
+  LBulunan: string;
+  LVar: Boolean;
 begin
   if FForms = nil then Exit;
 
+  { Eski hâl numaralandirma SIRASINDA Remove cagiriyordu. Hemen ardindaki
+    Break sayesinde pratikte patlamiyordu (bir sonraki MoveNext hic
+    calismiyor) - yani KAZARA guvenliydi, tasarim geregi degil. Delphi'nin
+    TDictionary numaralandiricisinda .NET'teki degisiklik korumasi yok, bu
+    yuzden hata da vermezdi. Anahtari once bul, dongunun DISINDA sil. }
+  LVar := False;
+  LBulunan := '';
   for LKey in FForms.Keys do
-  begin
     if FForms[LKey] = AForm then
     begin
-      FForms.Remove(LKey);
+      LBulunan := LKey;
+      LVar := True;
       Break;
     end;
-  end;
+
+  if LVar then
+    FForms.Remove(LBulunan);
 end;
 
 function TFormFactory.New<T>(const AFormStyle: TFormStyle; AOwner: TComponent): T;
-var
-  LBridge: TFormEventBridge;
-  LNeedStyleChange: Boolean;
 begin
   if AOwner = nil then AOwner := Application;
 
-  // 1. Formu oluştur
-  Result := TFormClass(T)._New() as T;  //T.Create(AOwner);
+  { _New() PARAMETRESIZ cagriliyordu; yani hem AOwner hem AFormStyle sessizce
+    yok sayiliyor, form her zaman varsayilan sahiple (Application) ve
+    fsNormal ile yaratiliyordu. Cagiranin verdigi Owner hicbir zaman
+    kullanilmiyordu (H2077 bunu gosteriyordu). Artik ikisi de geciriliyor;
+    asagidaki stil duzeltmesi de boylece cogu durumda hic gerekmiyor. }
+  Result := TFormClass(T)._New(AFormStyle, AOwner) as T;
   //TForm(T).VisualManager:=Self as IFormVisualManager;
   
-  // 2. Bridge Tak (AutoFree = True: Form kapandığında otomatik Free olur)
-  LBridge := TFormEventBridge.CreateBridge(Result, True);
+  { IKI AILE, AYNI SOZLESME - ama farkli yoldan.
 
-  // 3. Create Eventini Manuel Tetikle
-  //DoFormEvent(Result,fetCreate);
+    TRadFormBase kendi yasam dongusu kancalarina sahiptir (DoClose zaten
+    FAutoFree'yi uygular, DoDestroy kaydi dusurur, NotifyEvent global
+    dinleyiciyi besler), dolayisiyla ona kopru TAKILMAZ; yalnizca bayrak
+    verilir. Kopru takmak cift tetikleme uretirdi - ayrinti icin
+    TRadFormBase'in tip bildirimindeki tablo.
 
-  // 4. MDI ve Stil Ayarları
-  LNeedStyleChange := (Result.FormStyle <> AFormStyle);
-  if (AFormStyle = fsMDIChild) and LNeedStyleChange then
-  begin
-    if (Application.MainForm = nil) or (Application.MainForm.FormStyle <> fsMDIForm) then
-      LNeedStyleChange := False; // Ana MDI Form yoksa zorlama
-  end;
+    Eski hâlde bu dal SESSIZCE ATLANIYORDU: `if not (Result is TRadFormBase)`
+    kosulu yalnizca kopruyu degil AutoFree niyetini de es geciyordu, yani
+    ayni Get<T> cagrisi duz forma "kapaninca yok et", TRadFormBase'e
+    "yasamaya devam et" diyordu. Olculdu: rad_formfactory testi 03/04. }
+  if Result is TRadFormBase then
+    TRadFormBase(Result)._AutoFree := True
+  else
+    { Kopru formun kendisine sahiplenir (inherited Create(AForm)), o yuzden
+      donen referansi tutmuyoruz - form ile birlikte yok edilir. }
+    TFormEventBridge.CreateBridge(Result, True);
 
-  if LNeedStyleChange then
-  begin
-    if Result.Visible then Result.Hide;
-    Result.FormStyle := AFormStyle;
-    if AFormStyle = fsMDIChild then
-    begin
-      Result.Visible := True;
-      Result.BringToFront;
-    end;
-  end;
+  { STIL BLOGU KALDIRILDI. _New(AFormStyle, AOwner) cagrisi ayni islemi
+    zaten yapiyor (bkz. TFormHelper._New) - buradaki kopya birebir aynisiydi
+    ve kosulu (`Result.FormStyle <> AFormStyle`) _New donduktan sonra her
+    zaman False oluyordu. Olu kod. }
 end;
 
 procedure TFormFactory.RegisterEvent(AEvent: TGlobalFormEvent);
@@ -818,6 +1239,15 @@ begin
   // 1. Listede Var mı?
   if FForms.TryGetValue(LKey, LExisting) then
   begin
+    { DENETIMLI cast. Eski hâl `T(LExisting)` yaziyordu - denetimsiz. Ayni
+      anahtari iki farkli form sinifiyla kullanmak (ki AUniqueName verildiginde
+      cok kolay) bir formu baska bir sinif sanip donduruyordu; her alan
+      erisimi yanlis ofsete gidiyordu. Sessiz tip bozulmasi yerine acik hata. }
+    if not (LExisting is T) then
+      raise Exception.CreateFmt(
+        'TFormFactory.Get<%s>: "%s" anahtari zaten bir %s tutuyor.',
+        [T.ClassName, LKey, LExisting.ClassName]);
+
     Result := T(LExisting);
     // Mevcut formu öne getir ve küçültülmüşse normal hale getir
     if Result.WindowState = wsMinimized then
@@ -862,6 +1292,9 @@ end;
 
 procedure TWinControlHook.DoWndProc(var Msg: TMessage);
 begin
+  { Destroy sirasinda WindowProc geri verilmeden bir mesaj gelirse, ya da
+    hook hic takilamadiysa FOldProc nil olur. }
+  if Assigned(FOldProc) then
     FOldProc(Msg);
 end;
 
@@ -882,10 +1315,8 @@ end;
 function TObjectHelper._ValueGetPathText(const APath: RawUtf8): RawUtf8;
 var
  P: PRttiCustomProp;
- obj:TObject;
 begin
   Result := '';
-  obj:=TObject(self);
  if GetInstanceByPath(TObject(Self), APath, P, '.') then
   begin
    Result:=P^.GetValueText(TObject(Self));
@@ -897,10 +1328,8 @@ end;
 function TObjectHelper._ValueSetPathText(const APath, AValue: RawUtf8): Boolean;
 var
  P: PRttiCustomProp;
- obj:TObject;
 begin
   Result := False;
-  obj:=TObject(self);
  if GetInstanceByPath( TObject(Self), APath, P, '.') then
    Result:= P^.SetValueText(TObject(Self),AValue);
 
@@ -909,25 +1338,56 @@ end;
 function TObjectHelper._AsIX<T>: T;
 var
   LGuid: TGUID;
+  LInfo: PTypeInfo;   // TypeInfo(T) dogrudan ifade olarak .Name cozumlemiyor (E2671)
 begin
-  PPointer(@Result)^ := nil;
-  if Self = nil then Exit;
-  LGuid := GetTypeData(TypeInfo(T)).Guid; // 2. T'nin GUID bilgisini al
+  { Result yonetilen bir tiptir ve giriste ZATEN nil'dir; eski hâldeki iki
+    `PPointer(@Result)^ := nil` yazimi gereksizdi. Ustelik PPointer ile nil
+    yazmak sayim yapmaz - Result canli bir referans tutuyor olsaydi sizinti
+    olurdu. Supports zaten basarisizlikta Result'i nil birakir. }
+  if Self = nil then
+    Exit;
 
-  // Bu fonksiyon hem QueryInterface kontrolü yapar hem de nesne IInterface'den türememişse (düz TObject ise) çökmesini engeller.
-  if not Supports(Self, LGuid, Result) then
-    PPointer(@Result)^ := nil;
+  LInfo := TypeInfo(T);
+  LGuid := GetTypeData(LInfo).Guid;
+
+  (* GUID'SIZ ARAYUZ KONTROLU. Bir arayuz kendi bildiriminde koseli parantez
+     icinde tirnakli bir GUID tasimiyorsa GetTypeData sifir GUID doner;
+     Supports o GUID'le sorgulayinca nesne arayuzu GERCEKTEN uygulasa bile
+     False doner. Yani sessizce "desteklenmiyor" denirdi. Simdi acikca hata
+     veriyor - cunku duzeltmesi cagiranin arayuzune GUID eklemektir,
+     sessizce nil almak degil.
+
+     NOT: bu yorum yildiz-parantez bicimindedir, suslu parantez degil.
+     Sebebi kitin kendi kurali (delphi-conventions.md): suslu yorum ilk
+     kapanis susu gordugu yerde biter, dolayisiyla GUID sozdizimini ornek
+     olarak yazmak yorumu erken kapatir. Bu duzeltme turunda tam olarak o
+     yasandi - E2052 "Unterminated string". *)
+  if LGuid = TGUID.Empty then
+    raise Exception.CreateFmt(
+      '_AsIX<%s>: arayuz GUID tasimiyor. Bildirimine koseli parantez ' +
+      'icinde tirnakli bir GUID ekleyin.',
+      [string(LInfo^.Name)]);
+
+  Supports(Self, LGuid, Result);
 end;
 
 function TObjectHelper._AsObj<T>: T;
 begin
-  Result:= Self as T;
+  { KARDESINDEN FARKI BILINCLI: _AsObj bir CAST'tir, _AsIX bir SORGUDUR.
+    Uymayan tipte bu metot istisna atar (Delphi'nin `as` deyimi), _AsIX ise
+    nil doner. Ikisini ayni davranisa cekmedik: "bu nesne su tiptir" demek
+    ile "su tipi destekliyor mu" diye sormak farkli sorulardir. Sessizce nil
+    donmek birinci soruda hatayi gizlerdi. }
+  Result := Self as T;
 end;
 
 
 
 function TObjectHelper._SetEvent(const AEventName: string; const AMethod: TMethod): TObject;
 begin
+  { Property yoksa SESSIZCE hicbir sey yapar ve yine Self doner - akici
+    zincirleme icin bilincli. Basarinin dogrulanmasi gerekiyorsa cagiran
+    IsPublishedProp'u kendisi kontrol etmelidir. }
  Result:=Self;
  if IsPublishedProp(Self, AEventName) then
   SetMethodProp(Self, AEventName, AMethod);
@@ -939,15 +1399,33 @@ var
 begin
   LTypeInfo := TypeInfo(T);   // 1. Adım: T'nin Tip Bilgisini Al
 
-  if (LTypeInfo <> nil) and (LTypeInfo.Kind = tkInterface) then     // 2. Adım: Eğer hedef bir Interface ise (Örn: _To<IMyInterface>)
+  if LTypeInfo = nil then
+    raise Exception.Create('_To<T>: T icin tip bilgisi yok.');
+
+  if LTypeInfo.Kind = tkInterface then     // 2. Adım: Eğer hedef bir Interface ise (Örn: _To<IMyInterface>)
   begin
     if not Supports(Self, GetTypeData(LTypeInfo).Guid, Result) then // Nesnenin bu interface'i destekleyip desteklemediğini kontrol et ve güvenli cast yap
       PPointer(@Result)^ := nil; // Desteklemiyorsa nil döndür
   end
   else
   begin
-    // 3. Adım: Eğer hedef bir Sınıf veya Pointer ise (Hard Cast)
-    // En hızlı yöntem: Bellek adresini direkt kopyala
+    { T SINIF ya da ISARETCI OLMAK ZORUNDA.
+
+      Eski hâl bu dalda hicbir kontrol yapmadan nesne isaretcisini Result'in
+      bellegine yaziyordu. T uzerinde kisit da yok - yani `X._To<string>`
+      DERLENIYORDU. Bir nesne isaretcisini string degiskenine yazmak, o
+      degisken kapsamdan cikinca sayim azaltmasini NESNE BELLEGINDE
+      calistirir: yigin bozulmasi. Ayni sey Integer, Double ve record icin de
+      gecerli. Derleyici tek kelime etmiyordu.
+
+      Delphi'de "sinif ya da arayuz" tek bir kisitla ifade edilemedigi icin
+      kontrol calisma zamaninda: desteklenmeyen tip sessiz bozulma yerine
+      acik bir hata alir. }
+    if not (LTypeInfo.Kind in [tkClass, tkPointer]) then
+      raise Exception.CreateFmt(
+        '_To<%s>: yalnizca sinif, arayuz veya isaretci tipleri desteklenir. ' +
+        'Deger tipleri bellegi bozardi.', [string(LTypeInfo.Name)]);
+
     PPointer(@Result)^ := Pointer(Self);
   end;
  //PPointer(@Result)^ := Pointer(Self);
@@ -971,10 +1449,8 @@ end;
 function TObjectHelper._ValueGetPath(const APath: RawUtf8): Variant;
  var
  P: PRttiCustomProp;
- obj:TObject;
 begin
   Result := Null;
-  obj:=TObject(self);
  if GetInstanceByPath(TObject(Self), APath, P, '.') then
   Result:=P^.Prop._ValueGet(Self);
 
@@ -990,13 +1466,11 @@ begin
   //Result:= GetPropValue(Self,AProp);
 end;
 
-function TObjectHelper._ValueSetPath(const APath, AValue: Variant): Boolean;
+function TObjectHelper._ValueSetPath(const APath: RawUtf8; const AValue: Variant): Boolean;
 var
  P: PRttiCustomProp;
- obj:TObject;
 begin
   Result := False;
-  obj:=TObject(self);
  if GetInstanceByPath( TObject(Self), APath, P, '.') then
    Result:= P^.Prop.SetValue(Self,AValue);
 
@@ -1009,16 +1483,25 @@ begin
  Result:=StripHotkey(Self.Caption);
 end;
 
-class function TMenuItemHelp._Create(const ACaption: string; const AAction: TAction;
-  const AImgIndex: Integer): TMenuItem;
+function TMenuItemHelp._ClearSubMenu: TMenuItem;
+var
+ i:Integer;
 begin
-  Result := TMenuItem.Create(nil);
-  with Result do
-  begin
+ Result :=Self;
+ for i := Self.Count-1 downto 0 do
+   Items[i].Free;
+end;
 
-    Caption := ACaption;
-    if AAction<>nil then Action:=AAction;
-    if AImgIndex>-1 then ImageIndex:=AImgIndex;
+class function TMenuItemHelp._Create(const ACaption: string; const AAction: TAction;  const AImgIndex: Integer): TMenuItem;
+begin
+  { `with` kaldirildi: kitin delphi-conventions.md kurali bunu acikca
+    yasakliyor - baglami gizler, ayni adli alan/degisken oldugunda hangisine
+    yazdigin belirsizlesir. }
+  Result := TMenuItem.Create(nil);
+  Result.Caption := ACaption;
+  if AAction <> nil then Result.Action := AAction;
+  if AImgIndex > -1 then Result.ImageIndex := AImgIndex;
+  begin
     //ShortCut := AShortCut;
     //OnClick := AOnClick;
     //HelpContext := hCtx;
@@ -1030,19 +1513,49 @@ end;
 
 
 
+function TMenuItemHelp._SetClick(const aClick: TNotifyEvent): TMenuItem;
+begin
+ Result:=Self;
+ Self.OnClick:=aClick;
+end;
+
+function TMenuItemHelp._SetHint(const aHint: string): TMenuItem;
+begin
+ Result:=Self;
+ Self.Hint:=aHint;
+end;
+
+function TMenuItemHelp._SetTag(const aTag: Integer): TMenuItem;
+begin
+ Result:=Self;
+ Self.Tag:=aTag;
+end;
+
 function TMenuItemHelp._TreeCaption(const ASplitter: string): string;
 var
  itm:TMenuItem;
+ LBaslik: string;
 begin
- itm:=Self;
- Result:=itm._Caption;
- itm:=itm.Parent;
- while itm<>nil do
- begin
-   Result:=itm._Caption+ASplitter+Result;
-   itm:=itm.Parent;
- end;
+  { BOS BASLIKLI atalar atlanir.
 
+    TMainMenu.Items'in kendisi de bir TMenuItem'dir ve basligi BOSTUR.
+    Eski hâl onu da zincire katiyor, sonuca bas tarafta bos bir segment ve
+    fazladan bir ayrac ekliyordu:
+
+      beklenen : Dosya\Yeni\Proje\Bos
+      donen    : \Dosya\Yeni\Proje\Bos
+
+    Ayni sey basligi verilmemis her ara oge icin de gecerliydi. }
+  itm := Self;
+  Result := itm._Caption;
+  itm := itm.Parent;
+  while itm <> nil do
+  begin
+    LBaslik := itm._Caption;
+    if LBaslik <> '' then
+      Result := LBaslik + ASplitter + Result;
+    itm := itm.Parent;
+  end;
 end;
 
 function TMenuItemHelp._Add(const ACaption: string; const AAction: TAction;
@@ -1081,16 +1594,26 @@ end;
   {$REGION 'TActionListHelp'}
 
   procedure TActionListHelp._DefaultKeySet(const arg:TArray<TShortCut>);
+  var
+    LSon: Integer;
   begin
-   // if Length(arg) = ActionCount then
-   try
-        for var i := 0 to High(arg)-1 do
-         Actions[i].ShortCut:=arg[i];
+    { Eski hâlin uc hatasi vardi:
 
-    except
-        Exception.Create('TActionListHelp._DefaultSet');
-   end;
+      * `to High(arg)-1` SON ELEMANI ATLIYORDU. Dizideki son kisayol hicbir
+        zaman uygulanmiyordu.
+      * `arg` ActionCount'tan uzunsa Actions[i] siniri asiyordu.
+      * except blogu `Exception.Create(...)` yaziyordu — bu bir istisna
+        FIRLATMAZ, sadece bir nesne yaratip ortada birakir: hem gercek hata
+        yutuluyor hem de bellek siziyor. Kitin kurali (delphi-conventions.md)
+        genel yakalamayi ve yutmayi zaten yasakliyor.
 
+      Simdi sinir acikca hesaplaniyor, istisna yakalama yok — bir hata varsa
+      cagirana ulassin. }
+    LSon := High(arg);
+    if LSon > ActionCount - 1 then
+      LSon := ActionCount - 1;
+    for var i := 0 to LSon do
+      Actions[i].ShortCut := arg[i];
   end;
 
 
@@ -1139,7 +1662,12 @@ function TActionListHelp._FindName(const AName: string): TAction;
 
   function TActionListHelp._UniqName: string;
   begin
-      Result:=Owner.ClassName+'.'+Self.Name;
+      { Owner nil olabilir (kod icinde yaratilmis, sahipsiz bir ActionList).
+        Eski hâl bu durumda erisim ihlali veriyordu. }
+      if Owner = nil then
+        Result := Self.Name
+      else
+        Result := Owner.ClassName + '.' + Self.Name;
   end;
 
 
@@ -1164,14 +1692,20 @@ begin
    ShortCut:=act.ShortCut;
    Tag:=act.Tag;
    Visible:=act.Visible;
-  if Owner.FindComponent(act.Name) =nil then Name:=act.Name;
+  { Owner nil olabilir; eski hâl bu durumda erisim ihlali veriyordu.
+    Sahipsizsek ad catismasi kontrolu de yapilamaz, adi degistirmiyoruz. }
+  if (Owner <> nil) and (Owner.FindComponent(act.Name) = nil) then
+    Name := act.Name;
 
 end;
 
 function TActionHelp._Execute: Boolean;
 begin
- if Enabled and Visible then Result:=Execute;
-
+  { Result once False: aksiyon pasif/gizliyse eski hâl atama YAPMIYORDU ve
+    cagirana rastgele bir Boolean donuyordu (W1035). }
+  Result := False;
+  if Enabled and Visible then
+    Result := Execute;
 end;
 
 class procedure TActionHelp._Visible(const arg: TArray<TAction>; const AVisible, AEnable: Boolean);
@@ -1311,6 +1845,9 @@ function TSaveDialogHelp._Title(const ATitle: string): TSaveDialog;
   var
    itm:TMenuItem;
   begin
+     { TActionListHelp._For ayni kontrolu yapiyordu, burada eksikti: nil
+       gecilirse erisim ihlali olurdu. }
+     if not Assigned(AProc) then Exit;
      for itm in Items do AProc(itm);
   end;
 
@@ -1327,11 +1864,10 @@ function TMainMenuHelp._FindCaption(const ACaption: string): TMenuItem;
   begin
 
 
+        { OutputDebugString kaldirildi: her cagrida hata ayiklama ciktisi
+          uretiyordu - uretim kodunda kalmis bir kalinti. }
         for Result in Items do
-        begin
-          OutputDebugString(pChar(Result.Caption+'--'+ACaption));
          if AnsiSameCaption(Result.Caption, ACaption) then Exit;
-        end;
       Result:=nil;
   end;
 
@@ -1356,33 +1892,27 @@ var
   S: string;
   prn:TPersistent;
 begin
-  prn:=self;
+  prn := Self;
   Result := GetNamePath;
 
- while (TPersistentHack(prn).GetOwner <>nil) and (TPersistentHack(prn).GetOwner.ClassType<>TApplication) do
-  begin
-    prn:=TPersistentHack(prn).GetOwner;
-    var asd :=prn.ClassName;
-  end;
-       if prn is TCustomForm then
-      s:=prn.ClassName
-      else
-     S := prn.GetNamePath;
-    if S <> '' then
-      Result := S + '.' + Result;
+  { En ustteki sahibe kadar yuruyoruz (TApplication haric). }
+  while (TPersistentHack(prn).GetOwner <> nil) and
+        (TPersistentHack(prn).GetOwner.ClassType <> TApplication) do
+    prn := TPersistentHack(prn).GetOwner;
 
-  exit;
-  while TPersistentHack(prn).GetOwner <>nil do
-    begin
-     if prn is TCustomForm then
-      s:=prn.ClassName
-      else
-     S := prn.GetNamePath;
-    if S <> '' then
-      Result := S + '.' + Result;
-     prn:=TPersistentHack(prn).GetOwner;
-    end;
+  { prn HALA Self ise sahip yok demektir - onek eklenmez.
+    Eski hâl bu durumda S := prn.GetNamePath diyordu, yani Result ile AYNI
+    degeri aliyor ve sonucu ikiye katliyordu: "Edit1" -> "Edit1.Edit1". }
+  if prn = Self then
+    Exit;
 
+  if prn is TCustomForm then
+    S := prn.ClassName
+  else
+    S := prn.GetNamePath;
+
+  if S <> '' then
+    Result := S + '.' + Result;
 end;
 
 
@@ -1393,7 +1923,10 @@ var
   k: TRttiKind;
   v: TSynVarData;
 begin
-  result := '';
+  { Null, '' DEGIL. TObjectHelper._ValueGet "deger yok" icin Null kullaniyor;
+    ayni birimde iki farkli "yok" gosterimi olmasi cagirani yaniltir. Ele
+    alinmayan tip turleri (rkClass, rkSet, rkArray...) de artik Null doner. }
+  Result := Null;
   if (@self = nil) or
      (Instance = nil) then
     exit;
@@ -1415,8 +1948,219 @@ begin
 
 end;
 
+{ TRadFormBase }
+
+procedure TRadFormBase.NotifyEvent(const AEvent: TFormEventType);
+begin
+  DoEvent(AEvent);                                // turev icin uzanti noktasi
+  if Assigned(GlobalFormFactory) then
+    GlobalFormFactory.DoEvent(Self, AEvent);      // global dinleyici
+end;
+
+procedure TRadFormBase.ClientWndProc(var Message: TMessage);
+const
+  { MDICLIENT'in kendini kurarken ve yerlesimini yeniden hesaplarken
+    gonderdigi IC yapilandirma mesaji. Windows SDK'da BELGELENMEMISTIR ve
+    Winapi.Messages de onu tanimlamaz - o yuzden kendi adimizla tutuluyor.
+    Cikplak $3F yazmak, ileride bu satiri okuyanin neye baktigini
+    bilememesi demekti. }
+  WM_MDICLIENT_FRAMECALC = $3F;
+var
+  { NativeInt, DWORD DEGIL: Get/SetWindowLongPtr Win64'te LONG_PTR (64 bit)
+    kullanir. DWORD'e almak sessiz bir daralmadir - GWL_EXSTYLE degeri 32
+    bite sigdigi icin pratikte calisiyordu, ama tip yanlisti ve derleyici
+    bunun icin uyari uretmiyor. }
+  ExStyle: NativeInt;
+begin
+  if (FormStyle = fsMDIForm) and (Message.Msg = WM_MDICLIENT_FRAMECALC) then
+  begin
+    { ClientHandle 0 olabilir (pencere henuz yaratilmamis ya da yok
+      edilmis). Korumasiz GetWindowLongPtr(0, ...) anlamsiz deger dondurur
+      ve ardindaki SetWindowPos gecersiz tutamaca yazmaya calisir. }
+    if ClientHandle <> 0 then
+    begin
+      ExStyle := GetWindowLongPtr(ClientHandle, GWL_EXSTYLE);
+
+      { Yalnizca stil GERCEKTEN varsa dokun. Kosulsuz yazmak her yerlesim
+        hesabinda bir SetWindowPos tetikliyordu; SWP_FRAMECHANGED cerceveyi
+        yeniden cizdirdigi icin bu gorunur titremeye yol acar. }
+      if (ExStyle and WS_EX_CLIENTEDGE) <> 0 then
+      begin
+        SetWindowLongPtr(ClientHandle, GWL_EXSTYLE, ExStyle and not WS_EX_CLIENTEDGE);
+
+        { SWP_FRAMECHANGED sart: stil degisikligi ancak bu bayrakla pencereye
+          uygulanir. Digerleri "konumu/boyutu/z-sirasini degistirme" demek. }
+        SetWindowPos(ClientHandle, 0, 0, 0, 0, 0, SWP_FRAMECHANGED or
+          SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER);
+      end;
+    end;
+
+    { $3F BURADA TUKETILIR - inherited'a GITMEZ, ve bu bilincli bir karardir.
+
+      "Her yolda inherited cagrilmali" diye degistirmeyi denedik; sonuc
+      OLCULDU: 30 saniyede 796.240 ClientWndProc cagrisi, %100 CPU, kilitli
+      surec. Sebep geri besleme dongusu - inherited MDICLIENT'in kendi
+      yordamina gider, o da WS_EX_CLIENTEDGE'i GERI KOYAR; biz tekrar
+      sileriz, SWP_FRAMECHANGED yeni bir $3F dogurur, bastan baslar.
+      Stili "zaten temizse dokunma" korumasi bunu engellemez, cunku her
+      turda inherited onu yeniden setler.
+
+      Yani bu Exit bir ihmal degil, donguyu kiran seyin ta kendisi.
+      Kaldirmadan once rad_coreform testini calistirin: 08 numarali iddia
+      tam bu firtinayi yakalar. }
+    Exit;
+  end;
+
+  inherited;
+
+end;
+
+procedure TRadFormBase.CMTextChanged(var Msg: TMessage);
+begin
+  inherited;
+  { Koprunun kapsayip bu sinifin kapsamadigi TEK olay buydu. Caption
+    degisimi ne DoCreate/DoShow gibi bir sanal kanca ne de bir olay
+    uretir; yalnizca bu mesaj gelir. }
+  NotifyEvent(fetCaptionChange);
+end;
+
+procedure TRadFormBase.Activate;
+begin
+  inherited;
+  { FIsShow'a DOKUNULMAZ. Eski hâlde Activate True, Deactivate False
+    yaziyordu - yani alan "gosteriliyor mu" degil "odakta mi" demekti ve
+    _IsShowing adi yalan soyluyordu. Somut sonucu _ShowWait'te sonsuz
+    dongu idi: baska bir pencere odak alinca FIsShow False oluyor, form
+    HALA gorunur oldugu icin Show kisa devre yapiyor, DoShow calismiyor,
+    AFTERSHOW postalanmiyor, donguden cikis kosulu hic olusmuyordu.
+    Artik FIsShow yalnizca AFTERSHOW'da True, DoHide'da False olur. }
+  NotifyEvent(fetActivate);
+end;
+
+
+procedure TRadFormBase.Deactivate;
+begin
+  inherited;
+  NotifyEvent(fetDeactivate);
+end;
+
+procedure TRadFormBase.DoClose(var Action: TCloseAction);
+begin
+  if FAutoFree then
+   Action:=TCloseAction.caFree;
+  NotifyEvent(fetClose);
+  inherited;
+
+end;
+
+procedure TRadFormBase.DoCreate;
+begin
+  inherited DoCreate;
+  NotifyEvent(fetCreate);
+end;
+
+procedure TRadFormBase.DoDestroy;
+begin
+  inherited;
+  NotifyEvent(fetFree);
+
+  { SOZLUK KAYDINI DUSUR. TFormFactory.Get<T> her formu FForms'a ekler ama
+    UnregisterForm'un tek cagirani TFormEventBridge.Destroy idi - ve bu
+    sinifa kopru takilmaz (bkz. tip bildirimindeki gerekce). Sonuc: sozlukte
+    serbest birakilmis nesnenin adresi kaliyordu ve ayni anahtarla ikinci
+    Get<T> o olu isaretciyi donduruyordu (olculdu: rad_formfactory testi 11).
+    Kopru takmak yerine dogru cozum bu: sinif kendi kaydini kendi dusurur. }
+  if Assigned(GlobalFormFactory) then
+    GlobalFormFactory.UnregisterForm(Self);
+end;
+
+procedure TRadFormBase.DoEvent(const AEvent: TFormEventType);
+begin
+  { Bilerek bos: turevlerin uzanti noktasi. Global dinleyiciye ulasan yol
+    NotifyEvent'tir, bu metot degil - boylece `inherited` cagirmayan bir
+    override fabrika baglantisini koparamaz. }
+end;
+
+procedure TRadFormBase.DoHide;
+begin
+  inherited;
+  FIsShow :=False;
+  NotifyEvent(fetHide);
+end;
+
+procedure TRadFormBase.DoShow;
+begin
+  inherited;
+  PostMessage(Self.Handle, WM_CMD,99, WM_EVENT_AFTERSHOW);
+end;
+
+procedure TRadFormBase.WmCMD(var Msg: TMessage);
+begin
+ if  Msg.WParam =99 then
+ begin
+  //CmdSys(Msg.LParam);
+     case Msg.LParam of  //Sistem Mesajları Eksi ile başlar
+      // WM_EVENT_CREATE:DoFormEvent(oCreate);
+       WM_EVENT_AFTERSHOW: begin FIsShow :=True; NotifyEvent(fetShow); end;
+       //WM_EVENT_LOAD  *-1:;
+       //0:Result:=(FIsShow and Self.Showing);
+      //-1:begin Close; end; //F_Main.MDITab.RemoveTab(Self);
+      //-2:Self.WindowState:=TWindowState.wsMinimized;
+      //-3:Self.WindowState:=TWindowState.wsMaximized;
+
+    end;
+ end;
+
+end;
+
+
+
+
+function TRadFormBase._IsShowing: Boolean;
+begin
+  Result :=FIsShow;
+end;
+
+{ TFormHelper._ShowWait'i BILEREK golgeler. Delphi'de gercek metot helper'i
+  yener, yani TRadFormBase ornekleri icin daima BU calisir. Dogrusu da bu:
+  helper surumu VCL'in `Active` bayragini bekler (form gorunur ama odaksiz
+  ise hic gerceklesmez), bu surum sinifin kendi AFTERSHOW sinyalini bekler.
+  Iki surumun ayni cikis korumalarini tasimasi sart - asagidaki zaman asimi
+  o yuzden helper'daki ile aynidir. }
+function TRadFormBase._ShowWait: TForm;
+const
+  CZamanAsimiMs = 5000;
+var
+  LBitis: UInt64;
+begin
+  Result := Self;
+  if FIsShow then Exit;
+
+  { `FIsShow := False` KALDIRILDI. Zaten False oldugu tek durumda gereksiz,
+    True oldugu durumda ise yukaridaki Exit'ten sonra hic ulasilmiyor -
+    ama daha kotusu, durumu sifirlayip Show'un kisa devre yapmasi hâlinde
+    geri yazacak kimse kalmiyordu. }
+  Show;
+
+  LBitis := GetTickCount64 + CZamanAsimiMs;
+  while (not FIsShow) and (not Application.Terminated) and
+        (GetTickCount64 < LBitis) do
+  begin
+    Application.ProcessMessages;
+    Sleep(1);   { bosa donup cekirdegi %100 mesgul etmemek icin }
+  end;
+end;
+
 initialization
-//GlobalFormFactory:=TFormFactory.Create;
+  { GlobalFormFactory BILEREK YARATILMIYOR. Yasam dongusunu uygulama
+    belirler; burada yaratmak, kimsenin istemedigi bir fabrikayi her
+    projeye zorlamak olurdu. Kullanacak uygulama kendisi kurar:
+
+      GlobalFormFactory := TFormFactory.Create;
+
+    Kurulmadigi surece TFormEventBridge.DoWndProc onu nil kontrolüyle
+    atlar - bkz. o metodun basi. Finalization yine de temizler ki
+    uygulama kurduysa sizinti kalmasin. }
 
 finalization
  if Assigned(GlobalFormFactory) then FreeAndNil(GlobalFormFactory);

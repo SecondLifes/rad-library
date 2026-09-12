@@ -650,11 +650,20 @@ end;
 procedure TfrmSetting.BeforeDestruction;
 begin
   inherited;
+  { Isleyiciler once sokulur: asagida serbest birakilan sozluk ve listeler
+    alt bilesenler (izgara, NavBar) HENUZ yasarken olur. Yikim sirasinda bir
+    OnItemChanged gelirse DoRowChanged serbest FByRow'a dokunurdu -
+    TcxCustomVerticalGrid.DoItemChanged korumasiz (cxVGrid.pas:8934).
+    Tetiklendigi olculmedi; bu bir savunma. }
+  cxVerticalGrid1.OnEditValueChanged := nil;
+  cxVerticalGrid1.OnItemChanged      := nil;
+  edtSearch.Properties.OnChange      := nil;
+  dxNavBar.OnLinkClick               := nil;
   FDoc := nil;
-  FByRow.Free;
-  FItems.Free;
-  FList.Free;
-  FWarn.Free;
+  FreeAndNil(FByRow);
+  FreeAndNil(FItems);
+  FreeAndNil(FList);
+  FreeAndNil(FWarn);
 end;
 
 // -- gezinme ---------------------------------------------------------------

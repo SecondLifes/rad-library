@@ -206,3 +206,27 @@ Yedi sonda, **Win32 ve Win64**, kapsam-içi **sıfır tanı**:
 `PullTest` 73 · `RepoListenerTest` 14 · `PullPopupTest` 9 · `RuntimeTest` 8 (+1 atlandı) ·
 `DfmRoundTripTest` 7 · `DestructorTest` 6 · `PerConsumerTest` 6 —
 platform başına **123 iddia**, artı canlı PostgreSQL'e karşı `LiveLookupTest` **18**.
+
+---
+
+## DevExpress denetimi düzeltmeleri (2026-09-12) — yapılamayan ölçümler
+
+Bulgular DevExpress belge MCP'si ve kurulu 26.1.3 kaynağıyla çıkarıldı;
+düzeltmeler `DxAuditTest.dpr` ile kırmızı-önce ölçüldü (21 iddia, Win32 + Win64).
+
+| Ne | Neden yapılamadı | Ne kapatır |
+|---|---|---|
+| `Kisayol.Edit.pas` derlenmesi | Birim `rad.rtl` kullanıyor, bu birim depoda **yok**; ayrıca JVCL (`JvHotKey`) gerekiyor. Düzeltme (görünüm başına kolon indeksi, `try..finally`, `with`) yalnızca **okunarak** doğrulandı. Birim bu değişiklikten önce de derlenmiyordu. | `rad.rtl`'in yeri bulununca derleme + kısayol formunda iki görünümle deneme |
+| `Rad.Editor.pas` derlenmesi | `DesignEditors.dcu` yok. Navigator editörüne eklenen `Modified` çağrısı dahil, değişiklik **derlenmedi**. | Kullanıcının paket derlemesi (**Ö-03**) |
+| `k.setting` yıkım sırası | Yıkım sırasında `OnItemChanged` gelip gelmediği ölçülmedi; değişiklik bir savunma. `SettingTest` 71/71 yeşil kaldı. | Görünür pencereyle yıkım sondası |
+| `dm.dev` gerçek form üzerinde | Doğrulama sondada `TcxMaskEdit` + `ValidateEdit` ile ölçüldü; bir formda odak değişimiyle tetiklenen yol denenmedi. | **Ö-07** tarzı görünür pencere sondası |
+
+### Bu koşuda gerçekten ölçülenler
+
+`DxAuditTest` 21 · `PullTest` 73 · `RepoListenerTest` 14 · `PullPopupTest` 9 ·
+`RuntimeTest` 8 (+1 atlandı) · `DfmRoundTripTest` 7 · `DestructorTest` 6 ·
+`PerConsumerTest` 6 — **Win32 ve Win64**; `SettingTest` 71 (iki platform);
+canlı PostgreSQL'e karşı `LiveLookupTest` 18. HEAD'e karşı ölçülen kırmızılar:
+`Fix` kilidi -1, 500 turda 56.000 bayt sızıntı, iki erişim ihlali, geçerli
+numaranın reddi, pattern uyarısının yokluğu. `Permission.Edit` tanı sayısı
+HEAD ile aynı (16, hepsi önceden var olan W1057/W1035).

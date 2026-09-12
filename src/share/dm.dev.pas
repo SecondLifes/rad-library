@@ -20,7 +20,6 @@ type
     Edit_tel: TcxEditRepositoryMaskItem;
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
-    procedure Edit_telPropertiesValidate(Sender: TObject; var DisplayValue: TcxEditValue; var ErrorText: TCaption; var Error: Boolean);
   private
     { Private declarations }
   public
@@ -45,10 +44,10 @@ begin
   SkinController._Save;
 end;
 
-procedure Tdm_dev.Edit_telPropertiesValidate(Sender: TObject; var DisplayValue: TcxEditValue; var ErrorText: TCaption; var Error: Boolean);
-begin
- ErrorText:=DisplayValue;
- Error:=True;
-end;
+(* Edit_tel'in OnValidate isleyicisi KALDIRILDI: kosulsuz Error := True
+   yapiyordu ve ValidationOptions varsayilani [evoRaiseException] oldugu icin
+   HER numara bir istisnayla reddediliyordu (DxAuditTest T01). Eksik numarayi
+   maskenin kendisi zaten reddediyor (T02 olcumu) - gercek bir dogrulama
+   kaybolmadi. *)
 
 end.

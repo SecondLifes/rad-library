@@ -58,11 +58,14 @@ type
     procedure TreeWrite(Writer: TWriter);
     function GetDataBinding: TcxDBDataBinding;
     procedure SetDataBinding(const Value: TcxDBDataBinding);
+    /// <summary>SaveToField'in on kosullari; ihlalde sebebi soyleyen ERadPermission.</summary>
+    procedure CheckLink;
   protected
     procedure DefineProperties(Filer: TFiler); override;
     procedure Loaded; override;
   public
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
 
     /// <summary>Tanimlari bagli alandan okur. Baglanti yoksa False, istisna yok.</summary>
     function LoadFromField: Boolean;
@@ -289,7 +292,11 @@ procedure TPermission_Edit.Fix;
   i,DotPos:Integer;
   s:string;
 begin
-cxTree.BeforeUpdate;
+{ BeginUpdate - BeforeUpdate DEGIL. BeforeUpdate bir kilit degil, CheckChanges
+  kancasidir (cxTL.pas:16496); onu EndUpdate ile eslemek kilidi -1'e dusuruyor
+  ve sonraki her dengeli Begin/End cifti degisiklikleri uygulamiyordu
+  (DxAuditTest P04-P06). }
+cxTree.BeginUpdate;
  try
  for i := 0 to cxTree.AbsoluteCount -1 do
   begin
@@ -579,7 +586,10 @@ procedure TPermission_Edit.ReLoad(const aRootName:string);
 var
  i:Integer;
 begin
-   if FJson <> nil then
+   { Eskiden yalnizca bu atama korunuyordu; hemen alttaki FJson.Exists yine
+     nil uzerinden cagriliyordu. }
+   if FJson = nil then
+     Exit;
    FRootName :=aRootName;
    if not FJson.Exists(FRootName) then
       FJson.A[FRootName]:=DocList(mFast);
@@ -758,6 +768,41 @@ begin
   FStorage := psDfm;
 end;
 
+destructor TRadPermission.Destroy;
+begin
+  { TcxCustomDataBinding bir TPersistent'tir, sahibi yoktur: serbest
+    birakilmazsa hem kendisi hem ic TDataLink'i sizar ve datalink DataSource'a
+    kayitli kalir (olculdu: 500 turda 56000 bayt, DxAuditTest S01). }
+  FreeAndNil(FDataBinding);
+  inherited;
+end;
+
+procedure TRadPermission.CheckLink;
+var
+  LDataSet: TDataSet;
+  LDataSetAdi: string;
+begin
+  if (FDataBinding.DataSource = nil) or (FDataBinding.DataField = '') then
+    raise ERadPermission.CreateResFmt(@SRadPermNoLink, [Name]);
+
+  LDataSet := FDataBinding.DataSource.DataSet;
+  if LDataSet <> nil then
+    LDataSetAdi := LDataSet.Name
+  else
+    LDataSetAdi := '';
+  if (LDataSet = nil) or not LDataSet.Active then
+    raise ERadPermission.CreateResFmt(@SRadPermClosed, [Name, LDataSetAdi]);
+
+  if FDataBinding.Field = nil then
+    raise ERadPermission.CreateResFmt(@SRadPermNoField,
+      [Name, LDataSetAdi, FDataBinding.DataField]);
+
+  { Bos dataset'te TDataSet.Edit bir kayit EKLER; yetki alanini yazmak icin
+    sessizce yeni satir acmak cagirani sasirtir. }
+  if LDataSet.IsEmpty then
+    raise ERadPermission.CreateResFmt(@SRadPermNoRecord, [Name, LDataSetAdi]);
+end;
+
 procedure TRadPermission.DefineProperties(Filer: TFiler);
   function DoWrite: Boolean;
   begin
@@ -811,11 +856,7 @@ function TRadPermission.SaveToField: Boolean;
 var
   LBizAldik: Boolean;
 begin
-  if not FDataBinding.IsDataSourceLive then
-  begin
-   raise ERadPermission.CreateFmt('Hata :%s -> %s',[FDataBinding.DataSource.Name,FDataBinding.DataField]);
-   Exit;
-  end;
+  CheckLink;
   { Dataset ZATEN duzenleme modundaysa Post ETMEYIZ. Etseydik cagiranin
     ayni kayittaki DIGER bekleyen degisikliklerini de, o daha hazir
     olmadan islerdik - bilesenin isi yetki alanini yazmak, cagiranin kayit

@@ -26,6 +26,11 @@ that break something else in the kit.
 
 ### Added
 
+- `src/test/scratch/rad_dev_repolisteners/DxAuditTest.dpr` — red-first probe
+  for the 2026-09-12 DevExpress audit: `Permission.Edit` lock balance, leak and
+  error contract, `help.Dev._Host` outside a grid, `dm.dev` phone validation,
+  and pattern-column masters in `Rad.Dev`. Runs headless, 21 assertions.
+
 - `src/test/scratch/rad_dev_repolisteners/PullPopupTest.dpr` — the pull's real
   popup path, which needs a visible window because
   `TcxCustomDropDownEdit.DropDown` returns immediately on an invisible one
@@ -181,6 +186,62 @@ that break something else in the kit.
   `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.
 
 ### Fixed
+
+- **DevExpress audit (2026-09-12), each reproduced red before fixing and green
+  after in `src/test/scratch/rad_dev_repolisteners/DxAuditTest.dpr` (new, 21
+  assertions, Win32 + Win64).** Behavior was checked against the DevExpress
+  documentation MCP and the installed 26.1.3 source.
+  - `src/share/dm.dev.pas` / `.dfm` — **every phone number was rejected.**
+    `Edit_tel`'s `OnValidate` set `Error := True` unconditionally, and the
+    default `ValidationOptions` is `[evoRaiseException]` (`cxEdit.pas:1521`),
+    so a valid number raised an exception whose message was the number
+    itself. The handler is removed; the mask still rejects an incomplete
+    number on its own (measured).
+  - `src/component/Permission.Edit.pas` — `Fix` opened its block with
+    `BeforeUpdate`, which is a `CheckChanges` hook, not a lock
+    (`cxTL.pas:16496`), and closed it with `EndUpdate`. The lock counter went
+    to **-1**, so every later balanced Begin/End pair left the tree unlocked.
+    Now `BeginUpdate`.
+  - `src/component/Permission.Edit.pas` — `TRadPermission` never freed its
+    `TcxDBDataBinding` (a `TPersistent` with no owner). Each instance leaked
+    the binding and its `TDataLink` — 56,000 bytes over 500 create/free
+    cycles — and left the link registered with the `DataSource`. A destructor
+    now frees it.
+  - `src/component/Permission.Edit.pas` — `SaveToField` with no `DataSource`
+    raised an access violation while building its own error message. It now
+    raises `ERadPermission` with the unit's existing resourcestrings (they were
+    declared but unused), and **an empty dataset is now refused** instead of
+    letting `TDataSet.Edit` silently insert a new row. `ReLoad` no longer
+    dereferences a nil document.
+  - `src/core/help.Dev.pas` — `_GridItem` (and therefore `_Host`,
+    `_CaptionOf`, `_DataSet`) raised an access violation for an editor with no
+    `Parent`, and for **any** editor on an ordinary `TdxLayoutControl`: it
+    treated every layout control as the grid's detached edit form and cast the
+    editor's `Tag` to a layout item. It now checks that the editor's form really
+    is a `TcxGridCustomDetachedEditForm`. Dead code after `Exit` and a `with`
+    were removed.
+  - `src/component/Rad.Dev.pas` — `PullWarning` (and so `RadChainAudit`) now
+    reports an `AMaster` that is a **detail-level (pattern) column**. Its value
+    can never be read — it is always `Unassigned` (measured) — so the list
+    always opened against an empty master, silently. Two comments that said a
+    column with no focused record yields `Null` were corrected: it yields
+    `Unassigned` (`cxGridCustomTableView.pas:13724`). The code already handled
+    both.
+  - `src/share/Kisayol.Edit.pas` — `TableAct`'s columns were used to index
+    `TableGlobal`'s records, which only worked while both views kept the same
+    column order. Each view now uses its own columns, update blocks are in
+    `try..finally`, the style handler tolerates an empty value, and a `with` was
+    removed. **Not compiled:** the unit uses `rad.rtl`, which does not exist in
+    this repository.
+  - `src/packages/Rad.Editor.pas` — a debugging `ShowMessage` was left on the
+    navigator editor's live path, followed by dead code that cast
+    `TcxControlNavigator` to the unrelated `TcxGridViewNavigator`. The editor
+    now checks the type, applies the change and calls `Modified`. **Not
+    compiled:** `DesignEditors.dcu` is unavailable here.
+  - `src/share/k.setting.pas` — the frame now detaches its grid, search and
+    NavBar handlers before freeing the lookup tables they use. This is a
+    defensive change: whether an event actually fires during destruction was
+    not measured.
 
 - `src/component/Rad.Dev.pas` — **a repository item deleted while consumers
   were still attached raised an access violation, every time.** The destructor

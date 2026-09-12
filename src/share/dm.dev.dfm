@@ -32,7 +32,6 @@ object dm_dev: Tdm_dev
     end
     object Edit_tel: TcxEditRepositoryMaskItem
       Properties.EditMask = '!\(999\)999-9999;1;_'
-      Properties.OnValidate = Edit_telPropertiesValidate
     end
   end
   object StyleRepository: TcxStyleRepository

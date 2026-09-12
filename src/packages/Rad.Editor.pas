@@ -416,28 +416,16 @@ end;
 
 procedure TCxNavigatorEditor.Edit;
 begin
-  ShowMessage(GetComponent(0).ClassName) ;
+  { Editor TcxNavigatorButton turundeki property'ler icin kayitli; o
+    property'leri yayinlayan nesne TcxCustomNavigatorButtons'tir. Eskiden
+    burada bir hata ayiklama ShowMessage'i ve exit'ten sonra kalan, ilgisiz iki
+    sinifi (TcxControlNavigator -> TcxGridViewNavigator) birbirine cast eden
+    olu kod vardi. }
+  if GetComponent(0) is TcxCustomNavigatorButtons then
+  begin
     TcxCustomNavigatorButtons(GetComponent(0))._TR;
-    exit;
-
-  if GetComponent(0).ClassName='TcxGridTableViewNavigator' then
-  begin
-    TcxCustomNavigatorButtons(TcxGridViewNavigator(GetComponent(0)).Buttons)._TR;
-    TcxGridViewNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
-  end else if GetComponent(0).ClassName='TcxNavigator' then
-  begin
-    TcxCustomNavigatorButtons(TcxNavigator(GetComponent(0)).Buttons)._TR;
-    TcxNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
-  end else if GetComponent(0).ClassName='TcxGridViewNavigator' then
-  begin
-    TcxGridViewNavigator(GetComponent(0)).Buttons._TR;
-    TcxGridViewNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
-  end else if GetComponent(0).ClassName='TcxControlNavigator' then
-  begin
-    TcxGridViewNavigator(GetComponent(0)).Buttons._TR;
-    TcxGridViewNavigator(GetComponent(0)).InfoPanel.DisplayMask:='[RecordIndex] / [RecordCount]';
+    Modified;
   end;
-
 end;
 
 initialization

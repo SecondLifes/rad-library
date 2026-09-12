@@ -439,11 +439,12 @@ type
        AMaster: AMaster property'sine atanmis bilesen - bir editor ya da bir
          grid KOLONU.
        AMasterValue: _ValueOf(AMaster). Kolonda ODAKLI kaydin degeridir;
-         odakli kayit yoksa NULL gelir (help.Dev.pas:367 - _ValueOf
-         Result'i Null ile baslatir; bu yorum eskiden yanlislikla
-         "Unassigned" diyordu). Isleyici yine de hem VarIsNull hem
-         VarIsEmpty gozetmelidir: master bir EDITOR ise EditValue
-         atanmamis/Unassigned olabilir.
+         odakli kayit yoksa UNASSIGNED gelir - kolonun EditValue'su oyle
+         doner (cxGridCustomTableView.pas:13724, 26.1.3; DxAuditTest G02).
+         Detay seviyesi (pattern) kolonunda deger HIC okunamaz, hep
+         Unassigned'dir (G01; PullWarning bunu bildirir). Null yalnizca
+         _ValueOf'un tanimadigi bir turde gelir. Isleyici bu yuzden hem
+         VarIsNull hem VarIsEmpty gozetmelidir.
 
        Sender NEDEN AYIRT ETMEZ: AOnCascade'dekiyle ayni gerekce - bir
        RepositoryItem'a bagli tum tuketiciler AYNI Properties ORNEGINI
@@ -2056,9 +2057,10 @@ begin
 
   (* Master'in degeri: help.Dev'deki _ValueOf HER IKI sekli de kabul eder -
      editor ise EditValue, grid KOLONU ise ODAKLI kaydin degeri. Kolonda
-     odakli kayit yoksa NULL doner (help.Dev.pas:367; bu yorum eskiden
-     yanlislikla "Unassigned" diyordu). Isleyiciye oldugu gibi geciyoruz,
-     uydurma bir deger uretmiyoruz. *)
+     odakli kayit yoksa UNASSIGNED doner (kolonun EditValue'su,
+     cxGridCustomTableView.pas:13724; DxAuditTest G02). ApplyAutoFilter
+     Null/Unassigned/bos metni ayni "bos master" sayar. Isleyiciye oldugu
+     gibi geciyoruz, uydurma bir deger uretmiyoruz. *)
   LValue := _ValueOf(LMaster);
 
   { Isleyici liste dataset'ini kapatip acacak. Ayni dataset'i paylasan baska
@@ -2156,6 +2158,18 @@ begin
   if ListSource = nil then
     Ekle('AMaster atanmis ama ListSource yok: pull suzecek bir dataset ' +
          'bulamaz.');
+
+  (* Detay seviyesi kolonu: tasarimcida secilebilen TEK ornek pattern
+     gorunumundedir ve DevExpress belgesine gore pattern gorunumde deger
+     okunamaz (TcxCustomGridTableItem.EditValue, TcxCustomGridView.IsPattern).
+     Olculdu: _ValueOf hep Unassigned doner (DxAuditTest G01), yani filtre
+     her acilista bos master ile calisir ve liste bos gelir - sessizce. *)
+  if (FMasterSlot.Get(1) is TcxCustomGridTableItem) and
+     (TcxCustomGridTableItem(FMasterSlot.Get(1)).GridView <> nil) and
+     TcxCustomGridTableItem(FMasterSlot.Get(1)).GridView.IsPattern then
+    Ekle('AMaster bir detay seviyesi (pattern) gorunumunun kolonu: pattern ' +
+         'gorunumde deger okunamaz, master hep bos gelir ve liste hic ' +
+         'dolmaz. Ust seviyedeki bir kolonu ya da bir editoru master yapin.');
 
   (* Bu ucuncu madde en sinsisi ve OLCULMUS bir davranisa dayaniyor.
      Pull, listeyi master'a gore SUZER. Saklanan anahtar o filtrenin disinda

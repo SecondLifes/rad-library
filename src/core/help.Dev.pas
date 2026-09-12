@@ -127,6 +127,7 @@ function _FieldOf(AConsumer: TComponent): TField;
 
 implementation
  uses
+ Vcl.Forms,
  rad,
  mormot.core.base,mormot.core.variants, mormot.core.text
  ;
@@ -176,12 +177,8 @@ end;
 procedure TcxNavigatorControlButtonsHelper._TR;
 Procedure up(Btn:TcxNavigatorButton;Img:Byte;Hints:String);
 begin
-  with Btn do
-  begin
-    ImageIndex:=Img;
-    Hint:=Hints;
-
-  end;
+  Btn.ImageIndex:=Img;
+  Btn.Hint:=Hints;
 end;
 begin
 
@@ -310,9 +307,6 @@ end;
   end;
 
   function TcxCustomTextEditHelp._GridItem: TcxCustomGridTableItem;
-var
-  frm               : TcxGridDetachedEditFormAcces;
-  i                 : Integer;
   begin
     { Result BASLATILMALI: iki dal da tutmazsa (grid disi bir editor)
       donen deger TANIMSIZ kaliyordu - W1035. Cagiran 'nil mi' diye
@@ -329,17 +323,16 @@ var
         Result :=
           TcxCustomGridTableItem(TcxCustomEdit(self).InplaceParams.Position.Item)
       end
-    else if Self.Parent.ClassName = 'TdxLayoutControl' then
-      Result := TcxGridDetachedEditFormLayoutItem(self.Tag).GridViewItem;
-    Exit;
-    frm := TcxGridDetachedEditFormAcces(self.Parent.Parent.Parent);
-    for i := 0 to frm.lgContentRoot.Count - 1 do
-      begin
-
-        //s:=TcxGridDBColumn(TcxGridDetachedEditFormLayoutItem(frm.lgContentRoot.Items[i]).GridViewItem).DataBinding.FieldName;//TcxGridDetachedEditFormLayoutItem( frm.lgRoot.Items[i]).GridViewItem.Caption;
-
-      end;
-
+    (* Detached edit form: DevExpress oradaki editorun Tag'ine layout item'i
+       koyar (cxGridDetachedEditForm.pas:286, kendi GetLayoutItem'i). Eskiden
+       HER TdxLayoutControl'deki editor boyle sayiliyordu - formdaki siradan
+       bir layout control'de Tag = 0 iken nil, dolu iken rastgele bir adres
+       cast ediliyordu; Parent'siz editorde de Parent.ClassName AV veriyordu
+       (DxAuditTest H01/H02). Artik editorun formu gercekten o form mu diye
+       bakiliyor. *)
+    else if (Self.Tag <> 0) and
+            (GetParentForm(Self) is TcxGridCustomDetachedEditForm) then
+      Result := TcxGridDetachedEditFormLayoutItem(Self.Tag).GridViewItem;
   end;
 
 { Tuketici erisimcileri }

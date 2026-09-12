@@ -14,7 +14,7 @@
   ZINCIR NASIL ISLER
     AComponent1..4  : bu editor degistiginde HABER VERILECEK hedefler
                       (bir editor ya da bir grid kolonu - kolon da bir
-                      TComponent'tir: cxGridCustomTableView.pas:3406).
+                      TComponent'tir: cxGridCustomTableView.pas:3407).
     CascadeField    : hedefe gecirilecek alan adi ("ulke_id" gibi).
     CascadeTag      : serbest tamsayi yuku (seviye no, tur kodu, ...).
     OnCascade       : dolu her hedef icin BIR kez tetiklenir; imzasi
@@ -267,7 +267,7 @@ type
 
      NEDEN KENDI BILDIRICIMIZ: Properties bir TPersistent'tir, Notification
      ALAMAZ. DevExpress ayni sorunu Images icin gizli bir yardimci BILESENLE
-     cozuyor (TcxCustomEditProperties.GetFreeNotificator, cxEdit.pas:1639) ama
+     cozuyor (TcxCustomEditProperties.GetFreeNotificator, cxEdit.pas:1375) ama
      o alan PRIVATE - torun erisemez. Bu yuzden ayni deseni kendi ornegimizle
      kuruyoruz. Koruma olmazsa: zincirdeki editor/kolon yok edilince isaretci
      sarkar ve ilk erisimde erisim ihlali olur (kit kurali,
@@ -492,6 +492,8 @@ type
         parametre koymak yerine alanda tutuluyor: ForEach geri cagirimi
         TRadSlotNotify imzasina bagli. }
       FCascadeSource: TComponent;
+      { Kaskad suresince: degisiklik VERIDEN mi geldi (bkz. DoCascade). }
+      FCascadeFromData: Boolean;
       (* PULL tarafi. FMasterSlot AYRI bir tutucudur, AComponent1..4'un
          yuvalarindan biri DEGIL: TRadEditSlots'un FilledCount/ForEach'i
          "push hedefleri" demektir ve master oraya konsaydi kaynak KENDI
@@ -562,7 +564,11 @@ type
       destructor Destroy; override;
       /// <summary>Bagli her zincir hedefi icin OnCascade'i tetikler.
       /// ASource degisikligi baslatan editordur.</summary>
-      procedure DoCascade(ASource: TComponent; const AValue: Variant);
+      /// <remarks>AFromData = True: deger veriden geldi (kayitta gezinme).
+      /// Gecersiz kilma (onbellek + AOnCascade) yine yapilir, ama
+      /// AClearTargetsOnCascade hedefin degerini TEMIZLEMEZ.</remarks>
+      procedure DoCascade(ASource: TComponent; const AValue: Variant;
+        AFromData: Boolean = False);
       /// <summary>Cozulmus-anahtar onbellegini bosaltir (liste degistiyse).</summary>
       procedure ResetLocateCache;
       /// <summary>Dolu zincir yuvasi sayisi (ChainWarning icin).</summary>
@@ -647,7 +653,13 @@ type
 
          Yalnizca TcxCustomEdit hedeflerinde islem yapar - bir grid KOLONUNUN
          "degeri" satira gore degisir, kolon duzeyinde temizlemek anlamsizdir.
-         Varsayilan False: davranis degisikligi opt-in. *)
+         Varsayilan False: davranis degisikligi opt-in.
+
+         DB EDITORDE KAYITTA GEZINME TEMIZLEMEZ: orada degisiklik veriden
+         gelir ve hedef kendi degerini ayni kayittan alir (DbNavTest). DB
+         formunda "ulke degisince sehri sil" kurali icin dogru yer yine de
+         KAYIT alanidir (ulke_id alaninin TField.OnChange'i) - editor degeri
+         temizlemek alani yazmaz. *)
       property AClearTargetsOnCascade:Boolean read FClearTargets write FClearTargets default False;
       property AOnCascade:TRadCascadeEvent read FCascadeEvent write FCascadeEvent;
 
@@ -708,6 +720,13 @@ type
       procedure SetProperties(Value: TRadLookupComboBoxProperties);
     private
       FSearchTimer: TTimer;
+      (* > 0 iken deger VERIDEN geliyor: DB binding'in DataChanged'i (kayitta
+         gezinme, dataset'in tazelenmesi) EditValue'yu yeniden atiyor ve bu da
+         DoEditValueChanged'e iniyor (cxDBEdit.pas:2279 -> cxEdit.pas:5706).
+         Kaskad bu durumda hedefin DEGERINI temizlememeli - hedef kendi degerini
+         ayni kayittan alir (DbNavTest D01/D02). Sayac, cunku DataChanged ic
+         ice gelebilir. Binding sinifi implementation'da (TRadDBLookupEditDataBinding). *)
+      FDataChanging: Integer;
       procedure SearchTimerTick(Sender: TObject);
       procedure RestartSearchTimer;
     protected
@@ -750,7 +769,7 @@ type
       procedure CascadeNow;
       (* Pull'u ELLE tetikler; CascadeNow'in pull karsiligi. GEREKLI, cunku
          TcxCustomDropDownEdit.DropDown "if not IsWindowVisible(Handle) then
-         Exit" ile BASLIYOR (cxDropDownEdit.pas:3252): GORUNMEYEN bir
+         Exit" ile BASLIYOR (cxDropDownEdit.pas:3253): GORUNMEYEN bir
          pencerede DoInitPopup HIC calismaz. Bassiz bir sonda pull mantigini
          ancak buradan olcebilir. AFilterOnPopup=False iken de tek giristir. *)
       procedure FilterNow;
@@ -1735,7 +1754,36 @@ begin
     Exit;
   { ActiveProperties: repository uzerinden paylasilan Properties kullaniliyorsa
     dogru ornek odur, Properties degil. }
-  ActiveProperties.DoCascade(Self, EditValue);
+  ActiveProperties.DoCascade(Self, EditValue, FDataChanging > 0);
+end;
+
+type
+  (* Kayit degisimini kullanici/kod degisikliginden AYIRT etmenin tek yeri.
+     TcxDBEditDataBinding.DataChanged sanal ve protected (cxDBEdit.pas:192);
+     gezinmede EditValue'yu burada yeniden atiyor (:2279). Sinif
+     implementation'da: public API degil, yalnizca GetDataBindingClass
+     tarafindan uretilir. *)
+  TRadDBLookupEditDataBinding = class(TcxDBLookupEditDataBinding)
+  protected
+    procedure DataChanged; override;
+  end;
+
+procedure TRadDBLookupEditDataBinding.DataChanged;
+var
+  LEd: TRadCustomLookupComboBox;
+begin
+  if Edit is TRadCustomLookupComboBox then
+    LEd := TRadCustomLookupComboBox(Edit)
+  else
+    LEd := nil;
+  if LEd <> nil then
+    Inc(LEd.FDataChanging);
+  try
+    inherited DataChanged;
+  finally
+    if LEd <> nil then
+      Dec(LEd.FDataChanging);
+  end;
 end;
 
 { TRadDBLookupComboBox }
@@ -1752,7 +1800,7 @@ end;
 
 class function TRadDBLookupComboBox.GetDataBindingClass: TcxEditDataBindingClass;
 begin
-  Result := TcxDBLookupEditDataBinding;
+  Result := TRadDBLookupEditDataBinding;
 end;
 
 procedure TRadDBLookupComboBox.SetDataBinding(Value: TcxDBTextEditDataBinding);
@@ -1884,7 +1932,13 @@ begin
   if LTarget <> nil then
     LTarget.ResetCaches;   { iki katman: kitin + DevExpress'in }
 
-  if FClearTargets then
+  (* Deger VERIDEN geldiyse (kayitta gezinme) hedef TEMIZLENMEZ: hedef kendi
+     degerini ayni kayittan alir. Temizlenseydi - OLCULDU, DbNavTest D01 -
+     hedef editor, kayit alani doluyken BOS gorunuyordu: kaskad hedefin kendi
+     tazelemesinden SONRA calisabiliyor. Gecersiz kilma (yukaridaki onbellek
+     sifirlama) ve AOnCascade yine calisir - hedefin listesi eski master'a
+     gore suzulmustu. *)
+  if FClearTargets and not FCascadeFromData then
     ClearTarget(ATarget);
 
   { Olay ARTIK KOSULLU: atanmamis olmasi NORMALDIR - pull dunyasinda kural. }
@@ -2306,7 +2360,7 @@ begin
 end;
 
 procedure TRadLookupComboBoxProperties.DoCascade(ASource: TComponent;
-  const AValue: Variant);
+  const AValue: Variant; AFromData: Boolean);
 begin
   (* DEGISTI - eskiden "not Assigned(FCascadeEvent)" ile de cikiliyordu.
      PULL dunyasinda uygulamalarin cogunda AOnCascade HIC ATANMAZ; eski kosul
@@ -2321,9 +2375,11 @@ begin
     Exit;
   FCascading := True;
   FCascadeSource := ASource;
+  FCascadeFromData := AFromData;
   try
     FSlots.ForEach(CascadeOne, AValue);
   finally
+    FCascadeFromData := False;
     FCascadeSource := nil;
     FCascading := False;
   end;

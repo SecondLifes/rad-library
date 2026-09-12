@@ -49,13 +49,16 @@ ve hatada non-zero çıkıyorlar.
 | `RuntimeTest` | 8 geçti, **1 atlandı** (Ö-04 — aşağıya bakın), görünür pencereyle koştu |
 | `LiveLookupTest` | 18/18, canlı PostgreSQL, iki platform |
 
-> **Kalan tek kısıt: kütükler.** `rad.pas` çalışma ağacında `JclBase`,
-> `JclSysInfo` (JEDI JCL) ve `Dext.Types.UUID` kullanıyor; üçü de bu makinede
-> yok. Bütün ölçümler geçici kütüklerle yapıldı. Kütükler yalnızca boş klasör
-> yolu döndüren fonksiyonlar ve bir tip takma adı içeriyor; bu sondaların
-> hiçbiri onları kullanmıyor — ama **gerçek bağımlılıklarla tekrar
-> ölçülmelidir**. `build_and_run.bat` `%EXTRAU%` ile ek birim yolu kabul
-> ediyor.
+> **Kütük kısıtı KAPANDI (2026-09-12).** "Bu makinede yok" tespiti yanlıştı:
+> JEDI JCL kaynağı `E:\system\dev\Delphi\component\2026.6.6\jcl\source`,
+> Dext `E:\system\dev\Delphi\src\git\cesarliws\dext` (revizyon `c8c980d2`)
+> altında duruyor. İki probe klasörü artık bunlarla derleniyor —
+> `%EXTRAU%` birim yolları, yeni `%EXTRAI%` JCL'in `jcl.inc`'i için. İki
+> klasörün **bütün** sondaları gerçek bağımlılıklarla, DevExpress 26.1.4'e
+> karşı, Win32 ve Win64'te yeşil (`DbNavTest` 8 · `DxAuditTest` 21 · `PullTest` 73 ·
+> `PullPopupTest` 9 · `RuntimeTest` 8+1 atlanan · `DfmRoundTripTest` 7 ·
+> `DestructorTest` 6 · `PerConsumerTest` 6 · `RepoListenerTest` 14 ·
+> canlı `DbLookupLiveTest` 11 · `LiveLookupTest` 18).
 
 ### Ö-03 · Tasarım zamanı davranışı — hiç ölçülmedi
 IDE dışından yapılamıyor, kullanıcı tarafında:
@@ -195,7 +198,7 @@ madde madde kapandı; **yapılamayanlar bunlar** ve her birinin sebebi:
 | Tasarım zamanı davranışı | IDE dışından yapılamıyor. `AMaster`/`AAutoFilter`'ın Object Inspector'daki hâli, `AMaster`'a editör olmayan bir bileşen seçilince `ERadDev`'in tasarımcıda nasıl göründüğü, ve **`TRadChainAuditEditor`'ün "Zinciri denetle..." menüsü** hiç görülmedi. | **Ö-03** |
 | `Rad.Editor.pas`'ın derlenmesi | `DesignEditors.dcu` bu araç zincirinde yok; tasarım zamanı birimi yalnızca **okunarak** doğrulandı. Kullanıcı paketi kendisi derleyecek. | **Ö-03** |
 | `default` direktifi ↔ constructor tam turu | `AFilterOnPopup` ve `AAutoFilter` için ölçüldü (PullTest T04/T15); `ASearchDelay = 500` ve `AMinSearchLength = 3` için DFM'e yazılma/yazılmama turu hâlâ ölçülmedi. | **Ö-01** |
-| Gerçek bağımlılıklarla derleme | `rad.pas` `JclBase`, `JclSysInfo` ve `Dext.Types.UUID` kullanıyor; üçü de bu makinede yok. **Bütün ölçümler geçici kütüklerle yapıldı.** Kütükler yalnızca boş klasör yolları ve bir tip takma adı içeriyor, hiçbir sonda onları kullanmıyor — ama gerçek bağımlılıklarla tekrarlanmalı. | **Ö-02** notu |
+| ~~Gerçek bağımlılıklarla derleme~~ | **2026-09-12'de yapıldı** — JCL ve Dext makinede varmış; bkz. **Ö-02** notu. | kapandı |
 | `PermissionTest.dpr` | Kırık ve düzeltmesi bir **tasarım kararı** (`IsFieldLinked`'in yeni API'deki karşılığı). Kullanıcı kararı gerekiyor. | **Ö-05** |
 | Paket ayrımı (RADDEV-005) | Kullanıcı bu koşuda **yapılmamasını** söyledi: public paket/API kararı ve IDE kurulumunu etkiliyor. | Codex raporu |
 | Ayar paneli ölçümleri | Bu koşunun kapsamı bileşenlerdi (`Rad.Dev`); ayar paneli işine hiç girilmedi. | **Ö-06…Ö-10** |

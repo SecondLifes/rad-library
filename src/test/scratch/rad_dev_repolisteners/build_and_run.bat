@@ -30,6 +30,9 @@ REM   set EXTRAU=C:\jcl\lib\Win32;C:\dext\src
 REM ! JCL derlenmis DCU klasoru kullaniyorsaniz, o klasorde ESKI BIR RTL
 REM   (SysUtils.dcu vb.) OLMAMALI - varsa gercek RTL-i golgeler ve
 REM   "F2063 Could not compile used unit SysUtils" verir.
+REM EXTRAI: ek include yolu. JCL KAYNAGINDAN derlerken jcl.inc/jedi.inc
+REM   source\include altindadir ve -U'dan aranmaz, ornegin:
+REM   set EXTRAI=C:\jcl\source\include;C:\jcl\source\include\jedi
 if "%UNIDAC%"=="" set UNIDAC=C:\01\Devart\UniDAC13\Lib\%PLAT%
 if not exist "%UNIDAC%\Uni.dcu" ( echo [HATA] UniDAC bulunamadi: %UNIDAC% & exit /b 4 )
 
@@ -61,7 +64,7 @@ set LOG=%~dp0test_log_%NAME%_%PLAT%.txt
 echo --- %NAME% [%PLAT%]
 %DCC% -B -Q -NSSystem;System.Win;Winapi;Vcl;Vcl.Imaging;Data;Xml;Web;Soap ^
   -U"..\..\..\core;..\..\..\share;..\..\..\component;%EXTRAU%;%UNIDAC%;%DXLIB%;%MORMOT%\core;%MORMOT%\crypt;%MORMOT%\db;%MORMOT%\net;%MORMOT%\orm;%MORMOT%\rest;%MORMOT%\soa;%MORMOT%\lib;%MORMOT%" ^
-  -I"%MORMOT%;%MORMOT%\core" -R"..\..\..\share;%DXRES%" ^
+  -I"%MORMOT%;%MORMOT%\core;%EXTRAI%" -R"..\..\..\share;%DXRES%" ^
   -E"%~dp0bin\%PLAT%" -N0"%~dp0dcu\%PLAT%" "%NAME%.dpr" > "%LOG%" 2>&1
 if ERRORLEVEL 1 (
   type "%LOG%"

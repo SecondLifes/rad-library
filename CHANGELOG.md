@@ -26,6 +26,19 @@ that break something else in the kit.
 
 ### Added
 
+- `src/test/scratch/rad_dev_repolisteners/DbNavTest.dpr` — `TRadDBLookupComboBox`
+  bound to a record dataset: what record navigation does to a cascade. Headless,
+  8 assertions, red-first for the navigation fix below.
+- `src/test/scratch/rad_dev_livedb/DbLookupLiveTest.dpr` — the country → city
+  setup recommended to users, against local PostgreSQL: limited server-side
+  lists, a `secili_id` parameter keeping the shown key's row in a 15-row list,
+  the old city cleared in the record field's `OnChange`, navigation leaving the
+  record in browse mode. 11 assertions, Win32 and Win64. It also measured an
+  ordering fact worth knowing: a DB editor bound **before** its `AOnLocate` is
+  assigned resolves its first text with no handler and caches the empty result;
+  in a DFM the events load first, so this bites only code that wires up at run
+  time.
+
 - `src/test/scratch/rad_dev_repolisteners/DxAuditTest.dpr` — red-first probe
   for the 2026-09-12 DevExpress audit: `Permission.Edit` lock balance, leak and
   error contract, `help.Dev._Host` outside a grid, `dm.dev` phone validation,
@@ -34,7 +47,7 @@ that break something else in the kit.
 - `src/test/scratch/rad_dev_repolisteners/PullPopupTest.dpr` — the pull's real
   popup path, which needs a visible window because
   `TcxCustomDropDownEdit.DropDown` returns immediately on an invisible one
-  (`cxDropDownEdit.pas:3252`). Nine assertions, green on Win32 and Win64. The
+  (`cxDropDownEdit.pas:3253`). Nine assertions, green on Win32 and Win64. The
   one that matters is the **ordering proof**: the handler re-filters the list
   at the moment it is called, and after the popup opens that filter is still
   standing with two rows instead of six. Placing the pull before `inherited`
@@ -99,6 +112,13 @@ that break something else in the kit.
 - `src/component/Rad.Dev.pas` — `ERadDev`, the unit's first exception class.
 
 ### Changed
+
+- `src/test/scratch/rad_dev_repolisteners/build_and_run.bat`,
+  `src/test/scratch/rad_dev_livedb/build_and_run.bat` — honour `%EXTRAI%` as an
+  include path. This is what lets the probes build against the **real** JEDI
+  JCL source (its `jcl.inc` is not searched on the unit path) instead of
+  hand-written stubs; every probe in both directories now builds and passes
+  that way on Win32 and Win64, with Dext at revision `c8c980d2`.
 
 - `src/test/scratch/rad_dev_repolisteners/*.dpr`,
   `src/test/scratch/rad_dev_livedb/LiveLookupTest.dpr` — every probe now
@@ -166,7 +186,7 @@ that break something else in the kit.
 
 - `src/component/Rad.Dev.pas` — `FilterNow` added next to `CascadeNow`. Not
   symmetry for its own sake: `TcxCustomDropDownEdit.DropDown` begins with
-  `if not IsWindowVisible(Handle) then Exit` (`cxDropDownEdit.pas:3252`), so
+  `if not IsWindowVisible(Handle) then Exit` (`cxDropDownEdit.pas:3253`), so
   `DoInitPopup` never runs in an invisible window and the pull path would
   otherwise be unmeasurable without a visible form.
 
@@ -186,6 +206,24 @@ that break something else in the kit.
   `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.
 
 ### Fixed
+
+- `src/component/Rad.Dev.pas` — **on a DB form, moving to another record
+  blanked the dependent editor.** A `TRadDBLookupComboBox` re-assigns its
+  `EditValue` from the field on every record change (`cxDBEdit.pas:2279`),
+  which reaches `DoEditValueChanged` (`cxEdit.pas:5706-5708`) and so the
+  cascade — there was no way to tell navigation from an edit. With
+  `AClearTargetsOnCascade` the cascade could run *after* the dependent editor
+  had already refreshed itself, leaving it empty while the record still held a
+  city (measured, `DbNavTest` D01). The DB editor now uses its own data binding
+  that marks `DataChanged`; a data-driven change still invalidates the target
+  (cache reset and `AOnCascade` still run, because the target's list was
+  filtered for the old master) but no longer clears its value. A change made
+  in code or by the user clears as before. Nothing was written to the record
+  in either version. `DoCascade` gained an optional `AFromData` parameter.
+- `src/component/Rad.Dev.pas`, `CHANGELOG.md` — three DevExpress source
+  citations re-checked against the installed 26.1.4 and corrected:
+  `cxDropDownEdit.pas:3253` (was cited as 3252), `cxGridCustomTableView.pas:3407`
+  (was 3406), and `GetFreeNotificator` at `cxEdit.pas:1375` (was 1639).
 
 - **DevExpress audit (2026-09-12), each reproduced red before fixing and green
   after in `src/test/scratch/rad_dev_repolisteners/DxAuditTest.dpr` (new, 21

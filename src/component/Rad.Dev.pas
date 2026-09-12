@@ -532,6 +532,7 @@ type
       procedure CascadeOne(ATarget: TComponent; const AValue: Variant);
       function  ListDataSet: TDataSet;
       procedure ClearTarget(ATarget: TComponent);
+      procedure SetLocateEvent(const AValue: TRadLookupLocateEvent);
     protected
         class function GetLookupDataClass: TcxInterfacedPersistentClass; override;
         (* Ozel alanlarimizi KOPYALAMAK ZORUNDAYIZ. TcxCustomEditProperties.Assign
@@ -543,6 +544,9 @@ type
         function GetDisplayLookupText(const AKey: TcxEditValue): string; override;
         procedure DoSearch(ASource: TComponent; var AText, ATail: string; ANext: Boolean);
         procedure DoLocate(ASource: TComponent; const AKey: Variant);
+        (* Her Properties degisikliginde (ListSource, KeyFieldNames, AOnLocate
+           ...) kitin metin/anahtar onbellegi bosaltilir - bkz. uygulamadaki not. *)
+        procedure DoChanged; override;
     public
       (* Grid, inplace editoru BU siniftan uretir. Override edilmezse taban
          stok TcxLookupComboBox'i dondurur (cxDBLookupComboBox.pas:405) ve
@@ -618,7 +622,7 @@ type
       /// <summary>Zincir icin serbest tamsayi yuku (seviye no, tur kodu, ...).</summary>
       property ACascadeTag:Integer read FInt write FInt;
       property AOnSearch:TRadLookupSearchEvent read FSearchEvent write FSearchEvent;
-      property AOnLocate:TRadLookupLocateEvent read FLocateEvent write FLocateEvent;
+      property AOnLocate:TRadLookupLocateEvent read FLocateEvent write SetLocateEvent;
       /// <summary>Tuslar durduktan sonra OnSearch'un tetiklenmesi icin
       /// beklenen sure (ms). 0 = geciktirme yok, OnSearch her tus vurusunda
       /// Locate seam'inden tetiklenir.</summary>
@@ -2272,6 +2276,29 @@ begin
   FHasText := False;
   FTextKey := Unassigned;
   FLastText := '';
+end;
+
+procedure TRadLookupComboBoxProperties.DoChanged;
+begin
+  (* Onbellekteki metin, ONU URETEN ayarlarla gecerlidir. Editor veriye
+     baglandiktan SONRA ListSource ya da AOnLocate atanirsa (kodla kurulan
+     formlar) ilk metin ayar yokken BOS cozulmus ve onbellege yazilmistir;
+     sifirlanmazsa editor bos kalir - OLCULDU, DbNavTest S01/S03.
+
+     Cizim yolunu BOZMAZ: DoLocate isleyiciyi LockUpdate(True) altinda
+     cagirir ve kilitliyken gelen Changed DoChanged'e HIC inmez
+     (cxEdit.pas:11128-11129) - yani "ayni anahtar icin bir kez sorgula"
+     kazanci korunur. *)
+  ResetLocateCache;
+  inherited DoChanged;
+end;
+
+procedure TRadLookupComboBoxProperties.SetLocateEvent(const AValue: TRadLookupLocateEvent);
+begin
+  FLocateEvent := AValue;
+  { Olay atamasi taban sinifin setter'larindan gecmez; Changed'i biz
+    cagiriyoruz: onbellek sifirlanir ve editorler metni yeniden cozer. }
+  Changed;
 end;
 
 procedure TRadLookupComboBoxProperties.TimedSearch(ASource: TComponent;

@@ -27,8 +27,9 @@ that break something else in the kit.
 ### Added
 
 - `src/test/scratch/rad_dev_repolisteners/DbNavTest.dpr` — `TRadDBLookupComboBox`
-  bound to a record dataset: what record navigation does to a cascade. Headless,
-  8 assertions, red-first for the navigation fix below.
+  bound to a record dataset: what record navigation does to a cascade, and what
+  happens when `AOnLocate` or `ListSource` is assigned after binding. Headless,
+  12 assertions, red-first for both fixes below.
 - `src/test/scratch/rad_dev_livedb/DbLookupLiveTest.dpr` — the country → city
   setup recommended to users, against local PostgreSQL: limited server-side
   lists, a `secili_id` parameter keeping the shown key's row in a 15-row list,
@@ -206,6 +207,17 @@ that break something else in the kit.
   `JclSysInfo` and `Dext.Types.UUID`, none of which exist on this machine.
 
 ### Fixed
+
+- `src/component/Rad.Dev.pas` — **a lookup wired up in code after its data was
+  bound stayed blank.** The first text is resolved the moment the editor is
+  bound; if `AOnLocate` or `ListSource` arrived afterwards, that first answer
+  was an empty string, and the kit's text cache kept serving it. Any
+  `Properties` change now clears the kit's cache (a `DoChanged` override), and
+  `AOnLocate` got a setter that signals the change. Red before, green after in
+  `DbNavTest` S01/S03. The grid-painting saving is unaffected — the locate
+  handler runs under `LockUpdate`, and a change while locked never reaches
+  `DoChanged` (`cxEdit.pas:11128`); `LiveLookupTest` M4 still resolves the same
+  key 50 times with zero handler calls.
 
 - `src/component/Rad.Dev.pas` — **on a DB form, moving to another record
   blanked the dependent editor.** A `TRadDBLookupComboBox` re-assigns its

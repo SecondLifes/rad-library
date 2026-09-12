@@ -27,6 +27,9 @@ type
   TOlay = class
   public
     KaskadSayisi, NullSayisi: Integer;
+    Liste: TDataSet;   { SehirBul'un satir ekleyecegi liste }
+    procedure SehirBul(Sender: TRadLookupComboBoxProperties; ASource: TComponent;
+      const AKey: Variant);
     procedure Kaskad(Sender: TRadLookupComboBoxProperties;
       ASource, ATarget: TComponent; const AValue: Variant);
     procedure SehirDegisti(Sender: TObject);
@@ -47,6 +50,14 @@ procedure TOlay.SehirDegisti(Sender: TObject);
 begin
   if VarIsNull(TcxCustomEdit(Sender).EditValue) then
     Inc(NullSayisi);
+end;
+
+procedure TOlay.SehirBul(Sender: TRadLookupComboBoxProperties; ASource: TComponent;
+  const AKey: Variant);
+begin
+  { Sunucudan tek satir cekmenin yerine: anahtar listede yoksa ekle. }
+  if (Liste <> nil) and not Liste.Locate('id', AKey, []) then
+    Liste.AppendRecord([AKey, 'Paris']);
 end;
 
 procedure TOlay.Sifirla;
@@ -88,6 +99,50 @@ begin
   Result.Properties.ListFieldNames := 'ad';
   Result.DataBinding.DataSource := AKayit;
   Result.DataBinding.DataField := AAlan;
+end;
+
+procedure SonradanAtama(AForm: TForm; ADsSehirB: TDataSource; AOlay: TOlay);
+var
+  LKayit, LListeA, LListeC: TVirtualTable;
+  LDsKayit, LDsA, LDsC: TDataSource;
+  LEd1, LEd2: TRadDBLookupComboBox;
+begin
+  LKayit := TVirtualTable.Create(AForm);
+  LKayit.AddField('sehir_id', ftInteger);
+  LKayit.Open;
+  LKayit.AppendRecord([30]);          { Paris - A listesinde YOK }
+  LDsKayit := TDataSource.Create(AForm);
+  LDsKayit.DataSet := LKayit;
+
+  LListeA := Tablo(AForm, True);
+  LListeA.Open;
+  LListeA.AppendRecord([10, 'Istanbul']);
+  LDsA := TDataSource.Create(AForm);
+  LDsA.DataSet := LListeA;
+
+  { 1) AOnLocate sonradan }
+  LEd1 := Editor(AForm, LDsKayit, LDsA, 'sehir_id');
+  Kontrol('S00 isleyicisiz, listede olmayan anahtar -> metin bos',
+    LEd1.Text = '', '"' + LEd1.Text + '"');
+  AOlay.Liste := LListeA;
+  LEd1.Properties.AOnLocate := AOlay.SehirBul;
+  Kontrol('S01 AOnLocate atanince metin cozuldu (Paris)', LEd1.Text = 'Paris',
+    '"' + LEd1.Text + '"');
+  AOlay.Liste := nil;
+
+  { 2) ListSource sonradan: C listesinde 30 yok, B'de var. }
+  if not ADsSehirB.DataSet.Locate('id', 30, []) then
+    ADsSehirB.DataSet.AppendRecord([30, 'Paris']);
+  LListeC := Tablo(AForm, True);
+  LListeC.Open;
+  LListeC.AppendRecord([10, 'Istanbul']);
+  LDsC := TDataSource.Create(AForm);
+  LDsC.DataSet := LListeC;
+  LEd2 := Editor(AForm, LDsKayit, LDsC, 'sehir_id');
+  Kontrol('S02 C listesinde metin bos', LEd2.Text = '', '"' + LEd2.Text + '"');
+  LEd2.Properties.ListSource := ADsSehirB;
+  Kontrol('S03 ListSource degisince metin yeni listeden cozuldu (Paris)',
+    LEd2.Text = 'Paris', '"' + LEd2.Text + '"');
 end;
 
 var
@@ -167,6 +222,16 @@ begin
       Kontrol('D06 kodla degisen ulke sehir editorunu hala temizliyor',
         LOlay.NullSayisi >= 1, Format('%d kez Null', [LOlay.NullSayisi]));
       Kontrol('D07 temizleme kayda YAZMADI (dsBrowse)', LKayit.State = dsBrowse);
+
+      (* ── Sonradan atanan AOnLocate / ListSource ─────────────────────────
+         Editor veriye BAGLANDIKTAN sonra atanirlar - kodla kurulan formlarda
+         olur. Ilk metin, anahtar listede yokken ve isleyici yokken BOS
+         cozulur ve kitin metin onbellegine yazilir. Atama onbellegi
+         sifirlamazsa editor bos kalir. (DbLookupLiveTest'in ilk surumu bunu
+         canli veritabaninda yakaladi.) *)
+      Writeln;
+      Writeln('=== Sonradan atanan AOnLocate / ListSource ===');
+      SonradanAtama(LForm, LDsSehir, LOlay);
     finally
       LForm.Free;
     end;

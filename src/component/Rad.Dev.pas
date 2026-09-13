@@ -110,6 +110,52 @@
        doner ve yukaridaki isleyici sessizce Exit eder. Kolonlarda yere ozel
        yuk kullanacaksaniz PropertiesClass'i atamayi unutmayin.
 
+  COMBO: TEK OLAYLA, GEREKTIGINDE DOLAN LISTE (TRadComboBox / TRadDBComboBox)
+    Uc property ve tek olay:
+      AEditorId     : liste kimligi ('ulke', 'sehir'); bilesen yorumlamaz.
+      AMasterFields : listenin bagli oldugu KAYIT alanlari ('ulke;sehir').
+      AOnFill       : uygulamadaki TEK doldurma yeri.
+
+    Acilir liste acilirken bilesen AMasterFields alanlarini SORAN editorun
+    kaydindan okur (formda editorun kendi kaydi, gridde satirin kaydi). Degerler
+    son doldurmadakiyle ayniysa AOnFill CAGRILMAZ; farkliysa ayni adli
+    parametrelerle cagrilir. AMasterFields bossa liste bir kez dolar. Tablo
+    degisince: Properties.ResetItems.
+
+      // veri modulunde - her repository item'a AYNI isleyici atanir
+      procedure TDM.ListeDoldur(Sender: TRadComboBoxProperties;
+        ASource: TComponent; AParams: TParams; AItems: TStrings);
+      begin
+        case IndexText(Sender.AEditorId, ['ulke', 'sehir']) of
+          0: Q.SQL.Text := 'select ad from adr_ulke order by ad';
+          1: Q.SQL.Text := 'select s.ad from adr_sehir s join adr_ulke u ' +
+                           'on u.kod = s.ulke_kod where u.ad = :ulke order by s.ad';
+        end;
+        Q.Params.AssignValues(AParams);
+        Q.Open;
+        try
+          AItems.Clear;
+          while not Q.Eof do
+          begin
+            AItems.Add(Q.Fields[0].AsString);
+            Q.Next;
+          end;
+        finally
+          Q.Close;
+        end;
+      end;
+
+    AItems = Sender.Items: repository atanmisken editorun KENDI Items'i hic
+    kullanilmaz (olculdu). Sender repository'ninkidir; ASource soran editor.
+
+    EDITOR BUTONU - bilesen hicbir sey eklemez. Repository'nin
+    Properties.OnButtonClick'ini yazin: AButtonIndex Buttons koleksiyonundaki
+    gercek indekstir; Sender editordur, TRadComboBoxProperties(
+    TcxCustomEdit(Sender).ActiveProperties).AEditorId ile liste kimligini okuyun,
+    editor kapaninca ResetItems cagirin.
+    ! OnButtonClick'i YALNIZCA repository'ye yazin: editorun kendi Properties'ine
+      de yazilirsa IKI kez gelir (cxEdit.pas:4897-4900).
+
   TUKETICILERI SAYMA
     TRadEditRepositoryItem.ConsumerCount / Consumers(i) bir RepositoryItem'i
     su an kullanan editor ve kolonlari verir. Yukaridaki kisiti calisma
@@ -885,6 +931,19 @@ type
   TRadComboCascadeEvent = procedure (Sender: TRadComboBoxProperties;
     ASource, ATarget: TComponent; const AValue: Variant) of object;
 
+  (* Listenin TEK doldurma yeri.
+       Sender : olayi TASIYAN Properties - repository'ye yazildiysa
+                repository'ninki (paylasilan, editorun GERCEKTEN kullandigi).
+       ASource: soran editor - formdaki combo ya da gridin hucre editoru.
+                Kendi Properties'i: help.Dev'deki _OwnProperties(ASource).
+       AParams: AMasterFields'teki alanlar, AYNI ADLA, tuketicinin kaydindaki
+                degerleriyle dolu.
+       AItems : doldurulacak liste = Sender.Items. Ayrica verilir, cunku
+                repository atanmisken editorun KENDI Properties'indeki Items'i
+                HIC kullanilmaz (olculdu) - yanlis listeyi doldurmak kolaydir. *)
+  TRadComboFillEvent = procedure (Sender: TRadComboBoxProperties;
+    ASource: TComponent; AParams: TParams; AItems: TStrings) of object;
+
   TRadComboBoxProperties = class(TcxComboBoxProperties)
   private
     FInt: Integer;
@@ -895,9 +954,22 @@ type
     FCascadeEvent: TRadComboCascadeEvent;
     FCascading: Boolean;
     FCascadeSource: TComponent;
+    FEditorId: string;
+    FMasterFields: string;
+    FFillEvent: TRadComboFillEvent;
+    (* Son doldurmanin anahtari (AMasterFields degerleri). Items gibi
+       PAYLASILAN Properties'te durur - repository'nin butun tuketicileri ayni
+       Items'i gordugu icin dogrusu budur: gridde satir degisince anahtar da
+       degisir ve liste yeniden dolar. *)
+    FFillKey: string;
+    FFilled: Boolean;
+    FFilling: Boolean;
     function  GetSlot(AIndex: Integer): TComponent;
     procedure SetSlot(AIndex: Integer; const AValue: TComponent);
     procedure CascadeOne(ATarget: TComponent; const AValue: Variant);
+    function  MasterValues(ASource: TComponent; AParams: TParams): string;
+    procedure SetMasterFields(const AValue: string);
+    procedure SetEditorId(const AValue: string);
    protected
     { Lookup ailesindekiyle ayni gerekce - bkz. oradaki DoAssign notu. }
     procedure DoAssign(AProperties: TcxCustomEditProperties); override;
@@ -915,6 +987,16 @@ type
     function ChainSlotCount: Integer;
     /// <summary>Combo tarafindaki SESSIZ tuzak. Bos string = sorun yok.</summary>
     function CascadeWarning: string;
+    /// <summary>Listeyi bir sonraki acilista yeniden doldurur (ornegin tanim
+    /// editoru kapaninca).</summary>
+    procedure ResetItems;
+    /// <summary>AOnFill'i gerekirse cagirir: AMasterFields degerleri son
+    /// doldurmadakiyle ayniysa hicbir sey yapmaz. Acilir liste acilirken
+    /// kendiliginden cagrilir; elle de cagrilabilir.</summary>
+    procedure FillItems(ASource: TComponent);
+    /// <summary>AConsumer'in kaydinda bulunmayan AMasterFields alanlari
+    /// (RadChainAudit icin). Bos string = sorun yok ya da bilinemiyor.</summary>
+    function MissingMasterFields(AConsumer: TComponent): string;
     //procedure DoAssign(AProperties: TcxCustomEditProperties); override;
     //procedure DoInitPopup(Sender: TObject);
     //procedure PrepareDisplayValue(const AEditValue: Variant; var DisplayValue: Variant; AEditFocused: Boolean); override;
@@ -927,6 +1009,15 @@ type
     property ACascadeField:string  read FStr write FStr;
     property ACascadeTag:Integer read FInt write FInt;
     property AOnCascade:TRadComboCascadeEvent read FCascadeEvent write FCascadeEvent;
+    /// <summary>Liste kimligi (ornegin 'sehir'). Bilesen YORUMLAMAZ; AOnFill
+    /// ve OnButtonClick okur - uygulamadaki tek AOnFill hangi listeyi
+    /// dolduracagini buna gore secer.</summary>
+    property AEditorId:string read FEditorId write SetEditorId;
+    /// <summary>Listenin bagli oldugu KAYIT alanlari, ';' ile ('ulke;sehir').
+    /// Degerleri AOnFill'e AParams olarak ayni adla gider; son doldurmadakiyle
+    /// ayniysa liste yeniden doldurulmaz. Bos = sabit liste, bir kez dolar.</summary>
+    property AMasterFields:string read FMasterFields write SetMasterFields;
+    property AOnFill:TRadComboFillEvent read FFillEvent write FFillEvent;
 
     property AllowDropDownWhenReadOnly default True;
     property Buttons;
@@ -1014,6 +1105,8 @@ type
     procedure SetProperties(Value: TRadComboBoxProperties);
   protected
     procedure DoEditValueChanged; override;
+    { AOnFill'in tetigi - bkz. TRadCustomLookupComboBox.DoInitPopup'taki gerekce. }
+    procedure DoInitPopup; override;
   public
     class function GetPropertiesClass: TcxCustomEditPropertiesClass; override;
     property ActiveProperties: TRadComboBoxProperties read GetActiveProperties;
@@ -1028,6 +1121,7 @@ type
     procedure SetProperties(Value: TRadComboBoxProperties);
   protected
     procedure DoEditValueChanged; override;
+    procedure DoInitPopup; override;
   public
     class function GetPropertiesClass: TcxCustomEditPropertiesClass; override;
     property ActiveProperties: TRadComboBoxProperties read GetActiveProperties;
@@ -1120,6 +1214,13 @@ var
          Ayni ornek iki kez raporlanmaz: LSeen bunu zaten kesiyor. *)
       BakProperties(_OwnProperties(AC));
       BakProperties(_ActiveProperties(AC));
+      { Combo listesi: AMasterFields TUKETICININ kaydinda var mi? Paylasilan
+        item icin bile tuketici basina bakilir - her tuketicinin kaydi farkli. }
+      if _ActiveProperties(AC) is TRadComboBoxProperties then
+        Ekle(TRadComboBoxProperties(_ActiveProperties(AC)).MissingMasterFields(AC));
+      if (_OwnProperties(AC) <> _ActiveProperties(AC)) and
+         (_OwnProperties(AC) is TRadComboBoxProperties) then
+        Ekle(TRadComboBoxProperties(_OwnProperties(AC)).MissingMasterFields(AC));
     end;
     for i := 0 to AC.ComponentCount - 1 do
       Gez(AC.Components[i]);
@@ -1460,11 +1561,23 @@ begin
   FInt := LSrc.FInt;
   FSlots.Assign(LSrc.FSlots);
   FCascadeEvent := LSrc.FCascadeEvent;
+  FEditorId := LSrc.FEditorId;
+  FMasterFields := LSrc.FMasterFields;
+  FFillEvent := LSrc.FFillEvent;
+  { Kopya, kaynagin doldurma anahtarini devralmaz. }
+  ResetItems;
 end;
 
 function TRadComboBoxProperties.CascadeWarning: string;
 begin
   Result := '';
+  (* AOnFill'siz liste kurulumu: AEditorId/AMasterFields yazilmis ama listeyi
+     dolduracak olay yok - acilir liste hep bos (ya da tasarimdaki Items ile)
+     gelir, hicbir uyari cikmaz. *)
+  if ((FEditorId <> '') or (FMasterFields <> '')) and not Assigned(FFillEvent) then
+    Result := Format('AEditorId="%s" / AMasterFields="%s" yazilmis ama AOnFill ' +
+      'yok: liste hic doldurulmaz.', [FEditorId, FMasterFields]);
+
   if FSlots.FilledCount = 0 then
     Exit;
 
@@ -1477,17 +1590,151 @@ begin
      kaskad kurulmus gorunur, calisir gorunur, ama secenekler sabit kalir.
      Bu, hicbir istisna veya uyari uretmeyen turden bir hatadir. *)
   if not Assigned(FCascadeEvent) then
-    Result :=
+  begin
+    if Result <> '' then
+      Result := Result + sLineBreak;
+    Result := Result +
       'Zincir kurulmus (' + IntToStr(FSlots.FilledCount) + ' hedef) ama ' +
       'AOnCascade yok. Combo hedefinin listesi Items''tir ve yalnizca bir ' +
       'isleyici doldurabilir - kaynak degistiginde hedefin secenekleri HIC ' +
       'degismez. (Lookup hedefleri kendi AOnFilter''i ile tazelenebilir; ' +
       'combo icin boyle bir yol yoktur.)';
+  end;
 end;
 
 function TRadComboBoxProperties.ChainSlotCount: Integer;
 begin
   Result := FSlots.FilledCount;
+end;
+
+{ Mesajlar icin: kodla yaratilmis bir dataset'in Name'i bostur. }
+function DataSetAdi(ADataSet: TDataSet): string;
+begin
+  if ADataSet.Name <> '' then
+    Result := ADataSet.Name
+  else
+    Result := '<' + ADataSet.ClassName + '>';
+end;
+
+procedure TRadComboBoxProperties.SetEditorId(const AValue: string);
+begin
+  if FEditorId = AValue then
+    Exit;
+  FEditorId := AValue;
+  ResetItems;   { baska bir liste isteniyor }
+end;
+
+procedure TRadComboBoxProperties.SetMasterFields(const AValue: string);
+begin
+  if FMasterFields = AValue then
+    Exit;
+  FMasterFields := AValue;
+  ResetItems;
+end;
+
+procedure TRadComboBoxProperties.ResetItems;
+begin
+  FFilled := False;
+  FFillKey := '';
+end;
+
+function TRadComboBoxProperties.MasterValues(ASource: TComponent;
+  AParams: TParams): string;
+var
+  LNames: TArray<string>;
+  LName: string;
+  LDS: TDataSet;
+  LField: TField;
+  LParam: TParam;
+  LValue: Variant;
+begin
+  (* Degerler SORAN editorun kaydindan okunur. _DataSetOf formdaki DB
+     editorunde veri baglantisini, gridin hucre editorunde kolonun
+     DataController'ini kullanir (help.Dev). Properties'ten sorulamaz:
+     paylasilir, hangi kaydi soracagini bilemez. *)
+  Result := '';
+  LNames := FMasterFields.Split([';'], TStringSplitOptions.ExcludeEmpty);
+  if Length(LNames) = 0 then
+    Exit;
+  LDS := _DataSetOf(ASource);
+  for LName in LNames do
+  begin
+    LValue := Null;
+    LField := nil;
+    if LDS <> nil then
+      LField := LDS.FindField(Trim(LName));
+    { Alan listesi bilinirken alan YOKSA sessiz bos liste yerine sebebi
+      soyleyen istisna. Kapali ve alansiz bir dataset'te bilinemez. }
+    if (LField = nil) and (LDS <> nil) and (LDS.Active or (LDS.FieldCount > 0)) then
+      raise ERadDev.CreateFmt(
+        'AMasterFields: "%s" alani %s dataset''inde yok (AEditorId="%s"). ' +
+        'Alan adini kayittaki alanla ayni yazin.', [Trim(LName), DataSetAdi(LDS), FEditorId]);
+    if (LField <> nil) and LDS.Active then
+      LValue := LField.Value;
+    if LField <> nil then
+      LParam := AParams.CreateParam(LField.DataType, Trim(LName), ptInput)
+    else
+      LParam := AParams.CreateParam(ftUnknown, Trim(LName), ptInput);
+    LParam.Value := LValue;
+    { Tur de anahtarda: Null ile bos metin ayni sayilmasin. }
+    Result := Result + IntToStr(VarType(LValue)) + ':' + VarToStr(LValue) + #1;
+  end;
+end;
+
+procedure TRadComboBoxProperties.FillItems(ASource: TComponent);
+var
+  LParams: TParams;
+  LKey: string;
+begin
+  if FFilling or not Assigned(FFillEvent) then
+    Exit;
+  LParams := TParams.Create(nil);
+  try
+    LKey := MasterValues(ASource, LParams);
+    if FFilled and (LKey = FFillKey) then
+      Exit;
+    FFilling := True;
+    try
+      Items.BeginUpdate;
+      try
+        FFillEvent(Self, ASource, LParams, Items);
+      finally
+        Items.EndUpdate;
+      end;
+      { Anahtar YALNIZCA basarida kaydedilir: olay istisna atarsa bir sonraki
+        acilis yeniden dener (ComboFillTest F13). }
+      FFillKey := LKey;
+      FFilled := True;
+    finally
+      FFilling := False;
+    end;
+  finally
+    LParams.Free;
+  end;
+end;
+
+function TRadComboBoxProperties.MissingMasterFields(AConsumer: TComponent): string;
+var
+  LNames: TArray<string>;
+  LName: string;
+  LDS: TDataSet;
+begin
+  Result := '';
+  LNames := FMasterFields.Split([';'], TStringSplitOptions.ExcludeEmpty);
+  if Length(LNames) = 0 then
+    Exit;
+  LDS := _DataSetOf(AConsumer);
+  { Alan listesi bilinmiyorsa (kapali, alansiz dataset) YANLIS alarm vermeyiz. }
+  if (LDS = nil) or (LDS.FieldCount = 0) then
+    Exit;
+  for LName in LNames do
+    if LDS.FindField(Trim(LName)) = nil then
+    begin
+      if Result <> '' then
+        Result := Result + sLineBreak;
+      Result := Result + Format('%s: AMasterFields "%s" alani %s dataset''inde ' +
+        'yok - liste acilinca ERadDev atilir.', [AConsumer.Name, Trim(LName), DataSetAdi(LDS)]);
+    end;
 end;
 
 class function TRadComboBoxProperties.GetContainerClass: TcxContainerClass;
@@ -1563,6 +1810,17 @@ begin
   ActiveProperties.DoCascade(Self, EditValue);
 end;
 
+procedure TRadComboBox.DoInitPopup;
+begin
+  (* inherited'DAN ONCE: DoInitPopup liste penceresi kurulmadan calisir
+     (cxDropDownEdit.pas:3256), burada doldurulan Items BU acilista gorunur.
+     Published OnInitPopup KULLANILMAZ: repository varken iki kez tetiklenir
+     (:3150 ve :3152) - acilis basina iki sorgu. *)
+  if [csDestroying, csDesigning] * ComponentState = [] then
+    ActiveProperties.FillItems(Self);
+  inherited DoInitPopup;
+end;
+
 function TRadComboBoxRepository.GetProperties: TRadComboBoxProperties;
 begin
   Result := inherited Properties as TRadComboBoxProperties;
@@ -1629,6 +1887,15 @@ begin
   if [csLoading, csDestroying, csDesigning] * ComponentState <> [] then
     Exit;
   ActiveProperties.DoCascade(Self, EditValue);
+end;
+
+procedure TRadDBComboBox.DoInitPopup;
+begin
+  { Gerekce TRadComboBox.DoInitPopup'ta. Iki sinif kardes (ortak Rad atasi
+    yok - bkz. sinif bildirimlerindeki not), tetik bu yuzden iki kez yazili. }
+  if [csDestroying, csDesigning] * ComponentState = [] then
+    ActiveProperties.FillItems(Self);
+  inherited DoInitPopup;
 end;
 
 

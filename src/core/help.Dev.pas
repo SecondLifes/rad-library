@@ -271,11 +271,15 @@ end;
       formdaki siradan bir combo) dogrudan nil uzerinden alan zinciri
       cozuluyor ve ERISIM IHLALI aliniyordu. Artik her adim korunuyor. }
     Result := nil;
-    if Self is TcxDBButtonEdit then
+    (* HER DB editoru: DataBinding'i TcxDBEditDataBinding olan editor (formdaki
+       TcxDBComboBox, TRadDBComboBox, TcxDBButtonEdit ...). Eskiden yalnizca
+       TcxDBButtonEdit taniniyordu; digerleri nil donuyordu. Ayni sinama
+       GetcxDBEditDataLink'te de var (cxDBEdit.pas:1389-1395). Gridin hucre
+       editoru DB editoru DEGILDIR ve asagidaki kolon yoluna duser. *)
+    if TcxCustomEditAccess(Self).DataBinding is TcxDBEditDataBinding then
     begin
-      if (TcxDBButtonEdit(Self).DataBinding <> nil) and
-         (TcxDBButtonEdit(Self).DataBinding.DataSource <> nil) then
-        Result := TcxDBButtonEdit(Self).DataBinding.DataSource.DataSet;
+      if TcxDBEditDataBinding(TcxCustomEditAccess(Self).DataBinding).DataSource <> nil then
+        Result := TcxDBEditDataBinding(TcxCustomEditAccess(Self).DataBinding).DataSource.DataSet;
       Exit;
     end;
 
@@ -294,12 +298,9 @@ end;
       kaliyordu (W1035) - cagirana cop bir isaretci gidiyordu. Simdi hem
       baslatiliyor hem de grid kolonu yolu ekli. }
     Result := nil;
-    if Self is TcxDBButtonEdit then
-    begin
-      if TcxDBButtonEdit(Self).DataBinding <> nil then
-        Result := TcxDBButtonEdit(Self).DataBinding.Field;
-      Exit;
-    end;
+    { Her DB editoru - bkz. _DataSet'teki not. }
+    if TcxCustomEditAccess(Self).DataBinding is TcxDBEditDataBinding then
+      Exit(TcxDBEditDataBinding(TcxCustomEditAccess(Self).DataBinding).Field);
 
     LCol := _ColDB;
     if (LCol <> nil) and (LCol.DataBinding <> nil) then

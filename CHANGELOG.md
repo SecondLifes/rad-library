@@ -26,6 +26,43 @@ that break something else in the kit.
 
 ### Added
 
+- `src/component/Rad.Dev.pas` — **combo lists filled by one event, only when
+  needed.** `TRadComboBoxProperties` gains `AEditorId` (a list id the component
+  never interprets), `AMasterFields` (the record fields the list depends on,
+  `'ulke;sehir'`) and `AOnFill`, plus public `ResetItems` and `FillItems`. When
+  the dropdown opens, the component reads the `AMasterFields` values from the
+  *asking editor's* record — the form editor's record, or the grid row — and
+  calls `AOnFill` with them as same-named `TParams`, but only if they differ
+  from the last fill; empty `AMasterFields` means a fixed list filled once. With
+  the event on a repository item, one handler in the data module fills every
+  list in the application, choosing the query by `AEditorId`. The component runs
+  no SQL and holds no connection. Design decisions, made with the user: the SQL
+  and a connection property were dropped in favour of the single event; an
+  editor button is left to the stock `OnButtonClick` (which fires twice if
+  written on both the editor and the repository, `cxEdit.pas:4897-4900`). The
+  fill runs in a `DoInitPopup` override, not the published `OnInitPopup`,
+  which fires twice with a repository item. A missing field raises `ERadDev`
+  naming it; a failing handler leaves the list unfilled so the next opening
+  retries. `CascadeWarning` and `RadChainAudit` report `AEditorId` /
+  `AMasterFields` without `AOnFill`, and master fields missing from a
+  consumer's dataset.
+- `src/core/help.Dev.pas` — `_DataSet`, `_Field` and so `_DataSetOf` /
+  `_FieldOf` now recognise **every** data-aware editor through its
+  `TcxDBEditDataBinding` (the same test `GetcxDBEditDataLink` makes,
+  `cxDBEdit.pas:1389`). Only `TcxDBButtonEdit` was recognised before, so a
+  `TcxDBComboBox` on a form returned nil.
+- `src/test/scratch/rad_dev_repolisteners/ComboFillTest.dpr` — headless, 24
+  assertions: parameters from the record, no refill for unchanged values,
+  refill on change and after `ResetItems`, a fixed list filled once, one event
+  serving two items by `AEditorId`, two consumers of one item each getting
+  their own record's list, `ERadDev` for a missing field, retry after a failing
+  handler, DFM round trip of the new properties, and the audit messages.
+- `src/test/scratch/rad_dev_livedb/ComboFillLiveTest.dpr` — against local
+  PostgreSQL, 13 assertions: country → city → district by **name** with one
+  handler, on a form and in a grid. It also settled the plan's open question:
+  in a grid, a value set in one column of a row reaches the record field at
+  once, so the next column's list in the same row already follows it.
+
 - `src/test/scratch/rad_dev_repolisteners/DbNavTest.dpr` — `TRadDBLookupComboBox`
   bound to a record dataset: what record navigation does to a cascade, and what
   happens when `AOnLocate` or `ListSource` is assigned after binding. Headless,

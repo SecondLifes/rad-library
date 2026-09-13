@@ -233,3 +233,17 @@ canlı PostgreSQL'e karşı `LiveLookupTest` 18. HEAD'e karşı ölçülen kırm
 `Fix` kilidi -1, 500 turda 56.000 bayt sızıntı, iki erişim ihlali, geçerli
 numaranın reddi, pattern uyarısının yokluğu. `Permission.Edit` tanı sayısı
 HEAD ile aynı (16, hepsi önceden var olan W1057/W1035).
+
+---
+
+## Combo: tek olayla dolan liste (2026-09-13)
+
+`AEditorId` / `AMasterFields` / `AOnFill`. Ölçülenler: `ComboFillTest` 24 (başsız)
+ve canlı PostgreSQL'e karşı `ComboFillLiveTest` 13 (formda ve gridde, adlarla
+üç seviye).
+
+| Ne | Durum |
+|---|---|
+| Gridde aynı satırda üst kolonun değeri alt kolonun listesinden önce kayda yazılıyor mu | **Ölçüldü, evet.** Ancak değişiklik `DataController.SetEditValue` ile yapıldı (hücre editörünün kaydetme yolu); klavyeyle yazarak değil |
+| Editör butonu (`OnButtonClick`) repository'de bir kez tetikleniyor mu | **Ölçülmedi**, kaynaktan (cxEdit.pas:4897-4900). Başsız sondada buton tıklaması üretilemiyor |
+| Tasarım zamanı: yeni property'lerin Object Inspector'daki hâli | Ölçülmedi (**Ö-03**) |

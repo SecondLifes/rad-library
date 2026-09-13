@@ -5,7 +5,7 @@ program DxAuditTest;
 (* DevExpress MCP denetiminin (2026-09-12) bulgulari icin kirmizi-once sonda.
 
    Her blok bir bulguyu olcer; bulgu numaralari denetim raporundakilerdir:
-     #1 dm.dev      Edit_tel OnValidate her degeri reddediyordu
+     #1 dm.dev      Edit_tel (simdi Stil_tel) OnValidate her degeri reddediyordu
      #2 Permission  Fix, BeforeUpdate + EndUpdate ile kilidi eksiye dusuruyordu
      #3 Permission  TRadPermission FDataBinding'i serbest birakmiyordu
      #4 Permission  SaveToField, DataSource nil iken AV veriyordu
@@ -255,14 +255,14 @@ var
   LSonuc: Boolean;
 begin
   Writeln;
-  Writeln('=== #1 dm.dev Edit_tel dogrulamasi ===');
+  Writeln('=== #1 dm.dev Stil_tel (eski Edit_tel) dogrulamasi ===');
   LDm := Tdm_dev.Create(nil);
   try
     LForm := TForm.CreateNew(nil);
     try
       LEd := TcxMaskEdit.Create(LForm);
       LEd.Parent := LForm;
-      LEd.RepositoryItem := LDm.Edit_tel;
+      LEd.RepositoryItem := LDm.Stil_tel;
 
       LEd.EditValue := '(555)123-4567';
       try

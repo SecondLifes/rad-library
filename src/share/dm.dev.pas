@@ -15,9 +15,9 @@ type
     dxLayoutSkin: TdxLayoutSkinLookAndFeel;
     EditRepository: TcxEditRepository;
     StyleRepository: TcxStyleRepository;
-    Edit_Password: TcxEditRepositoryTextItem;
+    Stil_Password: TcxEditRepositoryTextItem;
     DefaultEditStyle: TcxDefaultEditStyleController;
-    Edit_tel: TcxEditRepositoryMaskItem;
+    Stil_tel: TcxEditRepositoryMaskItem;
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
   private
@@ -44,7 +44,7 @@ begin
   SkinController._Save;
 end;
 
-(* Edit_tel'in OnValidate isleyicisi KALDIRILDI: kosulsuz Error := True
+(* Stil_tel'in (eski adiyla Edit_tel) OnValidate isleyicisi KALDIRILDI: kosulsuz Error := True
    yapiyordu ve ValidationOptions varsayilani [evoRaiseException] oldugu icin
    HER numara bir istisnayla reddediliyordu (DxAuditTest T01). Eksik numarayi
    maskenin kendisi zaten reddediyor (T02 olcumu) - gercek bir dogrulama

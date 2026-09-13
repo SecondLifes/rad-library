@@ -26,11 +26,11 @@ object dm_dev: Tdm_dev
     Left = 576
     Top = 72
     PixelsPerInch = 96
-    object Edit_Password: TcxEditRepositoryTextItem
+    object Stil_Password: TcxEditRepositoryTextItem
       Properties.PasswordChar = '*'
       Properties.ShowPasswordRevealButton = True
     end
-    object Edit_tel: TcxEditRepositoryMaskItem
+    object Stil_tel: TcxEditRepositoryMaskItem
       Properties.EditMask = '!\(999\)999-9999;1;_'
     end
   end

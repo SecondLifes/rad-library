@@ -156,6 +156,33 @@
     ! OnButtonClick'i YALNIZCA repository'ye yazin: editorun kendi Properties'ine
       de yazilirsa IKI kez gelir (cxEdit.pas:4897-4900).
 
+  CHECK COMBO: DEGER TASIYAN ITEM'LAR, OLAY YAZMADAN (TRadCheckComboBox /
+  TRadDBCheckComboBox)
+    Stok TcxCheckComboBox'ta bir item'in "degeri" yoktur; EditValue ya bit
+    maskesi ya da uzunluk-onekli caption kodlamasidir (cxCheckBox.pas:633) ve
+    filtre SQL'ine uymaz. Deger istemek her formda OnStatesToEditValue /
+    OnEditValueToStates yazmak demekti.
+
+      AValueItems     : satir basina 'Ad=Deger'  ('Alici=A', 'Satici=S',
+                        'Alici ve Satici=AS'). Items BUNDAN kurulur; Items'a
+                        dokunmayin, DFM'e de yazilmaz (tek kaynak AValueItems).
+                        Degersiz satirda deger = ad.
+      EditValue       : secili degerler AValueDelimiter (;) ile: 'A;AS'.
+      AValues         : editorde dizi olarak al / geri yukle: cb.AValues := ['A','AS'].
+                        DB editorde atama kaydi DUZENLEME moduna alir; alana
+                        yazma PostEditValue ile ya da odak cikinca olur.
+      AHasValues      : secim var mi.
+      AValuesIn(alan) : "cari_tip in ('A','AS')"; bos secimde ''. Metin uretir;
+                        parametre tercih ediyorsaniz AValues dizisini
+                        '= any(:p)' ile gecirin.
+
+    Dikis yeri olay DEGIL: CalculateCheckStatesByEditValue ve
+    CalculateEditValueByCheckStates sanal (cxCheckComboBox.pas:246-249). Olaylari
+    yine de atarsaniz OLAY KAZANIR ve deger kipi sessizce devre disi kalir
+    (RadChainAudit bunu bildirir). AValueItems bosken stok davranis aynen surer.
+    SINIR: gridin FILTRE SATIRI kendi stok TcxCheckComboBox'unu yaratir
+    (cxCheckComboBox.pas:1725-1757); oraya deger kipi gitmez.
+
   TUKETICILERI SAYMA
     TRadEditRepositoryItem.ConsumerCount / Consumers(i) bir RepositoryItem'i
     su an kullanan editor ve kolonlari verir. Yukaridaki kisiti calisma
@@ -203,6 +230,7 @@ uses
   cxGridDBTableView, cxGrid
   ,cxDropDownEdit,Generics.Collections,cxDBEdit,cxContainer
   ,cxDBLookupEdit,cxDBLookupComboBox,cxLookupEdit,dxCoreClasses
+  ,cxCheckBox,cxCheckComboBox,cxDBCheckComboBox  { TRadCheckComboBox ailesi }
   ,System.Types  { TList.Remove satir ici acilimi icin - H2443 }
   ,Vcl.ExtCtrls; { SearchDelay geciktiricisinin TTimer'i }
 
@@ -1129,6 +1157,111 @@ type
     property Properties: TRadComboBoxProperties read GetProperties write SetProperties;
   end;
 
+  {$REGION 'TRadCheckComboBox ailesi'}
+
+  (* Deger tasiyan check combo. Birim basligindaki CHECK COMBO notuna bakin.
+
+     Item sinifi DEGISTIRILEMEZ: taban yapici FItems'i sabit
+     TcxCheckComboBoxItem ile kurar (cxCheckComboBox.pas:1168) ve alan private.
+     Degerler bu yuzden ayri bir listede (AValueItems) durur; Items o listeden
+     TURETILIR ve DFM'e yazilmaz. *)
+  TRadCheckComboBoxProperties = class(TcxCheckComboBoxProperties)
+  private
+    FValueItems: TStrings;
+    FValueDelimiter: string;
+    FRebuilding: Boolean;
+    procedure SetValueItems(const AValue: TStrings);
+    procedure SetValueDelimiter(const AValue: string);
+    function  IsValueDelimiterStored: Boolean;
+    procedure ValueItemsChanged(Sender: TObject);
+    procedure RebuildItems;
+    { Deger kipi: AValueItems dolu VE olaylar bos (olay kazanir). }
+    function  ValueMode: Boolean;
+    function  ItemValue(AIndex: Integer): string;
+    function  IndexOfValue(const AValue: string): Integer;
+  protected
+    procedure DoAssign(AProperties: TcxCustomEditProperties); override;
+    procedure CalculateCheckStatesByEditValue(Sender: TObject; const AEditValue: TcxEditValue;
+      var ACheckStates: TcxCheckStates); override;
+    function CalculateEditValueByCheckStates(Sender: TObject;
+      const ACheckStates: TcxCheckStates): TcxEditValue; override;
+  public
+    constructor Create(AOwner: TPersistent); override;
+    destructor Destroy; override;
+    /// <summary>EditValue'daki secili degerler, item sirasinda; bilinmeyenler atlanir.</summary>
+    function ValuesOf(const AEditValue: TcxEditValue): TArray<string>;
+    /// <summary>Degerlerden EditValue ('A;AS'); hicbiri yoksa ''.</summary>
+    function EditValueOf(const AValues: array of string): TcxEditValue;
+    /// <summary>"alan in ('A','AS')"; secim yoksa ''. Tek tirnak ikilenir.</summary>
+    function ValuesIn(const AField: string; const AEditValue: TcxEditValue): string;
+    /// <summary>Sessiz tuzaklar: ayni degerli item, ayrac iceren deger, olay
+    /// cakismasi. Bos string = sorun yok.</summary>
+    function CheckWarning: string;
+    /// <summary>AConsumer'in bagli DB alani EditValue'yu tasiyamiyorsa
+    /// (metin degil ya da kisa) bildirir; bagli alan yoksa bos.</summary>
+    function FieldWarning(AConsumer: TComponent): string;
+  published
+    property AValueItems: TStrings read FValueItems write SetValueItems;
+    property AValueDelimiter: string read FValueDelimiter write SetValueDelimiter
+      stored IsValueDelimiterStored;
+    { Tek kaynak AValueItems: Items DFM'e yazilmaz, yuklenince yeniden kurulur. }
+    property Items stored False;
+    (* cvfInteger kalsaydi taban 64 item'da istisna atar (CheckEditValueFormat,
+       cxCheckComboBox.pas:1334) ve IsEditValueStored (:1492) EditValue'yu sayi
+       sanirdi. Deger kipinde bu property yorumlanmaz; bos AValueItems ile
+       stok davranis istenirse elle degistirilir. Yapici da AYNISINI atar. *)
+    property EditValueFormat default cvfStatesString;
+  end;
+
+  TRadCheckComboBoxRepository = class(TRadEditRepositoryItem)
+  private
+    function GetProperties: TRadCheckComboBoxProperties;
+    procedure SetProperties(Value: TRadCheckComboBoxProperties);
+  public
+    class function GetEditPropertiesClass: TcxCustomEditPropertiesClass; override;
+  published
+    property Properties: TRadCheckComboBoxProperties read GetProperties write SetProperties;
+  end;
+
+  { Kardes siniflar - ortak Rad atasi yok; gerekcesi TRadComboBox'un ustunde. }
+  TRadCheckComboBox = class(TcxCheckComboBox)
+  private
+    function GetActiveProperties: TRadCheckComboBoxProperties;
+    function GetProperties: TRadCheckComboBoxProperties;
+    procedure SetProperties(Value: TRadCheckComboBoxProperties);
+    function GetValues: TArray<string>;
+    procedure SetValues(const AValues: TArray<string>);
+    function GetHasValues: Boolean;
+  public
+    class function GetPropertiesClass: TcxCustomEditPropertiesClass; override;
+    function AValuesIn(const AField: string): string;
+    property ActiveProperties: TRadCheckComboBoxProperties read GetActiveProperties;
+    property AValues: TArray<string> read GetValues write SetValues;
+    property AHasValues: Boolean read GetHasValues;
+  published
+    property Properties: TRadCheckComboBoxProperties read GetProperties write SetProperties;
+  end;
+
+  TRadDBCheckComboBox = class(TcxDBCheckComboBox)
+  private
+    function GetActiveProperties: TRadCheckComboBoxProperties;
+    function GetProperties: TRadCheckComboBoxProperties;
+    procedure SetProperties(Value: TRadCheckComboBoxProperties);
+    function GetValues: TArray<string>;
+    procedure SetValues(const AValues: TArray<string>);
+    function GetHasValues: Boolean;
+  public
+    class function GetPropertiesClass: TcxCustomEditPropertiesClass; override;
+    function AValuesIn(const AField: string): string;
+    property ActiveProperties: TRadCheckComboBoxProperties read GetActiveProperties;
+    property AValues: TArray<string> read GetValues write SetValues;
+    property AHasValues: Boolean read GetHasValues;
+  published
+    property Properties: TRadCheckComboBoxProperties read GetProperties write SetProperties;
+  end;
+
+  {$ENDREGION}
+
 
 
 
@@ -1159,7 +1292,7 @@ type
 function RadChainAudit(ARoot: TComponent): string;
 
 implementation
-  uses Help.Dev,DBAccess, Vcl.Dialogs, Help.vcl;
+  uses Help.Dev,DBAccess, Vcl.Dialogs, Help.vcl, System.TypInfo;
 
 function RadChainAudit(ARoot: TComponent): string;
 var
@@ -1193,6 +1326,11 @@ var
     begin
       LSeen.Add(AProps);
       Ekle(TRadComboBoxProperties(AProps).CascadeWarning);
+    end
+    else if AProps is TRadCheckComboBoxProperties then
+    begin
+      LSeen.Add(AProps);
+      Ekle(TRadCheckComboBoxProperties(AProps).CheckWarning);
     end;
   end;
 
@@ -1221,6 +1359,9 @@ var
       if (_OwnProperties(AC) <> _ActiveProperties(AC)) and
          (_OwnProperties(AC) is TRadComboBoxProperties) then
         Ekle(TRadComboBoxProperties(_OwnProperties(AC)).MissingMasterFields(AC));
+      { Check combo: bagli DB alani 'A;S;AS' metnini tasiyabiliyor mu? }
+      if _ActiveProperties(AC) is TRadCheckComboBoxProperties then
+        Ekle(TRadCheckComboBoxProperties(_ActiveProperties(AC)).FieldWarning(AC));
     end;
     for i := 0 to AC.ComponentCount - 1 do
       Gez(AC.Components[i]);
@@ -1899,6 +2040,386 @@ begin
 end;
 
 
+
+{ TRadCheckComboBoxProperties }
+
+constructor TRadCheckComboBoxProperties.Create(AOwner: TPersistent);
+begin
+  inherited Create(AOwner);
+  FValueItems := TStringList.Create;
+  TStringList(FValueItems).OnChange := ValueItemsChanged;
+  FValueDelimiter := cxCheckComboValuesDelimiter;   { ';' }
+  { published 'default cvfStatesString' ile AYNI olmak zorunda (kit kurali). }
+  EditValueFormat := cvfStatesString;
+end;
+
+destructor TRadCheckComboBoxProperties.Destroy;
+begin
+  FreeAndNil(FValueItems);
+  inherited Destroy;
+end;
+
+procedure TRadCheckComboBoxProperties.SetValueItems(const AValue: TStrings);
+begin
+  FValueItems.Assign(AValue);
+end;
+
+procedure TRadCheckComboBoxProperties.SetValueDelimiter(const AValue: string);
+begin
+  if FValueDelimiter = AValue then
+    Exit;
+  FValueDelimiter := AValue;
+  Changed;
+end;
+
+function TRadCheckComboBoxProperties.IsValueDelimiterStored: Boolean;
+begin
+  Result := FValueDelimiter <> cxCheckComboValuesDelimiter;
+end;
+
+procedure TRadCheckComboBoxProperties.ValueItemsChanged(Sender: TObject);
+begin
+  RebuildItems;
+end;
+
+procedure TRadCheckComboBoxProperties.RebuildItems;
+var
+  i: Integer;
+  LName: string;
+begin
+  if FRebuilding then
+    Exit;
+  FRebuilding := True;
+  try
+    Items.BeginUpdate;
+    try
+      Items.Clear;
+      for i := 0 to FValueItems.Count - 1 do
+      begin
+        LName := FValueItems.Names[i];
+        if LName = '' then
+          LName := FValueItems[i];          { '=' yok: ad = satirin tamami }
+        Items.Add.Description := LName;
+      end;
+    finally
+      Items.EndUpdate;
+    end;
+  finally
+    FRebuilding := False;
+  end;
+  Changed;
+end;
+
+function TRadCheckComboBoxProperties.ValueMode: Boolean;
+begin
+  (* Olaylar atanmissa TABAN onlari cagirir (cxCheckComboBox.pas:1354, :1383);
+     override'lar inherited'a duserek ayni sozlesmeyi korur. CheckWarning bu
+     durumu bildirir - sessiz kalmasin diye. *)
+  Result := (FValueItems.Count > 0) and
+    not Assigned(OnStatesToEditValue) and not Assigned(OnEditValueToStates);
+end;
+
+function TRadCheckComboBoxProperties.ItemValue(AIndex: Integer): string;
+begin
+  if (AIndex < 0) or (AIndex >= FValueItems.Count) then
+    Exit('');
+  if FValueItems.Names[AIndex] = '' then
+    Result := FValueItems[AIndex]
+  else
+    Result := FValueItems.ValueFromIndex[AIndex];
+end;
+
+function TRadCheckComboBoxProperties.IndexOfValue(const AValue: string): Integer;
+var
+  i: Integer;
+begin
+  for i := 0 to FValueItems.Count - 1 do
+    if SameText(ItemValue(i), AValue) then
+      Exit(i);
+  Result := -1;
+end;
+
+procedure TRadCheckComboBoxProperties.DoAssign(AProperties: TcxCustomEditProperties);
+begin
+  inherited DoAssign(AProperties);
+  if not (AProperties is TRadCheckComboBoxProperties) then
+    Exit;
+  FValueDelimiter := TRadCheckComboBoxProperties(AProperties).FValueDelimiter;
+  { Bu atama Items'i yeniden kurar; taban zaten kopyalamisti, icerik ayni. }
+  FValueItems.Assign(TRadCheckComboBoxProperties(AProperties).FValueItems);
+end;
+
+procedure TRadCheckComboBoxProperties.CalculateCheckStatesByEditValue(Sender: TObject;
+  const AEditValue: TcxEditValue; var ACheckStates: TcxCheckStates);
+var
+  LParts: TArray<string>;
+  LPart: string;
+  i, LIdx: Integer;
+begin
+  if not ValueMode then
+  begin
+    inherited CalculateCheckStatesByEditValue(Sender, AEditValue, ACheckStates);
+    Exit;
+  end;
+  SetLength(ACheckStates, Items.Count);
+  for i := 0 to High(ACheckStates) do
+    ACheckStates[i] := cbsUnchecked;
+  if VarIsNull(AEditValue) or VarIsEmpty(AEditValue) then
+    Exit;
+  LParts := VarToStr(AEditValue).Split([FValueDelimiter], TStringSplitOptions.ExcludeEmpty);
+  for LPart in LParts do
+  begin
+    LIdx := IndexOfValue(Trim(LPart));
+    if (LIdx >= 0) and (LIdx < Length(ACheckStates)) then
+      ACheckStates[LIdx] := cbsChecked;
+  end;
+end;
+
+function TRadCheckComboBoxProperties.CalculateEditValueByCheckStates(Sender: TObject;
+  const ACheckStates: TcxCheckStates): TcxEditValue;
+var
+  i: Integer;
+  LText: string;
+begin
+  if not ValueMode then
+    Exit(inherited CalculateEditValueByCheckStates(Sender, ACheckStates));
+  LText := '';
+  for i := 0 to High(ACheckStates) do
+    if ACheckStates[i] = cbsChecked then
+    begin
+      if LText <> '' then
+        LText := LText + FValueDelimiter;
+      LText := LText + ItemValue(i);
+    end;
+  Result := LText;
+end;
+
+function TRadCheckComboBoxProperties.ValuesOf(const AEditValue: TcxEditValue): TArray<string>;
+var
+  LStates: TcxCheckStates;
+  i: Integer;
+begin
+  Result := nil;
+  CalculateCheckStatesByEditValue(nil, AEditValue, LStates);
+  if not ValueMode then
+    Exit;
+  for i := 0 to High(LStates) do
+    if LStates[i] = cbsChecked then
+      Result := Result + [ItemValue(i)];
+end;
+
+function TRadCheckComboBoxProperties.EditValueOf(const AValues: array of string): TcxEditValue;
+var
+  LStates: TcxCheckStates;
+  i, j: Integer;
+begin
+  SetLength(LStates, Items.Count);
+  for i := 0 to High(LStates) do
+  begin
+    LStates[i] := cbsUnchecked;
+    for j := Low(AValues) to High(AValues) do
+      if SameText(ItemValue(i), Trim(AValues[j])) then
+      begin
+        LStates[i] := cbsChecked;
+        Break;
+      end;
+  end;
+  Result := CalculateEditValueByCheckStates(nil, LStates);
+end;
+
+function TRadCheckComboBoxProperties.ValuesIn(const AField: string;
+  const AEditValue: TcxEditValue): string;
+var
+  LValues: TArray<string>;
+  LValue: string;
+begin
+  Result := '';
+  LValues := ValuesOf(AEditValue);
+  if Length(LValues) = 0 then
+    Exit;
+  for LValue in LValues do
+  begin
+    if Result <> '' then
+      Result := Result + ',';
+    Result := Result + '''' + StringReplace(LValue, '''', '''''', [rfReplaceAll]) + '''';
+  end;
+  Result := AField + ' in (' + Result + ')';
+end;
+
+function TRadCheckComboBoxProperties.CheckWarning: string;
+
+  procedure Ekle(const AText: string);
+  begin
+    if Result <> '' then
+      Result := Result + sLineBreak;
+    Result := Result + AText;
+  end;
+
+var
+  i, j: Integer;
+  LValue: string;
+begin
+  Result := '';
+  if FValueItems.Count = 0 then
+    Exit;
+  for i := 0 to FValueItems.Count - 1 do
+  begin
+    LValue := ItemValue(i);
+    if (FValueDelimiter <> '') and (Pos(FValueDelimiter, LValue) > 0) then
+      Ekle(Format('AValueItems: "%s" degeri ayraci (%s) iceriyor; EditValue''da ' +
+        'ikiye bolunur ve hic eslesmez.', [LValue, FValueDelimiter]));
+    for j := 0 to i - 1 do
+      if SameText(ItemValue(j), LValue) then
+      begin
+        Ekle(Format('AValueItems: "%s" degeri iki item''da (%s, %s); ikincisi ' +
+          'hic secilemez, EditValue hep birincisini gosterir.',
+          [LValue, Items[j].Description, Items[i].Description]));
+        Break;
+      end;
+  end;
+  if Assigned(OnStatesToEditValue) or Assigned(OnEditValueToStates) then
+    Ekle('AValueItems dolu ama OnStatesToEditValue/OnEditValueToStates atanmis: ' +
+      'olay kazanir, deger kipi (AValues, AValuesIn) devre disi.');
+end;
+
+function TRadCheckComboBoxProperties.FieldWarning(AConsumer: TComponent): string;
+var
+  LField: TField;
+  LNeeded, i: Integer;
+begin
+  Result := '';
+  if FValueItems.Count = 0 then
+    Exit;
+  LField := _FieldOf(AConsumer);
+  if LField = nil then
+    Exit;
+  if not (LField.DataType in [ftString, ftWideString, ftMemo, ftWideMemo]) then
+    Exit(Format('%s: bagli alan "%s" metin degil (%s); EditValue ''%s'' gibi bir ' +
+      'metindir, alana yazilamaz.', [AConsumer.Name, LField.FieldName,
+      GetEnumName(TypeInfo(TFieldType), Ord(LField.DataType)), ItemValue(0)]));
+  if LField.Size <= 0 then
+    Exit;
+  LNeeded := Length(FValueDelimiter) * (FValueItems.Count - 1);
+  for i := 0 to FValueItems.Count - 1 do
+    Inc(LNeeded, Length(ItemValue(i)));
+  if LField.Size < LNeeded then
+    Result := Format('%s: "%s" alani %d karakter; tum degerler secilince %d gerekir ' +
+      '- kayit kesilir ya da hata verir.', [AConsumer.Name, LField.FieldName,
+      LField.Size, LNeeded]);
+end;
+
+{ TRadCheckComboBoxRepository }
+
+class function TRadCheckComboBoxRepository.GetEditPropertiesClass: TcxCustomEditPropertiesClass;
+begin
+  Result := TRadCheckComboBoxProperties;
+end;
+
+function TRadCheckComboBoxRepository.GetProperties: TRadCheckComboBoxProperties;
+begin
+  Result := inherited Properties as TRadCheckComboBoxProperties;
+end;
+
+procedure TRadCheckComboBoxRepository.SetProperties(Value: TRadCheckComboBoxProperties);
+begin
+  inherited Properties := Value;
+end;
+
+{ TRadCheckComboBox }
+
+class function TRadCheckComboBox.GetPropertiesClass: TcxCustomEditPropertiesClass;
+begin
+  Result := TRadCheckComboBoxProperties;
+end;
+
+function TRadCheckComboBox.GetActiveProperties: TRadCheckComboBoxProperties;
+begin
+  Result := TRadCheckComboBoxProperties(InternalGetActiveProperties);
+end;
+
+function TRadCheckComboBox.GetProperties: TRadCheckComboBoxProperties;
+begin
+  Result := TRadCheckComboBoxProperties(inherited Properties);
+end;
+
+procedure TRadCheckComboBox.SetProperties(Value: TRadCheckComboBoxProperties);
+begin
+  Properties.Assign(Value);
+end;
+
+function TRadCheckComboBox.GetValues: TArray<string>;
+begin
+  Result := ActiveProperties.ValuesOf(EditValue);
+end;
+
+procedure TRadCheckComboBox.SetValues(const AValues: TArray<string>);
+begin
+  EditValue := ActiveProperties.EditValueOf(AValues);
+end;
+
+function TRadCheckComboBox.GetHasValues: Boolean;
+begin
+  Result := Length(AValues) > 0;
+end;
+
+function TRadCheckComboBox.AValuesIn(const AField: string): string;
+begin
+  Result := ActiveProperties.ValuesIn(AField, EditValue);
+end;
+
+{ TRadDBCheckComboBox }
+
+type
+  TRadDBBindingAccess = class(TcxDBEditDataBinding);
+
+class function TRadDBCheckComboBox.GetPropertiesClass: TcxCustomEditPropertiesClass;
+begin
+  Result := TRadCheckComboBoxProperties;
+end;
+
+function TRadDBCheckComboBox.GetActiveProperties: TRadCheckComboBoxProperties;
+begin
+  Result := TRadCheckComboBoxProperties(InternalGetActiveProperties);
+end;
+
+function TRadDBCheckComboBox.GetProperties: TRadCheckComboBoxProperties;
+begin
+  Result := TRadCheckComboBoxProperties(inherited Properties);
+end;
+
+procedure TRadDBCheckComboBox.SetProperties(Value: TRadCheckComboBoxProperties);
+begin
+  Properties.Assign(Value);
+end;
+
+function TRadDBCheckComboBox.GetValues: TArray<string>;
+begin
+  Result := ActiveProperties.ValuesOf(EditValue);
+end;
+
+procedure TRadDBCheckComboBox.SetValues(const AValues: TArray<string>);
+begin
+  (* Kodla atanan deger alana GITMEZDI: DB editor yalnizca baglantisi
+     "duzenleniyor + degisti" iken yazar (CanPostEditorValue, cxDBEdit.pas:1980)
+     ve EditValue atamasi bunu isaretlemez - PostEditValue sessizce hicbir sey
+     yapmiyordu (CheckComboTest B03, olculdu). SetEditMode kaydi duzenlemeye
+     alir ve baglantiyi degisti isaretler (:2182-2196); yazma yine
+     PostEditValue'ya ya da odak cikisina kalir. Alan yoksa / salt okunursa
+     False doner ve deger yalnizca editorde kalir. *)
+  { SetEditMode torunda protected'a cekilmis; erisim sinifi (birimin deyimi). }
+  TRadDBBindingAccess(DataBinding).SetEditMode;
+  EditValue := ActiveProperties.EditValueOf(AValues);
+end;
+
+function TRadDBCheckComboBox.GetHasValues: Boolean;
+begin
+  Result := Length(AValues) > 0;
+end;
+
+function TRadDBCheckComboBox.AValuesIn(const AField: string): string;
+begin
+  Result := ActiveProperties.ValuesIn(AField, EditValue);
+end;
 
 { TRadLookupComboBoxRepository }
 
@@ -2824,10 +3345,12 @@ end;
 initialization
   GetRegisteredEditProperties.Register(TRadComboBoxProperties, 'Rad ComboBox|Defines a combo box editor');
   GetRegisteredEditProperties.Register(TRadLookupComboBoxProperties, 'Rad LookupComboBox|LookupComboBox AksaSoft');
+  GetRegisteredEditProperties.Register(TRadCheckComboBoxProperties, 'Rad CheckComboBox|Check combo with item values');
 
   {$IFDEF DX_INITIALIZATION_LOGGING}TdxUnitSectionsLogger.InitializationStarted(dxThisUnitName, SysInit.HInstance);{$ENDIF}
   RegisterClasses([TRadLookupComboBoxRepository]);
   RegisterClasses([TRadComboBoxRepository]);
+  RegisterClasses([TRadCheckComboBoxRepository]);
   {$IFDEF DX_INITIALIZATION_LOGGING}TdxUnitSectionsLogger.InitializationFinished(dxThisUnitName, SysInit.HInstance);{$ENDIF}
 
 
@@ -2837,6 +3360,7 @@ initialization
 
 
 finalization
+   GetRegisteredEditProperties.UnRegister(TRadCheckComboBoxProperties);
    GetRegisteredEditProperties.UnRegister(TRadLookupComboBoxProperties);
    GetRegisteredEditProperties.UnRegister(TRadComboBoxProperties);
 

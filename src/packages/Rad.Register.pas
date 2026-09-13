@@ -42,6 +42,7 @@ implementation
   ,TRadConnection,TRadQuery,TRadEventHandler,TRadUnitOfWork
   ,TRadLookupComboBox,TRadDBLookupComboBox,TRadComboBox,TRadDBComboBox
   ,TRadFieldCascade
+  ,TRadCheckComboBox,TRadDBCheckComboBox
   {
   TDepoValue,TStickyLabel
   //TCommadList,
@@ -67,6 +68,7 @@ initialization
 
   //RegisterEditRepositoryItem(TEditRepositoryFilterLookupEditItem, 'TEditRepositoryFilterLookupEditItem');//   ayraç |
   RegisterEditRepositoryItem(TRadComboBoxRepository, 'Rad ComboBox');//   ayraç |
+  RegisterEditRepositoryItem(TRadCheckComboBoxRepository, 'Rad CheckComboBox');
   RegisterEditRepositoryItem(TRadLookupComboBoxRepository, 'Rad LookupComboBox');//   ayraç |
 
   //GetRegisteredEditProperties.Register(TAkComboBoxDBProperties, 'TcxEditRepositoryComboBoxDBItem');
@@ -78,6 +80,7 @@ finalization
   //UnRegisterEditRepositoryItem(TEditRepositoryFilterLookupEditItem);
   UnRegisterEditRepositoryItem(TRadComboBoxRepository);
   UnRegisterEditRepositoryItem(TRadLookupComboBoxRepository);
+  UnRegisterEditRepositoryItem(TRadCheckComboBoxRepository);
 
   //FilterEditsController.Unregister(TcxComboBoxProperties, TcxFilterComboBoxHelper);
   //dxUnitsLoader.RemoveUnit(SysInit.HInstance, dxThisUnitName, TcxInplaceComboBoxCustomDrawHelper.Finalize);

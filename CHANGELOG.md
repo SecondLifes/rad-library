@@ -26,6 +26,39 @@ that break something else in the kit.
 
 ### Added
 
+- `src/component/Rad.Dev.pas` — **`TRadCheckComboBox` / `TRadDBCheckComboBox` /
+  `TRadCheckComboBoxRepository`: a check combo whose items carry values, with
+  no event code.** `AValueItems` takes one `Name=Value` line per item
+  (`Alıcı=A`, `Satıcı=S`, `Alıcı ve Satıcı=AS`); the stock `Items` is built from
+  it and is no longer streamed (`stored False`), so there is one source. The
+  edit value is the checked values joined by `AValueDelimiter` (`A;AS`); the
+  editor exposes `AValues: TArray<string>` to read and load the selection,
+  `AHasValues`, and `AValuesIn('cari_tip')` → `cari_tip in ('A','AS')` with
+  quotes doubled. Why it is built this way: `TcxCheckStatesValueFormat` is a
+  subrange, so no new format can be added, and the stock `cvfCaptions` is a
+  length-prefixed encoding (`cxCheckBox.pas:633`) unfit for SQL; the item class
+  is fixed in the properties constructor (`cxCheckComboBox.pas:1168`), so
+  values live beside the items rather than in them. The seam is the two
+  virtual `Calculate*` methods (`:246-249`), not the published events — if the
+  events are assigned they win, as in the stock class, and the audit says so.
+  `EditValueFormat` defaults to `cvfStatesString` here, because `cvfInteger`
+  raises at 64 items and treats an empty value as a number. Two more things
+  measured: the display delimiter is the stock `Delimiter` (`;`, no space),
+  and on the DB editor a value assigned in code did not reach the field
+  (`CanPostEditorValue` needs the link in editing+modified state,
+  `cxDBEdit.pas:1980`), so `AValues` on `TRadDBCheckComboBox` first calls
+  `SetEditMode`. `RadChainAudit` reports duplicate values, a value containing
+  the delimiter, the event override, and a bound DB field that is not text or
+  too short for all values. Known limit: the grid's filter row creates its own
+  stock `TcxCheckComboBox` (`:1725-1757`) and does not see the value mode.
+- `src/packages/Rad.Register.pas` — registers the two editors and the
+  repository item (design-time, not compiled here).
+- `src/test/scratch/rad_dev_repolisteners/CheckComboTest.dpr` — 35 assertions:
+  value round trip, case-insensitive parsing in item order, unknown values,
+  70 items, fixed lists, stock behaviour with empty `AValueItems`, shared
+  repository, DFM round trip (`Items` absent), DB field write, and every audit
+  message.
+
 - `src/component/rad.db.pas` — **`TRadFieldCascade`**, a non-visual component
   for the data module: when a field is *edited*, it clears the fields that
   depend on it. One line per chain in `AChains` (`'ulke;sehir;ilce'`): editing

@@ -121,6 +121,7 @@ begin
   Result :=TRadConfig.Config;
 end;
 
+
 function RadApp: TRadApp;
  begin
   if TRadApp.FDefaultApp = nil then

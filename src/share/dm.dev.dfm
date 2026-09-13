@@ -6,6 +6,7 @@ object dm_dev: Tdm_dev
   object SkinController: TdxSkinController
     NativeStyle = False
     SkinName = 'WXICompact'
+    SkinPaletteName = 'Office Dark Gray'
     Left = 584
     Top = 8
   end
@@ -15,7 +16,7 @@ object dm_dev: Tdm_dev
     Left = 640
     Top = 8
   end
-  object dxLayoutLookAndFeelList: TdxLayoutLookAndFeelList
+  object dxLayoutFeel: TdxLayoutLookAndFeelList
     Left = 520
     Top = 16
     object dxLayoutSkin: TdxLayoutSkinLookAndFeel

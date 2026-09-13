@@ -248,6 +248,19 @@ ve canlı PostgreSQL'e karşı `ComboFillLiveTest` 13 (formda ve gridde, adlarla
 | Editör butonu (`OnButtonClick`) repository'de bir kez tetikleniyor mu | **Ölçülmedi**, kaynaktan (cxEdit.pas:4897-4900). Başsız sondada buton tıklaması üretilemiyor |
 | Tasarım zamanı: yeni property'lerin Object Inspector'daki hâli | Ölçülmedi (**Ö-03**) |
 
+## TRadCheckComboBox (2026-09-13)
+
+`CheckComboTest` 35 (başsız, Win32 + Win64): değer gidiş-dönüşü, harf
+duyarsız eşleşme, bilinmeyen değer, 70 item, sabit liste, boş `AValueItems`
+ile stok davranış, paylaşılan repository, DFM (Items yazılmıyor), DB alanına
+yazma, dört denetim mesajı.
+
+| Ne | Durum |
+|---|---|
+| Kullanıcı tıklamasıyla (fare) işaretleme → EditValue | Ölçülmedi; sonda `States[]` ve `AValues` ile ilerliyor. Aynı `CalculateEditValueByCheckStates` yolu, ama tıklama denenmedi |
+| Object Inspector'da `AValueItems` düzenleme, palet | Ölçülmedi (**Ö-03**) |
+| Grid filtre satırı | Tasarım gereği kapsam dışı (stok combo yaratılıyor) |
+
 ## TRadFieldCascade (2026-09-13)
 
 `FieldCascadeTest` 18: düzenleme siler, gezinme/aynı değer silmez, iki zincir

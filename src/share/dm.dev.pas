@@ -11,7 +11,7 @@ type
   Tdm_dev = class(TDataModule)
     SkinController: TdxSkinController;
     cxLookAndFeelController: TcxLookAndFeelController;
-    dxLayoutLookAndFeelList: TdxLayoutLookAndFeelList;
+    dxLayoutFeel: TdxLayoutLookAndFeelList;
     dxLayoutSkin: TdxLayoutSkinLookAndFeel;
     EditRepository: TcxEditRepository;
     StyleRepository: TcxStyleRepository;

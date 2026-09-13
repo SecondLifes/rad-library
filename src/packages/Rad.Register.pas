@@ -41,6 +41,7 @@ implementation
   ,TRadPermission//TAksaPropertiesStore,TAksaActionList,TAksaCmdList
   ,TRadConnection,TRadQuery,TRadEventHandler,TRadUnitOfWork
   ,TRadLookupComboBox,TRadDBLookupComboBox,TRadComboBox,TRadDBComboBox
+  ,TRadFieldCascade
   {
   TDepoValue,TStickyLabel
   //TCommadList,

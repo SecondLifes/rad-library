@@ -219,7 +219,7 @@ düzeltmeler `DxAuditTest.dpr` ile kırmızı-önce ölçüldü (21 iddia, Win32
 
 | Ne | Neden yapılamadı | Ne kapatır |
 |---|---|---|
-| `Kisayol.Edit.pas` derlenmesi | Birim `rad.rtl` kullanıyor, bu birim depoda **yok**; ayrıca JVCL (`JvHotKey`) gerekiyor. Düzeltme (görünüm başına kolon indeksi, `try..finally`, `with`) yalnızca **okunarak** doğrulandı. Birim bu değişiklikten önce de derlenmiyordu. | `rad.rtl`'in yeri bulununca derleme + kısayol formunda iki görünümle deneme |
+| `Kisayol.Edit.pas` derlenmesi | **Düzeltme (2026-09-13):** "`rad.rtl` depoda yok" tespiti YANLIŞTI — birim `src/component/rad.rtl.pas`'ta duruyor ve paket onu içeriyor; yalnızca `src/core`'a bakılmıştı, aramanın geri kalanı hata veren bir komutta kalmıştı. Asıl eksik JVCL (`JvHotKey`) yoluydu; JVCL makinede var (`E:\system\dev\Delphi\component\2026.6.6\jvcl`). **2026-09-13: JVCL ile derlendi ve bağlandı** (tek ipucu önceden var olan kullanılmayan global `Kisayol_Edit`). Çalışma zamanı denenmedi. | Kısayol formunda iki görünümle deneme |
 | `Rad.Editor.pas` derlenmesi | `DesignEditors.dcu` yok. Navigator editörüne eklenen `Modified` çağrısı dahil, değişiklik **derlenmedi**. | Kullanıcının paket derlemesi (**Ö-03**) |
 | `k.setting` yıkım sırası | Yıkım sırasında `OnItemChanged` gelip gelmediği ölçülmedi; değişiklik bir savunma. `SettingTest` 71/71 yeşil kaldı. | Görünür pencereyle yıkım sondası |
 | `dm.dev` gerçek form üzerinde | Doğrulama sondada `TcxMaskEdit` + `ValidateEdit` ile ölçüldü; bir formda odak değişimiyle tetiklenen yol denenmedi. | **Ö-07** tarzı görünür pencere sondası |
@@ -247,3 +247,14 @@ ve canlı PostgreSQL'e karşı `ComboFillLiveTest` 13 (formda ve gridde, adlarla
 | Gridde aynı satırda üst kolonun değeri alt kolonun listesinden önce kayda yazılıyor mu | **Ölçüldü, evet.** Ancak değişiklik `DataController.SetEditValue` ile yapıldı (hücre editörünün kaydetme yolu); klavyeyle yazarak değil |
 | Editör butonu (`OnButtonClick`) repository'de bir kez tetikleniyor mu | **Ölçülmedi**, kaynaktan (cxEdit.pas:4897-4900). Başsız sondada buton tıklaması üretilemiyor |
 | Tasarım zamanı: yeni property'lerin Object Inspector'daki hâli | Ölçülmedi (**Ö-03**) |
+
+## TRadFieldCascade (2026-09-13)
+
+`FieldCascadeTest` 18: düzenleme siler, gezinme/aynı değer silmez, iki zincir
+karışmaz, Cancel geri getirir, DataSource yok edilince bağ kopar, DFM
+gidiş-dönüşü, grid veri denetleyicisinden gelen değişiklik.
+
+| Ne | Durum |
+|---|---|
+| UniDAC dataset'iyle (TUniQuery) canlı veritabanında | Ölçülmedi — sonda `TVirtualTable` kullanıyor. Mekanizma dataset'ten bağımsız (standart `TDataLink` bildirimi), ama gerçek sorguda bir kez denenmeli |
+| Palete kayıt (`Rad.Register`) ve Object Inspector | Derlenmedi/ölçülmedi (**Ö-03**) |

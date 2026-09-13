@@ -12,6 +12,8 @@
     TRadConnectionSetting — audit, DB versiyon, SQL migration
     TRadConnection      — TUniConnection + fluent API + helpers
     TRadQuery           — TUniQuery + auto-transaction + fluent API + async
+    TRadFieldCascade    — bir alan DUZENLENINCE ona bagli alanlari siler
+                          (AChains: 'ulke;sehir;ilce'); gezinmede dokunmaz
 
   TDataSetHelper (Help.DB.pas) metodları TRadQuery üzerinde otomatik çalışır.
 
@@ -111,6 +113,49 @@ type
   TQueryProc       = reference to procedure(q: TRadQuery);
 
   { ── TRadEventHandler ─────────────────────────────────────────────────────── }
+
+  { ── TRadFieldCascade ─────────────────────────────────────────────────────── }
+
+  /// <summary>
+  ///   Bir alan DUZENLENINCE ona bagli alanlari siler. Veri modulune birakilir;
+  ///   kural tek satirdir: AChains'e 'ulke;sehir;ilce' yazilirsa ulke
+  ///   duzenlenince sehir ve ilce, sehir duzenlenince ilce silinir. Her satir
+  ///   ayri bir zincirdir.
+  /// </summary>
+  /// <remarks>
+  ///   Arayuzden BAGIMSIZDIR: formdaki editor, grid ya da kod - degisiklik
+  ///   alana nereden gelirse gelsin calisir, cunku dataset'in kendi alan
+  ///   degisikligi bildirimini dinler. Kayitta gezinme, Cancel/Post sonrasi
+  ///   tazeleme ve ayni degeri yeniden yazmak HICBIR SEY silmez.
+  ///   Silme kayda yazilir (Field.Clear); Cancel her seyi geri getirir.
+  /// </remarks>
+  [ComponentPlatformsAttribute(pidAllPlatforms)]
+  TRadFieldCascade = class(TComponent)
+  private
+    FLink: TDataLink;
+    FChains: TStrings;
+    { Ust alanlarin SON bilinen degerleri: "gercekten degisti mi" sorusu icin.
+      Kayit degisince yeniden alinir. }
+    FSnapshot: TDictionary<string, Variant>;
+    FClearing: Boolean;
+    function  GetDataSource: TDataSource;
+    procedure SetDataSource(const AValue: TDataSource);
+    procedure SetChains(const AValue: TStrings);
+    procedure ChainsChanged(Sender: TObject);
+    procedure TakeSnapshot;
+    procedure FieldEdited(AField: TField);
+  protected
+    procedure Notification(AComponent: TComponent; Operation: TOperation); override;
+  public
+    constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
+  published
+    /// <summary>Izlenen kaydin veri kaynagi (ornegin dsSirket).</summary>
+    property ADataSource: TDataSource read GetDataSource write SetDataSource;
+    /// <summary>Her satir bir zincir: 'ulke;sehir;ilce'. Bir alan
+    /// duzenlenince, AYNI satirda ondan SONRA gelen alanlar silinir.</summary>
+    property AChains: TStrings read FChains write SetChains;
+  end;
 
   [ComponentPlatformsAttribute(pidAllPlatforms)]
   TRadEventHandler = class(TComponent)
@@ -2081,6 +2126,177 @@ begin
       raise;
     end;
   end);
+end;
+
+{ ── TRadFieldCascade ──────────────────────────────────────────────────────── }
+
+type
+  (* Dataset'in bildirimlerini dinleyen ic bag. Ayrim VCL'in kendisinde
+     (Data.DB.pas, TDataLink.DataEvent):
+       - alan duzenlenince  -> RecordChanged(o alan)          (:10799-10800)
+       - gezinme/tazeleme   -> DataSetScrolled -> DataSetChanged
+                               -> RecordChanged(nil)          (:10839-10847)
+     Parametresiz bir olay (ornegin TcxDBDataBinding.OnDataChange) bu ikisini
+     ayirt edemez; bu yuzden duz bir TDataLink. *)
+  TRadFieldCascadeLink = class(TDataLink)
+  private
+    FOwner: TRadFieldCascade;
+  protected
+    procedure ActiveChanged; override;
+    procedure RecordChanged(Field: TField); override;
+  end;
+
+procedure TRadFieldCascadeLink.ActiveChanged;
+begin
+  FOwner.TakeSnapshot;
+end;
+
+procedure TRadFieldCascadeLink.RecordChanged(Field: TField);
+begin
+  if Field = nil then
+    FOwner.TakeSnapshot
+  else
+    FOwner.FieldEdited(Field);
+end;
+
+{ Iki deger "ayni" mi - Null/Unassigned birbirine esit, digerleri metin olarak. }
+function CascadeSameValue(const A, B: Variant): Boolean;
+var
+  LBosA, LBosB: Boolean;
+begin
+  LBosA := VarIsNull(A) or VarIsEmpty(A);
+  LBosB := VarIsNull(B) or VarIsEmpty(B);
+  if LBosA or LBosB then
+    Exit(LBosA and LBosB);
+  Result := VarToStr(A) = VarToStr(B);
+end;
+
+constructor TRadFieldCascade.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  FChains := TStringList.Create;
+  TStringList(FChains).OnChange := ChainsChanged;
+  FSnapshot := TDictionary<string, Variant>.Create;
+  FLink := TRadFieldCascadeLink.Create;
+  TRadFieldCascadeLink(FLink).FOwner := Self;
+end;
+
+destructor TRadFieldCascade.Destroy;
+begin
+  { Once bag: DataSource'tan cikar, sonra onun kullandigi yapilar. }
+  FreeAndNil(FLink);
+  FreeAndNil(FSnapshot);
+  FreeAndNil(FChains);
+  inherited Destroy;
+end;
+
+procedure TRadFieldCascade.Notification(AComponent: TComponent; Operation: TOperation);
+begin
+  inherited Notification(AComponent, Operation);
+  if (Operation = opRemove) and (FLink <> nil) and (AComponent = FLink.DataSource) then
+    FLink.DataSource := nil;
+end;
+
+function TRadFieldCascade.GetDataSource: TDataSource;
+begin
+  Result := FLink.DataSource;
+end;
+
+procedure TRadFieldCascade.SetDataSource(const AValue: TDataSource);
+begin
+  if FLink.DataSource = AValue then
+    Exit;
+  if FLink.DataSource <> nil then
+    FLink.DataSource.RemoveFreeNotification(Self);
+  FLink.DataSource := AValue;
+  if AValue <> nil then
+    AValue.FreeNotification(Self);
+  TakeSnapshot;
+end;
+
+procedure TRadFieldCascade.SetChains(const AValue: TStrings);
+begin
+  FChains.Assign(AValue);
+end;
+
+procedure TRadFieldCascade.ChainsChanged(Sender: TObject);
+begin
+  TakeSnapshot;
+end;
+
+procedure TRadFieldCascade.TakeSnapshot;
+var
+  LLine: string;
+  LNames: TArray<string>;
+  i: Integer;
+  LField: TField;
+begin
+  if FSnapshot = nil then
+    Exit;
+  FSnapshot.Clear;
+  if (FLink = nil) or (FLink.DataSet = nil) or not FLink.DataSet.Active then
+    Exit;
+  for LLine in FChains do
+  begin
+    LNames := LLine.Split([';'], TStringSplitOptions.ExcludeEmpty);
+    { Son alanin altinda silinecek bir sey yok; yalnizca ustler izlenir. }
+    for i := 0 to High(LNames) - 1 do
+    begin
+      { System.SysUtils ile NITELENDIRILDI: bu birim mormot.core.base/unicode
+        kullaniyor ve onlarin RawUtf8 Trim/LowerCase/SameText asiri yuklemeleri
+        RTL'inkileri golgeliyor - nitelenmezse her cagri UTF8'e gidip doner
+        (W1057). Ayni tuzak k.setting.pas'ta belgeli. }
+      LField := FLink.DataSet.FindField(System.SysUtils.Trim(LNames[i]));
+      if LField <> nil then
+        FSnapshot.AddOrSetValue(System.SysUtils.LowerCase(LField.FieldName), LField.Value);
+    end;
+  end;
+end;
+
+procedure TRadFieldCascade.FieldEdited(AField: TField);
+var
+  LKey: string;
+  LOld, LNew: Variant;
+  LLine: string;
+  LNames: TArray<string>;
+  i, j: Integer;
+  LAlt: TField;
+begin
+  { Kendi silmemizin dogurdugu bildirimler yeniden islenmez: zincirin kalanini
+    zaten bu cagri siliyor. }
+  if FClearing or (csDesigning in ComponentState) or (FLink.DataSet = nil) then
+    Exit;
+  LKey := System.SysUtils.LowerCase(AField.FieldName);
+  if not FSnapshot.ContainsKey(LKey) then
+    Exit;                                   { bir ust alan degil }
+  LOld := FSnapshot[LKey];
+  LNew := AField.Value;
+  if CascadeSameValue(LOld, LNew) then
+    Exit;                                   { ayni deger yeniden yazildi }
+  FSnapshot[LKey] := LNew;
+
+  FClearing := True;
+  try
+    for LLine in FChains do
+    begin
+      LNames := LLine.Split([';'], TStringSplitOptions.ExcludeEmpty);
+      for i := 0 to High(LNames) - 1 do
+        if System.SysUtils.SameText(System.SysUtils.Trim(LNames[i]), AField.FieldName) then
+          for j := i + 1 to High(LNames) do
+          begin
+            LAlt := FLink.DataSet.FindField(System.SysUtils.Trim(LNames[j]));
+            if LAlt = nil then
+              Continue;
+            if not LAlt.IsNull then
+              LAlt.Clear;
+            { Silinen alan kendisi de bir ustse, bilinen degeri artik bos. }
+            if FSnapshot.ContainsKey(System.SysUtils.LowerCase(LAlt.FieldName)) then
+              FSnapshot[System.SysUtils.LowerCase(LAlt.FieldName)] := Null;
+          end;
+    end;
+  finally
+    FClearing := False;
+  end;
 end;
 
 end.

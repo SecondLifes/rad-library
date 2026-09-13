@@ -26,6 +26,26 @@ that break something else in the kit.
 
 ### Added
 
+- `src/component/rad.db.pas` — **`TRadFieldCascade`**, a non-visual component
+  for the data module: when a field is *edited*, it clears the fields that
+  depend on it. One line per chain in `AChains` (`'ulke;sehir;ilce'`): editing
+  `ulke` clears `sehir` and `ilce`, editing `sehir` clears `ilce`. It listens to
+  the dataset itself through a plain `TDataLink`, so it works the same for a
+  form editor, a grid, or code. The VCL separates the two cases the rule
+  needs: an edited field arrives as `RecordChanged(Field)`, while navigation
+  and refreshes arrive as `RecordChanged(nil)` (`Data.DB.pas:10799-10800`,
+  `:10839-10847`). A parameterless event such as `TcxDBDataBinding.OnDataChange`
+  cannot tell them apart, which is why the component does not use it.
+  Navigation, `Cancel`/`Post` refreshes and re-writing the same value clear
+  nothing; clearing a master to Null clears its dependants; `ADataSource` is
+  nil'ed when the data source is destroyed. It replaces the per-field
+  `OnChange` handlers previously recommended for this job.
+- `src/packages/Rad.Register.pas` — registers `TRadFieldCascade` on the RadKon
+  palette. Not compiled here (design-time unit).
+- `src/test/scratch/rad_dev_repolisteners/FieldCascadeTest.dpr` — 18
+  assertions on a `TVirtualTable`, including a change made through a DevExpress
+  grid's data controller and a DFM round trip of `AChains`.
+
 - `src/component/Rad.Dev.pas` — **combo lists filled by one event, only when
   needed.** `TRadComboBoxProperties` gains `AEditorId` (a list id the component
   never interprets), `AMasterFields` (the record fields the list depends on,
@@ -318,8 +338,14 @@ that break something else in the kit.
     `TableGlobal`'s records, which only worked while both views kept the same
     column order. Each view now uses its own columns, update blocks are in
     `try..finally`, the style handler tolerates an empty value, and a `with` was
-    removed. **Not compiled:** the unit uses `rad.rtl`, which does not exist in
-    this repository.
+    removed. **Not compiled.** *Correction (2026-09-13):* this entry first said
+    the unit could not compile because `rad.rtl` does not exist in this
+    repository. That was wrong — `src/component/rad.rtl.pas` is tracked and in
+    the package; only `src/core` had been searched. The real missing piece
+    was the JVCL (`JvHotKey`) path. With the machine's JVCL
+    (`E:\system\dev\Delphi\component\2026.6.6\jvcl`) the unit now compiles
+    and links (one pre-existing hint: the unused global `Kisayol_Edit`). Its
+    behaviour at run time has not been exercised.
   - `src/packages/Rad.Editor.pas` — a debugging `ShowMessage` was left on the
     navigator editor's live path, followed by dead code that cast
     `TcxControlNavigator` to the unrelated `TcxGridViewNavigator`. The editor

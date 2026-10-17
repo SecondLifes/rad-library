@@ -6,7 +6,7 @@ object dm_dev: Tdm_dev
   object SkinController: TdxSkinController
     NativeStyle = False
     SkinName = 'WXICompact'
-    SkinPaletteName = 'Office Dark Gray'
+    SkinPaletteName = 'Darkness'
     Left = 584
     Top = 8
   end
@@ -41,8 +41,6 @@ object dm_dev: Tdm_dev
     PixelsPerInch = 96
   end
   object DefaultEditStyle: TcxDefaultEditStyleController
-    StyleFocused.Color = 3074027
-    StyleFocused.TextColor = clBlack
     Left = 640
     Top = 152
     PixelsPerInch = 96

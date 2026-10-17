@@ -21,7 +21,7 @@ type
     procedure DataModuleCreate(Sender: TObject);
     procedure DataModuleDestroy(Sender: TObject);
   private
-    { Private declarations }
+    procedure SkinRenkUygula(Sender: TObject);
   public
     { Public declarations }
   end;
@@ -37,11 +37,21 @@ implementation
 procedure Tdm_dev.DataModuleCreate(Sender: TObject);
 begin
  SkinController._Load;
+ // Odaktaki editorun rengi skin'den gelir (sabit renk yok); skin/palet degisince yenilenir.
+ TSkinRenk.OnChanged := SkinRenkUygula;
+ TSkinRenk.Init;
 end;
 
 procedure Tdm_dev.DataModuleDestroy(Sender: TObject);
 begin
+  TSkinRenk.OnChanged := nil;
   SkinController._Save;
+end;
+
+procedure Tdm_dev.SkinRenkUygula(Sender: TObject);
+begin
+  DefaultEditStyle.StyleFocused.Color := SkinRenk.SearchHighlight;
+  DefaultEditStyle.StyleFocused.TextColor := SkinRenk.SearchHighlightText;
 end;
 
 (* Stil_tel'in (eski adiyla Edit_tel) OnValidate isleyicisi KALDIRILDI: kosulsuz Error := True

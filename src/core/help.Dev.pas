@@ -125,6 +125,29 @@ function _FieldOf(AConsumer: TComponent): TField;
 
 
 
+type
+  (* DevExpress skin renklerinin, DevExpress OLMAYAN bilesenler (scControls, TMS...) icin
+     anlamsal karsiliklari. Bilesenler DevExpress'in renk adlarini bilmez, yalniz bu
+     alanlari okur. Skin ya da palet degisince Init'in kaydettigi dinleyici alanlari
+     yeniler ve OnChanged'i tetikler.
+
+     Kullanim: acilista bir kez TSkinRenk.Init; sonra SkinRenk.Content gibi oku. Skin yoksa
+     (VCLStyle, UseSkins kapali) sistem renkleri kalir. *)
+  TSkinRenk = record
+    HeaderFill, HeaderBorder, HeaderText,
+    Content, ContentText,
+    Selection, SelectionText, SearchHighlight, SearchHighlightText: TColor;
+    /// <summary>Renkler yenilendikten sonra, ana thread'de cagrilir.</summary>
+    class var OnChanged: TNotifyEvent;
+    /// <summary>Renkleri ilk kez doldurur ve skin degisimine kaydolur (tekrar cagri zararsiz).</summary>
+    class procedure Init; static;
+    /// <summary>Renkleri skinden yeniden okur. Dinleyici bunu kendisi cagirir; elle gerekirse acik.</summary>
+    class procedure Yenile; static;
+  end;
+
+var
+  SkinRenk: TSkinRenk;
+
 implementation
  uses
  Vcl.Forms,
@@ -492,10 +515,115 @@ begin
   Result := Length(_Consumers(ARoot));
 end;
 
+{ TSkinRenk }
+
+type
+  (* RootLookAndFeel'e AddChangeListener ile kaydolur: skin adi, palet ya da UseSkins degisince
+     MasterLookAndFeelChanged gelir. Referans sayimsiz (-1): TcxLookAndFeel arayuzu Supports ile
+     sorgular, sayimli olsaydi her sorgu nesneyi serbest birakirdi. *)
+  TSkinRenkDinleyici = class(TObject, IcxLookAndFeelNotificationListener)
+  private
+    function GetObject: TObject;
+    procedure MasterLookAndFeelChanged(Sender: TcxLookAndFeel; AChangedValues: TcxLookAndFeelValues);
+    procedure MasterLookAndFeelDestroying(Sender: TcxLookAndFeel);
+    function QueryInterface(const IID: TGUID; out Obj): HResult; stdcall;
+    function _AddRef: Integer; stdcall;
+    function _Release: Integer; stdcall;
+  end;
+
+var
+  GDinleyici: TSkinRenkDinleyici;
+  GKayitli: Boolean;
+
+function TSkinRenkDinleyici.GetObject: TObject;
+begin
+  Result := Self;
+end;
+
+procedure TSkinRenkDinleyici.MasterLookAndFeelChanged(Sender: TcxLookAndFeel; AChangedValues: TcxLookAndFeelValues);
+begin
+  TSkinRenk.Yenile;
+end;
+
+procedure TSkinRenkDinleyici.MasterLookAndFeelDestroying(Sender: TcxLookAndFeel);
+begin
+  GKayitli := False;
+end;
+
+function TSkinRenkDinleyici.QueryInterface(const IID: TGUID; out Obj): HResult;
+begin
+  if GetInterface(IID, Obj) then
+    Result := S_OK
+  else
+    Result := E_NOINTERFACE;
+end;
+
+function TSkinRenkDinleyici._AddRef: Integer;
+begin
+  Result := -1;
+end;
+
+function TSkinRenkDinleyici._Release: Integer;
+begin
+  Result := -1;
+end;
+
+function SkinRengiBul(ASkin: TdxSkin; const AAdlar: array of string; ADefault: TColor): TColor;
+var
+  LAd: string;
+  LRenk: TdxSkinColor;
+begin
+  Result := ADefault;
+  if ASkin = nil then
+    Exit;
+  // out asiri yuklemesi: bulunamazsa nil doner, .Value'da access violation olmaz.
+  for LAd in AAdlar do
+    if ASkin.GetColorByName(LAd, LRenk) then
+      Exit(LRenk.Value);
+end;
+
+class procedure TSkinRenk.Yenile;
+var
+  LPainter: TcxCustomLookAndFeelPainter;
+  LSkin: TdxSkin;
+begin
+  LSkin := nil;
+  LPainter := RootLookAndFeel.Painter;
+  if LPainter is TdxSkinLookAndFeelPainter then
+    LSkin := TdxSkinLookAndFeelPainter(LPainter).SkinInfo.Skin;
+
+  SkinRenk.HeaderFill       := SkinRengiBul(LSkin, ['ContainerBorderColor'], clBtnFace);
+  SkinRenk.HeaderBorder     := SkinRengiBul(LSkin, ['ContainerHighlightBorderColor'], clBtnShadow);
+  SkinRenk.HeaderText       := SkinRengiBul(LSkin, ['ContentTextColor'], clBtnText);
+  SkinRenk.Content          := SkinRengiBul(LSkin, ['ContentColor', 'ContentEvenColor'], clWindow);
+  SkinRenk.ContentText      := SkinRengiBul(LSkin, ['ContentTextColor'], clWindowText);
+  SkinRenk.Selection        := SkinRengiBul(LSkin, ['SelectionColor'], clHighlight);
+  SkinRenk.SelectionText    := SkinRengiBul(LSkin, ['SelectionTextColor'], clHighlightText);
+  SkinRenk.SearchHighlight  := SkinRengiBul(LSkin, ['SearchResultHighlightColor'], clYellow);
+  SkinRenk.SearchHighlightText := SkinRengiBul(LSkin, ['SearchResultHighlightTextColor'], clBlack);
+
+  if Assigned(TSkinRenk.OnChanged) then
+    TSkinRenk.OnChanged(nil);
+end;
+
+class procedure TSkinRenk.Init;
+begin
+  if not GKayitli then
+  begin
+    if GDinleyici = nil then
+      GDinleyici := TSkinRenkDinleyici.Create;
+    RootLookAndFeel.AddChangeListener(GDinleyici);
+    GKayitli := True;
+  end;
+  Yenile;
+end;
+
 initialization
 finalization
-
-
+  // cxLookAndFeels bu birimden SONRA sonlanir (uses'ta), kok hala yasiyor.
+  if GKayitli and (GDinleyici <> nil) then
+    RootLookAndFeel.RemoveChangeListener(GDinleyici);
+  GDinleyici.Free;
 
 end.
 

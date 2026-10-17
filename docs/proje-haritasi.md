@@ -60,6 +60,10 @@ moving or re-cloning the kit.
   `GEMINI.md` hierarchy and does not read `.gemini/rules/` on its own, so this
   file imports `.gemini/rules/project-rules.md` rather than duplicating it.
 
+## Pending work
+
+- `TODO.md` — this repository's own list of pending work (`RAD-NN`).
+
 ## Tooling
 
 - `tools/generate-ai-configs.ps1` — regenerates `.claude/rules`, `.cursor/rules`

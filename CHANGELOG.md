@@ -26,6 +26,19 @@ that break something else in the kit.
 
 ### Added
 
+- `src/core/help.Dev.pas` — `TSkinRenk` record and global `SkinRenk`: DevExpress skin
+  colors (header, content, selection, search highlight) as plain `TColor`s for
+  non-DevExpress components. `TSkinRenk.Init` registers once on
+  `RootLookAndFeel` (`AddChangeListener`), so skin and palette changes refresh
+  the colors and fire `TSkinRenk.OnChanged`. Missing skin colors fall back to
+  system colors, never `nil`. Verified with a console program: WXICompact
+  Darkness/Light, TheBezier and no-skin all refreshed.
+  `SearchHighlightText` was added; `dm.dev` now assigns the focused-editor color
+  (`DefaultEditStyle.StyleFocused`) from `SkinRenk` and refreshes it on skin change
+  — the hard-coded yellow in `dm.dev.dfm` was removed.
+- `TODO.md` — the repository's own list of pending work (`RAD-NN` numbered):
+  Argon2id for `THash`, plaintext config password, undefined function results
+  and implicit `UTF8String` casts found by the 2026-10-17 ERPPlus build.
 - `src/component/Rad.Dev.pas` — **`TRadCheckComboBox` / `TRadDBCheckComboBox` /
   `TRadCheckComboBoxRepository`: a check combo whose items carry values, with
   no event code.** `AValueItems` takes one `Name=Value` line per item

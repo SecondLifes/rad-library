@@ -7,7 +7,7 @@ Bekleyen bütün işler burada durur. Yeni bir bulgu ya da ertelenen düzeltme
 
 - Her maddenin sabit bir numarası var (`RAD-NN`). Kapanan maddenin numarası
   tekrar kullanılmaz; yeni madde en büyük numaradan devam eder
-  (sıradaki: **RAD-15**).
+  (sıradaki: **RAD-16**).
 - Kapanan madde listeden **ve** ayrıntısından silinir. Kalıcı kayıt
   `git log` + `CHANGELOG.md`'dir.
 - Bu liste yalnızca rad-library'ye ait işleri tutar. Bir tüketici projenin
@@ -36,6 +36,7 @@ Bekleyen bütün işler burada durur. Yeni bir bulgu ya da ertelenen düzeltme
 - [ ] **RAD-07** — Bayat/çalışmayan scratch sondaları: `rad_setting` (`share\k.setting.pas` yok), `rad_cache_tvalue` (DUnitX bulunamıyor), `rad_cache_bench` (mORMot yolu eksik).
 - [ ] **RAD-08** — `TRadConfig.Destroy` artık kaydetmiyor (`//SaveIfNeeded`); `TRadConfig.Config` global'i ve `Destroy` ile kaydetmeye güvenen çağıranlar kaydı sessizce kaybeder. Bilinçli mi, doğrulanmalı.
 - [ ] **RAD-13** — Özel alan filtre ekranı: çerçeve tarafı bitti (`Mode = cfmFilter`, `ApplyFilter`); kalan: ERPPlus liste formlarına bağlama ve ertelenen "sabit DevExpress kontrolünden filtre değeri" işi.
+- [ ] **RAD-15** — Script/eklenti sistemi (TMS Scripter 8.1): aşama 2-6 — paket modeli + DB + yükleyici, kanca katmanı (action/click/dataset/form + KP olayları/zamanlayıcı), facade API + `rad-script` skill, tasarımcı, IDE formları. Sonda ve kararlar: `docs/specs/rad.script-spike.md`.
 - [ ] **RAD-14** — Özel alan v2: fiziksel `DROP COLUMN` / tip dönüştürme yönetici işlemi, lookup (başka tablodan) tipi, MySQL canlı doğrulaması (DDL geri alınamaz), `TRadCustomFieldsFrame`'in `RegisterComponents` ile palete alınması.
 
 ---
@@ -190,6 +191,17 @@ belgelenir). Kurallar:
 üretir, değerleri tipine göre `IRadSqlFilter`'a yazar (`coklu` → `Contains(alan, '|kod|')`, tarih →
 `WholeDay`), `Clear` editörleri temizler. Ertelenen "DevExpress kontrolünden değer alma" işiyle
 aynı çekirdeği paylaşmalı (`layered-function-design`).
+
+#### RAD-15 — Script/eklenti sistemi
+
+Motor TMS Scripter 8.1 (sonda 2026-11-01, `docs/specs/rad.script-spike.md`). Ölçümden gelen
+kısıtlar: facade API'de overload/varsayılan parametre yok; olay kesme kendi RTTI sarmalayıcısı
+(`Before` iptal eder) + tipli olaylar için TMS adaptör üreteci; zaman aşımı yalnız `OnExecHook`
++ istisna (asla `Halt`, asla başka thread'den); thread başına scripter; `TForm` kaydı kendi
+`DefineClassByRTTI`'mizle (XE7 import'larında `Show` yok). Paket: normal tablolar (`script_paket`,
+`script`, `script_parametre`, `script_db`, `script_duzen`), tek dosya dışa/içe aktarma, koruma =
+gizleme (belgelenir). KP: `rad.eventbus` adlandırılmış olaylar + zamanlayıcı. Aşamalar sırayla,
+her biri spec + test + kullanıcı onayı.
 
 #### RAD-14 — Özel alan v2
 

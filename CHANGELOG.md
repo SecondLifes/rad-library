@@ -115,6 +115,17 @@ that break something else in the kit.
   `rad.dev.customfields` eklendi. MSBuild Win32 Debug geçici klasöre derlendi/linklendi; kurulu
   `RadKon.bpl` IDE açık olduğu için yazılamadı (F2039) — IDE'den yeniden derlenmeli.
 - `docs/specs/rad.customfield.md` — spec (EARS ölçütleri + ölçümler).
+- `docs/specs/rad.script-spike.md` + `src/test/scratch/rad_script_spike/` (`SpikeCore`, `SpikeVcl`,
+  `spikeform.dfm`) — **script/eklenti sistemi 1. aşama: motor sondası.** Karar TMS Scripter 8.1
+  (Delphi 13 Win32+Win64). Ölçüldü: 501 satır 9 ms derleme, 10.000 alt program çağrısı 101 ms,
+  `DefineClassByRTTI` ile DevExpress/`TRadQuery` sınıfları (170 metot/135 özellik) 2 ms'de; overload'da
+  son bildirilen kazanıyor, varsayılan parametre zorunlu oluyor; `EventBroker` önce/sonra çalışıyor ama
+  temiz iptal yok → kendi RTTI sarmalayıcımız (`TRadNotifyHook`, 25 µs/çağrı) iptal edebiliyor;
+  DevExpress var-parametreli olay için elle adaptör çalıştı; DFM'den script formu kuruldu;
+  `Halt` komut ortasında AV veriyor, başka thread'den `Halt` güvenilmez → zaman aşımı `OnExecHook`
+  + istisna; thread başına ayrı scripter 4/4. Wolvox kaynak incelemesi (PascalScript 1.31, RTTI
+  `SetMethodProp` kancası, tek `SCRIPT` blob tablosu, `USER_DB_SQL` migrasyonu) karşılaştırma
+  ölçüsü olarak rapora işlendi. Kalıcı birim yazılmadı.
 - `src/test/scratch/rad_customfield/` (`CustomFieldTest`, `CustomFieldLiveTest`, `FbDdlProbe`) ve
   `src/test/scratch/rad_customfields_frame/` (`CustomFieldsFrameTest`).
 - `src/core/rad.sqlfilter.pas` — **`IRadSqlFilter` / `TRadSqlFilter`**: akıcı WHERE + ORDER BY

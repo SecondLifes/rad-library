@@ -1,0 +1,70 @@
+===== Win32 SpikeCore ===== 
+Embarcadero Delphi for Win32 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+SpikeCore.dpr(363) Warning: W1036 Variable 'GHook' might not have been initialized
+406 lines, 0.11 seconds, 3133160 bytes code, 53552 bytes data.
+  [OLCUM] C1 kucuk script derleme = 0 ms
+  [OK]   C1 F(41) = 42
+  [OLCUM] C3 10.000 ExecuteSubroutine = 101 ms
+  [OLCUM] C2 501 satir derleme = 9 ms
+  [OK]   C2 derlendi
+  [OLCUM] C4 DefineClassByRTTI(TProbe) = 0 ms
+  [OLCUM] C5 TProbe kayitli uyeler = Create Free Add Greet Sum Names Bump | props: Value 
+  [OLCUM] C5 overload Add(a,b) = Not enough actual parameters for method 'Add'. Expected 3 parameters. / Source position: 3,42
+  [OLCUM] C5 varsayilan parametre = desteklenmiyor: Not enough actual parameters for method 'Greet'. Expected 2 parameters. / Source position: 7,61
+  [OLCUM] C4 script icinden 10.000 Delphi metot cagrisi = 12 ms
+  [OK]   C5 iki parametreli Greet
+  [OK]   C5 overload Add(1,2,3)
+  [OK]   C5 ozellik yaz + metot
+  [OLCUM] C6 p-code boyutu = 3809 bayt
+  [OK]   C6 p-code ile kaynaksiz calisti
+  [OLCUM] C7 4 thread, ayri scripter, dogru sonuc = 4/4 (beklenen 300000)
+  [OK]   C7 thread: ayri ornekler sorunsuz
+  [OK]   C8 calisma zamani hatasi yakalandi
+  [OLCUM] C8 hata metni = EatScripterRuntime: RUNTIME ERROR
+Division by zero when evaluating instruction OperDiv ($0,$0,$0,$0,'').
+Stack content is: [].
+Source position: 1,71
+Position: 1, 71
+  C9 basliyor (hook etkin=TRUE)
+  [OLCUM] C9 Halt ile durdurma = 2 ms, hook sayisi 200000, Halted=False, istisna=EatScripterRuntime: RUNTIME ERROR / Access violation at address 0105083C in module 'SpikeCore.exe' (offset 15083C). Read of address 00000019 when evaluating instruction PushInteger ($0,$0,$1,$0,''). / Stack content is: [24999]. / Source position: 2,38 / Position: 2, 38
+  [OK]   C9 sonsuz dongu Halt ile bitti
+  [OK]   C10 thread'deki script sure asiminda (hook+istisna) durdu
+  [OLCUM] C10 300 ms sinir, bitis = 301 ms, istisna=EatScripterRuntime
+
+=== SONUC: 10 basarili, 0 hata ===
+===== Win64 SpikeCore ===== 
+Embarcadero Delphi for Win64 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+SpikeCore.dpr(363) Warning: W1036 Variable 'GHook' might not have been initialized
+406 lines, 0.14 seconds, 4687924 bytes code, 462768 bytes data.
+  [OLCUM] C1 kucuk script derleme = 0 ms
+  [OK]   C1 F(41) = 42
+  [OLCUM] C3 10.000 ExecuteSubroutine = 112 ms
+  [OLCUM] C2 501 satir derleme = 10 ms
+  [OK]   C2 derlendi
+  [OLCUM] C4 DefineClassByRTTI(TProbe) = 0 ms
+  [OLCUM] C5 TProbe kayitli uyeler = Create Free Add Greet Sum Names Bump | props: Value 
+  [OLCUM] C5 overload Add(a,b) = Not enough actual parameters for method 'Add'. Expected 3 parameters. / Source position: 3,42
+  [OLCUM] C5 varsayilan parametre = desteklenmiyor: Not enough actual parameters for method 'Greet'. Expected 2 parameters. / Source position: 7,61
+  [OLCUM] C4 script icinden 10.000 Delphi metot cagrisi = 12 ms
+  [OK]   C5 iki parametreli Greet
+  [OK]   C5 overload Add(1,2,3)
+  [OK]   C5 ozellik yaz + metot
+  [OLCUM] C6 p-code boyutu = 4233 bayt
+  [OK]   C6 p-code ile kaynaksiz calisti
+  [OLCUM] C7 4 thread, ayri scripter, dogru sonuc = 4/4 (beklenen 300000)
+  [OK]   C7 thread: ayri ornekler sorunsuz
+  [OK]   C8 calisma zamani hatasi yakalandi
+  [OLCUM] C8 hata metni = EatScripterRuntime: RUNTIME ERROR
+Division by zero when evaluating instruction OperDiv ($0,$0,$0,$0,'').
+Stack content is: [].
+Source position: 1,71
+Position: 1, 71
+  C9 basliyor (hook etkin=TRUE)
+  [OLCUM] C9 Halt ile durdurma = 1 ms, hook sayisi 200000, Halted=False, istisna=EatScripterRuntime: RUNTIME ERROR / INTERNAL ERROR / Default script is not available when evaluating instruction PushInteger ($0,$0,$1,$0,''). / Stack content is: [24999]. / Source position: 2,38 / Position: 2, 38
+  [OK]   C9 sonsuz dongu Halt ile bitti
+  [OK]   C10 thread'deki script sure asiminda (hook+istisna) durdu
+  [OLCUM] C10 300 ms sinir, bitis = 301 ms, istisna=EatScripterRuntime
+
+=== SONUC: 10 basarili, 0 hata ===

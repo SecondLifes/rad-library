@@ -134,6 +134,37 @@ begin
 end;
 ```
 
+### Runtime-built layouts — three measured traps
+
+- **Do not set `Parent := LayoutControl` before `CreateItemForControl`.** The
+  layout control wraps any control that becomes its child in an auto-created
+  item; a following `CreateItemForControl` then raises `EdxException: The …
+  control is already used by Item1 item`. Create the editor with an owner,
+  call `Group.CreateItemForControl(Editor)`, and let it set `Parent`.
+- **Give the layout control a stable `Name` when you create it in code.**
+  `SaveToStream`/`LoadFromStream` prefix every key with `ItemsOwner.Name`
+  (`TdxLayoutContainer.StoreTo`); an unnamed control stores keys that never
+  match on restore. Items and groups need deterministic names too — matching
+  is by `Name`.
+- **The stored layout does not include item `Visible`.**
+  `TdxCustomLayoutItem.GetStoredProperties` lists `IsUserDefined, ParentName,
+  Index, AlignHorz, AlignVert, Width, Height, IsFloat` plus caption options —
+  nothing about visibility. A round trip of a hidden item brings it back
+  visible (measured). Persist visibility yourself next to the stream
+  (`rad.dev.customfields` writes a name list with a `-` prefix for hidden
+  items). `Customization := True` is refused silently until the control can
+  allocate a window handle (`CanAllocateHandle`), so call `HandleNeeded` on
+  the host form first in tests.
+- **Never create a `TdxLayoutControl` in code while a DFM is still loading.**
+  `TdxLayoutContainer.CreateRootGroup` skips creating the root group when any
+  owner up the chain is `csLoading`/`csReading` (`IsGlobalLoading`), because it
+  expects the root to come from the DFM. A layout control created inside a
+  frame's constructor while that frame is being streamed `inline` into a host
+  form therefore has `Items = nil`, and the first `Name :=` assignment dies in
+  `CanSetItemName(Root)` with an AV at offset $1C (measured: `HostDfmProbe`).
+  Build such controls from `Loaded`/`CreateWnd` or a later explicit call, after
+  checking the owner chain is no longer loading (`rad.dev.customfields.EnsureUi`).
+
 ## Skinning / Themes
 
 ```pascal

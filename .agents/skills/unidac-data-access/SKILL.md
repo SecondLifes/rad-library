@@ -73,6 +73,26 @@ multiple DBMSs. Use them for genuinely portable repositories; don't
 macro-ify SQL that only ever targets one DBMS — plain SQL is easier to
 read and plan-analyze.
 
+## Firebird: DDL you want to roll back needs its own transaction (measured)
+
+With the InterBase provider, `TUniConnection.AutoCommit` (default `True`) runs
+`CommitRetaining` after **every** modifying statement — DDL included — even
+inside an explicit `StartTransaction`. So `StartTransaction; ExecSQL('alter
+table … add …'); <failing insert>; Rollback` leaves the column in place
+(`FbDdlProbe` A, Firebird 5.0.4, UniDAC 13). Two more surprises: every
+`SELECT` starts the default transaction and leaves it active, so
+`InTransaction` is `True` after any query (B–G all failed with "Can't perform
+operation on active transaction"), and a connection-level `AutoCommit := False`
+does not help once that default transaction is active.
+
+What works (H/I): a dedicated `TUniTransaction` with `DefaultConnection`, every
+query in the unit of work bound to it (`Query.Transaction := Tx`) and
+`Query.SpecificOptions.Values['AutoCommit'] := 'False'`; `Tx.Commit` /
+`Tx.Rollback`. `ALTER TABLE` through that transaction succeeded while another
+query on the same table was open (J). PostgreSQL and SQL Server roll DDL back
+fine through the plain connection transaction; MySQL never does.
+Implementation: `Help.uni.TRadUniCustomFieldStore.InTransaction`.
+
 ## When to prefer UniDAC over FireDAC
 
 - ✅ Project already licensed and built on UniDAC (consistency wins).

@@ -37,9 +37,12 @@ end.
 
 ## Documentation
 
-- XMLDoc for public methods and properties
+- XMLDoc for public methods and properties: one short line, not a paragraph.
 - Comments, XMLDoc and code identifiers default to English.
-- Do not comment self-explanatory code
+- Do not comment self-explanatory code.
+- Keep comments short, simple and meaningful: say the WHY in a line or two.
+  History, measurements and design essays belong in CHANGELOG, the commit
+  message or a test, not in the code. A unit header is a few lines at most.
 
 ## Memory Management
 
@@ -242,6 +245,23 @@ relied on.
 Prefer this over making callers discover the capability through
 `Supports(X, ILockable, ...)` when locking is part of what the type is for —
 grouping several calls under one lock is otherwise invisible in the API.
+
+## `Format`: an indexed specifier restarts the sequence (verified by execution)
+
+After an indexed specifier such as `%0:s`, every following *unindexed* `%s`
+continues from that index + 1, not from where the sequential count left off:
+
+```pascal
+Format('create table %s (... constraint uq_%0:s unique (a), ' +
+       'constraint fk foreign key (g) references %s (id))', [T, IdDdl, ..., G]);
+//                                           ^ takes argument 1 (IdDdl), not G
+```
+
+Measured in this kit: the FK clause received the identity-column DDL instead of
+the referenced table name, and `CREATE TABLE` failed on PostgreSQL, SQL Server
+and Firebird with three different syntax errors that all pointed at the wrong
+place. Once one specifier carries an index, index the ones after it explicitly
+(`%16:s`) — or avoid mixing the two forms in one format string.
 
 ## Prohibitions
 

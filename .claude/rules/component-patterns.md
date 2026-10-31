@@ -11,6 +11,8 @@ alwaysApply: true
   `DesignIntf`, design editors, registration units or `Register`.
 - Put `Register`, component/property editors and IDE-only dependencies in
   the design-time package; the design package requires the runtime package.
+- Register every new component in `Rad.Register.pas`; design-time-only code
+  (component/property editors) goes in `Rad.Editor.pas`.
 - Constructor defaults, published `default` directives and streaming state
   must agree. Renaming/removing a published property requires a migration
   plan and SemVer-compatible deprecation.

@@ -24,8 +24,208 @@ that break something else in the kit.
 
 ## [Unreleased]
 
+### Changed
+
+- **`rad.dev`: `TRadValueList.Wrap` + `TRadCheckComboBoxProperties.AValueWrap`** (published,
+  varsayılan `False`): açıkken `EditValue` baş/son ayraçlı yazılır (`|a|b|`), okuma zaten boş
+  parçaları attığı için simetrik. `rad.customfield`'ın çoklu seçim biçimi için. `DoAssign` artık
+  `AValueDelimiter`/`AValueWrap`'ı da kopyalıyor (önceden yalnız `RadSetting`+`Items` kopyalanıyor,
+  ayraç kaynakta kalıyordu). `CheckComboTest` 43/43 Win32 yeniden koşturuldu.
+- `.agents/rules/delphi-conventions.md` — yeni bölüm: `Format` içinde `%0:s` gibi indeksli bir
+  belirteçten sonraki indekssiz `%s`'ler sırayı o indeksten devam ettirir (ölçüldü: FK referansı
+  yanlış argümanı aldı, üç sunucuda DDL patladı).
+- `.agents/skills/unidac-data-access/SKILL.md` — yeni bölüm: Firebird'de bağlantı transaction'ı
+  + `AutoCommit` DDL'i anında commit eder; geri alınabilir DDL için ayrı `TUniTransaction` ve sorgu
+  düzeyinde `AutoCommit=False` (ölçüldü, `FbDdlProbe`). Her SELECT varsayılan transaction'ı açık
+  bırakır, `InTransaction` Firebird'de yanıltıcı.
+- `.agents/skills/devexpress-components/SKILL.md` — `TdxLayoutControl` bölümüne üç ölçülmüş not:
+  `Parent := Layout` atanan kontrole layout kendiliğinden item açar (`CreateItemForControl` ikinciyi
+  reddeder); akış kaydı kontrolün `Name`'ini önek yapar; `SaveToStream` item `Visible`'ını saklamaz.
+- **`rad.sqlfilter`: varsayılan harf modu `rcDatabase` (düz işleç).** Önceden `rcInsensitive`'ti:
+  metin değerli her `Equal/NotEqual` `lower(alan) = lower(:p)` olarak yazılıyor, `uuid` ve kod
+  alanlarında indeksi devre dışı bırakıyordu (`lower(k.id) = lower('{…}')`). Artık `lower/UPPER/ILIKE`
+  yalnız `CaseSensitive(False)`, `CaseMode(rcInsensitive)` ya da çağrı başına `rcInsensitive` ile
+  yazılır. `CaseMode(rcDefault)` de `rcDatabase`'e döner. `SqlFilterTest.dpr`'de 13 test açık
+  `CaseSensitive(False)` ile korundu, üç yeni varsayılan test eklendi (138/138 Win32+Win64);
+  `SqlFilterLiveTest.dpr` filtreyi açık duyarsız kurar (canlı sunucularda çalıştırılmadı, derlendi).
+
 ### Added
 
+- `src/core/rad.customfield.pas` — **özel alan çekirdeği** (RTL + `rad.sqlfilter`): bir tabloya
+  çalışma zamanında alan ekleme modeli. `TRadCustomFieldDef`/`TRadCustomFieldGroupDef` (kategori =
+  sekme), 11 tip (`metin, not, tamsayi, ondalik, para, tarih, saat, tarihsaat, evethayir, tekli,
+  coklu`), kolon adı üretimi `ozel_N` (tablo başına sayaç, hiç yeniden kullanılmaz, kullanıcı yalnız
+  başlığı değiştirir), `TRadCustomFieldDdl` (dört lehçede `ADD COLUMN`/uzunluk genişletme/katalog
+  sorguları/üç tanım tablosunun DDL'i — `ozel_alan_grup`, `ozel_alan`, `ozel_alan_duzen`),
+  `TRadMultiChoice` (`|k1|k2|` biçimi: `Contains(alan, '|k1|')` kısmi eşleşmez), `IRadCustomFieldStore`
+  arayüzü. Değerler **gerçek kolon**: grid/rapor/`rad.sqlfilter`/`TcxDB*` ek kodsuz çalışır.
+  Silme = `aktif_mi=false`; tip ve kolon adı kaydedildikten sonra değişmez; uzunluk yalnız genişler.
+  `CustomFieldTest` 91/91 Win32+Win64. Spec: `docs/specs/rad.customfield.md`.
+- `src/core/Help.uni.pas` — `TRadUniCustomFieldStore` (UniDAC uygulaması; `AddField` = DDL + insert
+  tek transaction, Firebird'de ayrı `TUniTransaction`), `TUniConnection._CustomFields`,
+  `_CustomFieldColumns(tablo, alias)` (`', c.ozel_1, c.ozel_2'`), `TCustomDADataSet
+  ._ApplyCustomFieldMacro('ozel', tablo, alias)` (açık kolon listeli sorgu için `&ozel` makrosu) ve
+  `_EnsureCustomFields` (persistent `TField`'lı kapalı dataset'e eksik `ozel_*` alanlarını yaratır).
+  `CustomFieldLiveTest`: PostgreSQL 18 / SQL Server / Firebird 5 146/146 Win32, PG+MS 98/98 Win64;
+  DDL geri alma üçünde de ölçüldü.
+- `src/component/rad.dev.customfields.pas` + `.dfm` — **`TRadCustomFieldsFrame`**: tanımları okur,
+  her alan için DB-bağlı DevExpress editörü (`TcxDBTextEdit/Memo/SpinEdit/CalcEdit/CurrencyEdit/
+  DateEdit/TimeEdit/CheckBox/ImageComboBox`, çoklu seçim için `TRadDBCheckComboBox` + `AValueWrap`)
+  yaratıp `TdxLayoutControl`'de kategori sekmelerine yerleştirir; kullanıcı başına düzen
+  (`Customizing`, `SaveLayout/ResetLayout`; görünürlük çerçevenin kendi başlığında taşınır çünkü
+  DevExpress akışı saklamaz; sonradan eklenen alan kendi grubunun sonuna gelir), `BeforePost`
+  zorunlu alan kontrolü ve `OnNewRecord` varsayılanları (mevcut işleyiciler zincirlenir, ayrılırken
+  geri konur), `CanDesign` ile "Ayar" düğmesi → **`TRadCustomFieldDesigner`** (Wolvox düzeni: sol
+  kategori, sağ alan; kodla kurulur, DFM yok). `CustomFieldsFrameTest` 58/58 Win32+Win64 (PG).
+  Çerçeve tasarım zamanında forma bırakılıp DFM'den akıtılınca (`inline`) `CreateLayout` AV
+  veriyordu: DevExpress, sahip zincirinde `csLoading` varken (`IsGlobalLoading`) layout'un kök
+  grubunu DFM'den bekleyip yaratmıyor, `Name` ataması nil kökle `CanSetItemName`'de patlıyor
+  (ERPPlus `kasa.k.pas`'ta görüldü, `HostDfmProbe` ile iki biçimde yeniden üretildi). Çubuk ve
+  layout artık `EnsureUi` ile sahip zinciri yüklemeyi bitirince kurulur (`Loaded`/`CreateWnd`/
+  `Rebuild`); `Rebuild` yükleme bitmeden çağrılırsa açık `ERadCustomField`. Probe 2/2.
+  **Sonra (aynı gün) statik parça DFM'ye taşındı:** `rad.dev.customfields.dfm` artık
+  `lcRadCustomFields` (`TdxLayoutControl`, kök grup `ldTabbed`), `pnlBar` ve dört `TcxButton`'ı
+  taşıyor; `EnsureUi`/`Loaded`/`CreateWnd` sarmalaması silindi (kök grup DFM'den geldiği için
+  `IsGlobalLoading` tuzağı kalmadı). `Rebuild` layout'u yıkmak yerine `ClearItems` ile editör/item/
+  grupları söküyor. Sekme, item ve editörler tanımdan geldiği için hep kodla.
+- `src/component/rad.dev.customfielddesigner.pas` + `.dfm` — **`TRadCustomFieldDesigner`** kendi
+  birimine taşındı ve tamamen DFM'ye alındı (bir birimde tek `{$R *.dfm}` formu olabilir):
+  `lcMain` layout, sol `grpGroups` (liste, ad, sıra, aktif, iki düğme), sağ `grpFields` (liste,
+  kolon adı, başlık, tip, uzunluk, ondalık, varsayılan, seçenekler, sıra, üç bayrak, iki düğme),
+  altta Tamam. Test erişimi için `EdCaption`/`SaveField` gibi public üyeler korundu;
+  `CustomFieldsFrameTest` değişmeden 58/58, `HostDfmProbe` 2/2, paket derlendi.
+- `TRadCustomFieldsFrame` **filtre kipi** (`Mode = cfmFilter`, TODO RAD-13'ün ilk yarısı): editörler
+  bağsız (`TcxTextEdit/SpinEdit/CalcEdit/CurrencyEdit/DateEdit/TimeEdit/CheckBox/ImageComboBox`,
+  çoklu için `TRadCheckComboBox`), `DataSource`/zorunlu/varsayılan kancaları devre dışı, varsayılan
+  olarak yalnız `filtrele_mi` işaretli alanlar (`FilterFlaggedOnly`). `ApplyFilter(IRadSqlFilter,
+  alias)`: metin/not → `Contains`; tamsayı/ondalık/para/tarih/tarih-saat/saat → iki editör ("…den /
+  …e", `ed_ozel_N` + `ed_ozel_N_2`) → `Between` (tek taraf boş olabilir; tarihte `WholeDay`);
+  evet/hayır → üç durumlu kutu, gri = koşul yok; tekli → `Equal` ("(tümü)" seçeneği = koşul yok);
+  çoklu → seçili kodların `BeginOr…EndOr` içinde `Contains('|kod|')`'u. `ClearFilter`,
+  `HasFilterValues`, `EditorToOf`. Düzen kaydı filtre kipinde `tablo:f` anahtarıyla ayrı. Sayı
+  editörleri yaratılırken `Clear` ile boşaltılır ('0' doğuyordu; boş = koşul yok). Kodla yaratılan
+  çerçevenin DFM'den gelen adı siliniyor: aynı forma düzenleme + filtre çerçevesi konunca
+  `EComponentError` veriyordu. `CustomFieldsFrameTest` +30 (PG canlı): 88/88 Win32+Win64.
+- `TRadCustomFieldsFrame.DefaultStore` (class var): `Store` atanmamış her çerçeve bunu kullanır;
+  uygulama açılışında bir kez atanır, şirket bağlantısı değişince yenilenir, bağlantı kapanmadan nil
+  yapılır (depo bağlantıyı tutar). Diyalogda yeni alanın "Filtrele" varsayılanı artık işaretli:
+  işaretsiz varsayılan + `FilterFlaggedOnly` birleşince filtre kipi boş kalıyordu (ERPPlus
+  `kasa.liste`'de görüldü). `CustomFieldsFrameTest` 91/91 Win32+Win64.
+- `src/packages/RadKon.dpk`/`.dproj` — `rad.sqlfilter` (artık açık), `rad.customfield`,
+  `rad.dev.customfields` eklendi. MSBuild Win32 Debug geçici klasöre derlendi/linklendi; kurulu
+  `RadKon.bpl` IDE açık olduğu için yazılamadı (F2039) — IDE'den yeniden derlenmeli.
+- `docs/specs/rad.customfield.md` — spec (EARS ölçütleri + ölçümler).
+- `src/test/scratch/rad_customfield/` (`CustomFieldTest`, `CustomFieldLiveTest`, `FbDdlProbe`) ve
+  `src/test/scratch/rad_customfields_frame/` (`CustomFieldsFrameTest`).
+- `src/core/rad.sqlfilter.pas` — **`IRadSqlFilter` / `TRadSqlFilter`**: akıcı WHERE + ORDER BY
+  üretici. Değerler hiç SQL metnine yazılmaz, hepsi `:p1..` parametresi (ortak sayaç,
+  `ParamPrefix`). `Equal/NotEqual/Greater/GreaterEqual/Less/LessEqual`,
+  `Like/NotLike(alan, desen, AEscape, ACase)`, `Contains/NotContains/StartsWith/EndsWith`
+  (düz metin), `InList/NotInList`, `Between/NotBetween` (tek taraf `>=`/`<=`),
+  `IsNull/IsNotNull`, `Raw('… = ?', [..])`, `BeginOr..EndOr` (tek seviye),
+  `AddOrderBy(alan, desc)`, `GetWhere/GetConditions/GetOrderBy/GetSql`, `GetDebugSql`
+  (değerler gömülü, yalnız log), `Clear`. `WholeDay` (varsayılan açık): saatsiz tarih
+  tüm gün sayılır, yarı açık aralıkla (`Equal` → `>= gün AND < gün+1`, `Greater` →
+  `>= gün+1`, `LessEqual` → `< gün+1`); `timestamp`/`datetime2` sütunlarında canlı doğrulandı.
+  `rfmSkipEmpty` (varsayılan): boş değer/boş liste/yalnız-joker desen koşul üretmez;
+  `rfmStrict`: boş değer hata, boş `IN` `1=0`. `Wildcards('*','?')` ile kullanıcı jokeri,
+  `ESCAPE '!'` ile `%`/`_` düz karakter, çift joker = düz joker. Harf duyarlılığı filtre
+  geneli + çağrı başına (`rcDefault/rcDatabase/rcSensitive/rcInsensitive`): PostgreSQL
+  `ILIKE`/`lower()`, MSSQL/MySQL/Firebird `UPPER()`; `rcSensitive` MSSQL/MySQL'de düz
+  işleç (collation'a kalır, ölçüldü: `Turkish_CI_AS` duyarsız kalıyor). Lehçeler
+  `sdPostgreSQL/sdMSSQL/sdMySQL/sdFirebird`; MSSQL'de `[` de kaçırılır. Beş açık kaynak
+  Delphi ORM/builder'ın (dext, Trysil, mORMot2, CQLBr, DMVC) ortak boşlukları — `IN ()`,
+  kaçışsız `LIKE`, "boşsa atla" yokluğu — kapatıldı. Spec: `docs/specs/rad.sqlfilter.md`.
+- `src/core/Help.uni.pas` — `TUniConnection._SqlDialect` (ProviderName → lehçe),
+  `_NewFilter(mode)`, `TCustomDADataSet._ApplyFilter(filtre)` (parametreleri yazar).
+- `docs/specs/rad.sqlfilter.md` — kitin ilk doldurulmuş `.specify` spec'i (EARS ölçütleri,
+  lehçe tablosu, ölçümler).
+- `src/test/scratch/rad_sqlfilter/` — `SqlFilterTest.dpr` (135 doğrulama, bağlantısız,
+  Win32+Win64) ve `SqlFilterLiveTest.dpr` (PostgreSQL 18 `testdb` 42, SQL Server
+  `rad_filter_test` 40, Win32+Win64; Firebird 5.0.4 `rad_filter_test.fdb` UTF8 42, yalnız
+  Win32 — makinede 64-bit `fbclient.dll` yok). Ölçüm: PostgreSQL
+  varsayılan collation'da ve Firebird UTF8'de `UPPER/lower('İ')` `'i'` ile eşleşmiyor
+  (`Contains('ad','ismail')` 'İsmail'i bulmuyor); SQL Server `Turkish_CI_AS` buluyor. MySQL
+  kurulu değil → lehçe belgeye göre, doğrulanmadı.
+
+- `src/component/rad.dev.pas`, `src/packages/Rad.Register.pas` — **`TRadCheckListBox` /
+  `TRadDBCheckListBox`**: `AValueItems` ('Ad=Değer'), `EditValue` `'A;AS'`, `AValues`,
+  `AValuesIn(alan)`, `CheckWarning`, `RadSetting` (kontrolün kendi property'si; `TcxCheckListBox`
+  bir editör değil kap, `Properties` yok). Değer dikişi `CheckCombo`'dan farklı: DX burada
+  sanal metod değil olay çağırıyor (`cxCheckListBox.pas:1332-1361`); `AValueItems` doluyken iki
+  olay bağlanır, boşalınca bırakılır, kullanıcının kendi olayı varsa dokunulmaz ve
+  `CheckWarning` bildirir. 64+ item `cvfInteger` istisnasını tetiklemez. Testler:
+  `RadCheckListTest` (29), `RadCheckListLiveTest` (12, PostgreSQL), mutasyon kontrollü.
+  `Mark` ile programatik işaretleme DB kaydını düzenleme moduna ALMAZ (stok da almıyor,
+  ölçüldü); gerçek fare tıklaması alır.
+- `src/component/rad.dev.pas` — **`TRadValueList`**: `TRadCheckComboBoxProperties`'teki
+  'Ad=Değer' ayrıştırma, `EditValue` ↔ değer dizisi, `AValuesIn` ve uyarı mantığı ortak bir
+  çekirdeğe taşındı; check combo ve check list box ikisi de onu kullanır. `CheckComboTest`
+  (35) hiçbir değişiklik olmadan geçti.
+- `src/component/rad.dev.pas` — `TRadCheckComboBoxProperties` da `RadSetting` taşır ve gridin
+  inplace editörü `TRadCheckComboBox` olur (`GetContainerClass`); `RadFamiliesTest`'e eklendi (55).
+- `src/component/rad.dev.pas`, `src/packages/Rad.Register.pas` — **Dört yeni Rad ailesi,
+  hepsi `RadSetting` taşır:** `TRadButtonEdit*`, `TRadImageComboBox*`,
+  `TRadExtLookupComboBox*`, `TRadPopupEdit*` (her biri `Properties`, `Repository`,
+  `Edit`, `DBEdit`). `GetContainerClass` Rad editörünü döndürür, yani gridin inplace
+  editörü Rad sınıfı olur ve sütunun kendi `RadSetting`'i `InternalProperties`'e gelir.
+  Editörler `RadKon` paletine, repository'ler DX repository listesine kayıtlı. Testler:
+  `rad_dev_repolisteners/RadFamiliesTest` (44; ayrıca `RadSettingLiveTest` D01-D04,
+  PostgreSQL), mutasyon kontrollü. Not: `Rad.Register.pas` IDE paketinde derlenmedi.
+- `src/component/rad.dev.pas` — **`TcxRadSetting` / `TcxRadDataBinding`**: DevExpress'in
+  `Automation`'ı gibi tüketiciye özel bir ayar kümesi (`TcxInterfacedPersistent`).
+  `Key` (serbest metin), `Tag`, `Master` (editör/grid kolonu; tip ve dairesel
+  denetimli), `Control1..4` (düşme korumalı hedefler), `DataBinding` (bağımsız
+  `DataSource` + `DataField`, yalnız okuma) ve yalnız çalışma zamanı `Data`.
+  `TRadLookupComboBoxProperties` ve `TRadComboBoxProperties` artık `RadSetting`
+  taşır; eski `AComponent1..4`, `AMaster`, `ACascadeField`, `ACascadeTag` ona
+  yönlenir ve `stored False`'tur (eski DFM'ler okunur, yeni konuma yazılır).
+  Değişim olayı ve `Master` kayıt/bildirimi ertelendi: `TODO.md` RAD-05, RAD-06.
+  Testler: `rad_dev_repolisteners/RadSettingTest` (39), `rad_dev_livedb/RadSettingLiveTest`
+  (23, PostgreSQL), mutasyon kontrollü.
+- `src/component/rad.dev.pas` — **`AEditOnPopup`** (`TRadComboBoxProperties`,
+  `TRadLookupComboBoxProperties`, varsayılan `False`): DB'ye bağlı editörde açılır
+  liste açılırken dataset'i düzenleme moduna alır. `DataSource.AutoEdit = False` iken
+  seçim dataset düzenlenmediği için ilk harekette eski değere dönüyordu (ölçüldü,
+  PostgreSQL: `ComboEditModeProbe`); `TDataSource.Edit` `AutoEdit`'i gözettiği için
+  doğrudan `DataSet.Edit` çağrılır.
+- `src/share/k.setting.pas` (`TfrmSetting`) parlatıldı (dosya eklenmedi): arama kutusunda ipucu ve temizle
+  düğmesi, geniş satır başlığı, NavBar'da kategori sayaçları (aramada eşleşen sayı), değiştirilen ayar kalın
+  (varsayılandakiler normal), açıklama şeridinde değerin kaynağı (`Varsayılan` / `Değiştirildi (varsayılan: …)`)
+  ve "↺ Varsayılana dön" düğmesi (`ResetFocused`), `TRadSettingItem.IsDefault`/`SourceText`/`Source`. Arama
+  temizlenince son kayıtlı kategoriye değil, kullanıcının seçtiği NavBar öğesine (yoksa hepsine) dönülür.
+- `src/component/rad.tms.formtabs.pas` — `TRadFormTabs` (a `TAdvOfficeTabSet`
+  descendant): any `TForm`, MDI or not, becomes a tab; windows stay independent,
+  so it works across monitors. The tab's close button closes the form
+  (`OnCloseQuery`, `OnClose`); the tab goes when the form hides or dies.
+  `HideInactive` (off by default) hides inactive forms, `AutoAttach` attaches
+  suitable forms when they activate or when a `TRadFormBase` shows
+  (`ShowInTabs`), `OnAcceptForm` overrides the policy. Registered in
+  `Rad.Register.pas`; still to do in the IDE: add the unit to `RadKon` and
+  `TMSVCLUIPackPkg` to its requires. Replaces `src/core/rad.tms.pas` (untracked,
+  untouched). Tests: `src/test/scratch/rad_formtabs` (55 assertions, Win32 and
+  Win64), mutation-checked; `FormTabsDfmNormal`/`FormTabsDfmMdi` (.pas/.dfm) are
+  the DFM-loaded forms for tests 51-55.
+- `src/core/Help.vcl.pas` — `TFormFactory.AddListener`/`RemoveListener`
+  (multicast; `RegisterEvent` unchanged) and `TRadFormBase.ShowInTabs`
+  (default `True`). Tests: `rad_formfactory` 19-22.
+- `src/component/Permission.Edit.pas` — **permission templates now cover the
+  repetitive Ekle/Sil/Düzenle case end to end.** The template menu already
+  existed; three things were missing. (1) A template applies to **every
+  selected node** (`OptionsSelection.MultiSelect` is on in edit mode), falling
+  back to the focused node when the selection is empty (Ctrl+click can
+  deselect it). Codes that already exist are skipped and counted instead of one
+  modal message per node; `ApplyTemplate` returns `TRadTemplateResult`
+  (Targets/Added/Skipped/Failed) and the menu shows one summary. (2) **"Şablon
+  Olarak Kaydet..."** turns the focused node's children into a template
+  (nested children supported, a template with the same id is replaced after
+  confirmation) via `SaveAsTemplate`. Children are stored by their own id, so
+  the template picks up each target's prefix when applied. (3) A record with
+  **no `sablon` key** is seeded with a `crud` template (`ekle`, `sil`, `edit`)
+  when opened for editing; an existing empty `sablon` array is respected, so
+  deleting every template does not bring it back. `_AddNode` lost its modal
+  message and gained `out ACreated`. Red before, green after in
+  `rad_permission` 38-57; the seed rule was mutation-checked.
 - `src/core/help.Dev.pas` — `TSkinRenk` record and global `SkinRenk`: DevExpress skin
   colors (header, content, selection, search highlight) as plain `TColor`s for
   non-DevExpress components. `TSkinRenk.Init` registers once on
@@ -217,6 +417,26 @@ that break something else in the kit.
 
 ### Changed
 
+- `src/component/rad.dev.pas` — **`TRadCheckComboBox` / `TRadCheckListBox`: değer artık
+  item'ın kendisinde.** `AValueItems` ('Ad=Değer' listesi, `Items`'ı yeniden kuran ve DFM'e
+  yazmayan model) kaldırıldı; tasarımcıda yazılan başlıklar siliniyor, ekranda `t`/`f`
+  görünüyordu (ERPPlus `dm.erp.dfm` `Stil_CheckCombo_AktifPasif`). Yeni: `TRadCheckComboBoxItem`
+  (`TcxCheckComboBoxItem` + published `Value`) ve `TRadCheckComboBoxItems`; properties'teki
+  published `Items` **tabanın `Items`'ını gölgeler** (RTTI ve DFM yalnız bizimkini görür,
+  sonda ile doğrulandı) ve tabanın koleksiyonuna indeks bazlı tek yön aynalanır (taban
+  private alanla sabit sınıfta kurduğu için, `cxCheckComboBox.pas:1168`). `Value` boşsa değer
+  = `Description`; hiçbir item'da `Value` yoksa stok davranış. `Items.AddItem(ad, değer)`,
+  `IndexOfValue`, `HasValues`. CheckListBox'ta aynı kalıp: `TRadCheckListBoxItem`
+  (`Text`, `Value`, `Enabled`, `ImageIndex`, `Tag`; `State` stok item'da kalır, aynalama
+  seçimi bozmaz). `TRadValueList` artık sahipten gelen `Count/Names/Values` callback'leriyle
+  çalışır. Testler: `CheckComboTest` 43, `RadCheckListTest` 31, `RadFamiliesTest` 55
+  (Win32+Win64), `RadCheckListLiveTest` 12. ERPPlus: `k.kullanicisirket.pas` iki çağrı
+  `Items.AddItem`'a, `dm.erp.dfm` item'lara `Value` yazıldı. **Kırıcı:** eski `AValueItems`
+  içeren DFM okunamaz (beta, kabul edildi); IDE'deki `RadKon.bpl` yeniden kurulmalı.
+- `.agents/rules/delphi-conventions.md`, `.agents/rules/component-patterns.md` —
+  two new rules: comments stay short and meaningful (history and measurements
+  go to CHANGELOG, commit messages or tests); new components are registered in
+  `Rad.Register.pas` and design-time code lives in `Rad.Editor.pas`.
 - `src/test/scratch/rad_dev_repolisteners/build_and_run.bat`,
   `src/test/scratch/rad_dev_livedb/build_and_run.bat` — honour `%EXTRAI%` as an
   include path. This is what lets the probes build against the **real** JEDI
@@ -311,6 +531,55 @@ that break something else in the kit.
 
 ### Fixed
 
+- `src/component/rad.dev.pas` — **Paylaşılan `RepositoryItem` varken tüketicinin kendi
+  `Control1..4` zinciri yok sayılıyordu.** Kaskad `ActiveProperties` (item'in) yuvalarından
+  okunuyordu; başlık yorumu "zincir yuvaları tüketicinin kendi Properties'inde" diyordu,
+  kod diyordu ki item'in. Artık tüketicinin kendi `RadSetting.Controls` zinciri doluysa
+  o kazanır, boşsa item'inki (eski davranış). `DoCascade`'e `AChain` parametresi eklendi.
+  Testler: `RadSettingTest` R18/R19 (düzeltmeden önce kırmızıydı).
+- `src/core/rad.config.pas` — **`TRadConfig` is now a `TSynAutoCreateFields`
+  (no interface counting), and its open defects are fixed.** (1) The class
+  used to be `TInterfacedObject`: `Ayar := TConfigGenel.Create` followed by a
+  chained `SetV` freed the object through the temporary interface. (2) A file
+  that fails to load no longer gets overwritten with defaults by `Destroy`: the
+  save is disabled and `ERadConfig` is raised (empty files still open). (3)
+  `Get` has no default arguments and gains `Integer`/`Boolean` overloads; the
+  `TDateTime` one is now `GetDateTime` (a float literal was ambiguous between
+  `Double` and `TDateTime`, E2251) — **breaking** for `Get(key, <TDateTime>)`
+  callers (none in this repo). (4) `SaveIfNeeded` takes the write lock;
+  `SetJson` returns `Self`; `TRadConfig.Config` is freed at
+  finalization. `Destroy` no longer saves (`SaveIfNeeded` is explicit; ConfigTest 14, 20). `Json` is a snapshot, writes to it are lost (XMLDoc says so).
+  `Root` is published, free keys live under `"Root"` in the file. Tests:
+  `src/test/scratch/rad_config` (19 assertions, Win32 and Win64).
+- `src/core/Help.vcl.pas` — **`TRadFormBase.ShowInTabs` was `False` for every
+  form loaded from a DFM.** `TCustomForm.Create` does not call `CreateNew`, and
+  the default was set there, so a form made by `Application.CreateForm` or
+  `Create` never got it and `TRadFormTabs` skipped it (no tabs in ERPPlus). The
+  stored field is now inverted (`FHideFromTabs`), so zero-init means `True` on
+  both creation paths; the `CreateNew` override is gone. Tests:
+  `rad_formtabs` 51-55.
+- `src/component/Permission.Edit.pas` — **`TRadPermission.SaveToField` never
+  committed to the database.** It put the dataset in edit mode and filled the
+  field, then called `TcxDBDataBinding.UpdateDataSource`, which only runs
+  `TDataLink.UpdateRecord` (`cxDB.pas`, `Data.DB.pas`) and does not `Post`, so
+  the record stayed in `dsEdit` and the value was lost. It now posts when it
+  opened the edit itself, cancels the edit if `Post` raises (no dangling
+  `dsEdit`, the original exception propagates), and raises `ERadPermission`
+  when the field cannot be edited. A dataset the caller already put in edit
+  mode is still left for the caller to post. Red before, green after in
+  `rad_permission` 07-09 and 13-15.
+- `src/component/Permission.Edit.pas` — **Ctrl+Down inserted the new node
+  above the focused one.** The `act_ins` shortcut called the navigator's
+  `Insert`, which attaches before the focused node (`cxTL.pas`, `NBDI_INSERT`
+  → `tlamInsert`). New `TcxTreeListHack.InsertAfter` adds it directly after the
+  focused node at the same level (as the last child when there is no next
+  sibling). The action is now captioned "Alta Ekle" in `Permission.Edit.dfm`.
+  Red before, green after in `rad_permission` 29-37.
+- `src/test/scratch/rad_permission/PermissionTest.dpr` — rewritten for the
+  current `DataBinding` API (it targeted the removed `DataSet`/`TreeField`
+  properties and UniDAC's `VirtualTable`, so it no longer compiled and could
+  not have caught either bug above). Uses FireDAC `TFDMemTable`; 57 assertions,
+  Win32 and Win64 (37 for the two fixes, 20 for the template work below).
 - `src/component/Rad.Dev.pas` — **a lookup wired up in code after its data was
   bound stayed blank.** The first text is resolved the moment the editor is
   bound; if `AOnLocate` or `ListSource` arrived afterwards, that first answer

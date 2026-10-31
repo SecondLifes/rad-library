@@ -4,7 +4,8 @@ program CheckComboTest;
 
 (* TRadCheckComboBox - deger tasiyan check combo, olay yazmadan.
 
-   AValueItems: 'Alici=A' satirlari -> Items kendiliginden kurulur.
+   Items      : TRadCheckComboBoxItems, her item Description + Value; tabanin Items'i
+                ona aynalanir. Items.AddItem('Aktif', 't').
    EditValue  : secili degerler ayracla ('A;AS'); AValues dizi olarak alir/yukler.
    AValuesIn  : "cari_tip in ('A','AS')".
 
@@ -60,8 +61,15 @@ end;
 
 procedure Kur(AProps: TRadCheckComboBoxProperties);
 begin
-  AProps.AValueItems.Text :=
-    'Alici=A' + sLineBreak + 'Satici=S' + sLineBreak + 'Alici ve Satici=AS';
+  AProps.Items.Clear;
+  AProps.Items.AddItem('Alici', 'A');
+  AProps.Items.AddItem('Satici', 'S');
+  AProps.Items.AddItem('Alici ve Satici', 'AS');
+end;
+
+function Taban(AProps: TRadCheckComboBoxProperties): TcxCheckComboBoxItems;
+begin
+  Result := TcxCheckComboBoxProperties(AProps).Items;   { golgelenen stok koleksiyon }
 end;
 
 procedure Temel;
@@ -78,8 +86,23 @@ begin
     LCb := TRadCheckComboBox.Create(LForm);
     LCb.Parent := LForm;
     LProps := LCb.Properties;
+    { Kullanici senaryosu: Items tasarimcida, her item'da Description + Value. }
+    LProps.Items.AddItem('Aktif', 't');
+    LProps.Items.AddItem('Pasif', 'f');
+    LCb.AValues := ['t'];
+    Kontrol('K00 gorunen metin Description (Aktif), EditValue Value (t)',
+      (LCb.Text = 'Aktif') and (VarToStr(LCb.EditValue) = 't'), LCb.Text + '/' + VarToStr(LCb.EditValue));
+    Kontrol('K00b taban Items aynalandi (2, Aktif)', (Taban(LProps).Count = 2) and
+      (Taban(LProps)[0].Description = 'Aktif') and (Taban(LProps)[0] is TcxCheckComboBoxItem));
+    LProps.Items[1].Value := 'x';
+    Kontrol('K00c Value degisince Description ve taban sabit',
+      (LProps.Items[1].Description = 'Pasif') and (Taban(LProps).Count = 2) and
+      (Taban(LProps)[1].Description = 'Pasif'));
+    LProps.Items.Delete(0);
+    Kontrol('K00d item silinince taban da azalir', (Taban(LProps).Count = 1) and
+      (Taban(LProps)[0].Description = 'Pasif'));
     Kur(LProps);
-    Kontrol('K01 Items AValueItems''tan kuruldu (3)', LProps.Items.Count = 3,
+    Kontrol('K01 Items 3, taban 3', (LProps.Items.Count = 3) and (Taban(LProps).Count = 3),
       IntToStr(LProps.Items.Count));
     Kontrol('K02 Description = ad', (LProps.Items[0].Description = 'Alici') and
       (LProps.Items[2].Description = 'Alici ve Satici'));
@@ -111,33 +134,40 @@ begin
     Kontrol('K13 AValuesIn', LCb.AValuesIn('cari_tip') = 'cari_tip in (''A'',''AS'')',
       LCb.AValuesIn('cari_tip'));
 
-    LProps.AValueItems.Add('O''R=O''R');
+    LProps.Items.AddItem('O''R', 'O''R');
     LCb.AValues := ['O''R'];
     Kontrol('K14 tek tirnak ikilenir', LCb.AValuesIn('f') = 'f in (''O''''R'')', LCb.AValuesIn('f'));
 
     LCb.AValues := [];
-    LProps.AValueItems.Clear;
+    LProps.Items.Clear;
     for i := 1 to 70 do
-      LProps.AValueItems.Add(Format('Kalem%d=K%d', [i, i]));
-    Kontrol('K15 70 item istisna atmadi (64 siniri devre disi)', LProps.Items.Count = 70);
+      LProps.Items.AddItem(Format('Kalem%d', [i]), Format('K%d', [i]));
+    Kontrol('K15 70 item istisna atmadi (64 siniri devre disi)',
+      (LProps.Items.Count = 70) and (Taban(LProps).Count = 70));
     LCb.AValues := ['K70'];
     Kontrol('K16 70. item secilebiliyor', VarToStr(LCb.EditValue) = 'K70', VarToStr(LCb.EditValue));
 
-    { Degersiz satir: deger = ad }
-    LProps.AValueItems.Text := 'Aktif' + sLineBreak + 'Pasif=P';
-    LCb.AValues := ['Aktif'];
-    Kontrol('K17 degersiz satirda deger = ad', VarToStr(LCb.EditValue) = 'Aktif',
+    { Bos Value: deger = Description }
+    LProps.Items.Clear;
+    LProps.Items.AddItem('Aktif', '');
+    LProps.Items.AddItem('Pasif', 'P');
+    LCb.AValues := ['Aktif', 'P'];
+    Kontrol('K17 bos Value: deger = Description', VarToStr(LCb.EditValue) = 'Aktif;P',
       VarToStr(LCb.EditValue));
+    Kontrol('K17b gorunen metin Description', LCb.Text = 'Aktif;Pasif', LCb.Text);
+    Kontrol('K17c IndexOfValue EffectiveValue ile',
+      (LProps.Items.IndexOfValue('aktif') = 0) and (LProps.Items.IndexOfValue('P') = 1) and
+      (LProps.Items.IndexOfValue('Pasif') = -1));
 
-    { AValueItems bos: stok davranis }
-    LProps.AValueItems.Clear;
+    { Hicbir item'da Value yok: stok davranis }
     LProps.Items.Clear;
     LProps.Items.AddCheckItem('Bir');
     LProps.Items.AddCheckItem('Iki');
     LProps.EditValueFormat := cvfInteger;
     LCb.States[1] := cbsChecked;
-    Kontrol('K18 AValueItems bosken stok bit maskesi', VarToStr(LCb.EditValue) = '2',
+    Kontrol('K18 Value yokken stok bit maskesi', VarToStr(LCb.EditValue) = '2',
       VarToStr(LCb.EditValue));
+    Kontrol('K18b Value yokken CheckWarning bos', LProps.CheckWarning = '', LProps.CheckWarning);
   finally
     LForm.Free;
   end;
@@ -205,17 +235,20 @@ begin
       finally
         LTxt.Free;
       end;
-      Kontrol('D01 AValueItems DFM''e yazildi', Pos('Alici=A', LMetin) > 0, LMetin);
-      Kontrol('D02 Items DFM''e YAZILMADI (tek kaynak AValueItems)',
-        Pos('Properties.Items', LMetin) = 0, LMetin);
+      Kontrol('D01 Value DFM''e yazildi', Pos('Value = ''AS''', LMetin) > 0, LMetin);
+      Kontrol('D02 Items Description ile yazildi',
+        (Pos('Properties.Items = <', LMetin) > 0) and (Pos('''Alici''', LMetin) > 0), LMetin);
+      Kontrol('D02b Items DFM''de tek kez gecer',
+        LMetin.CountChar('<') = 1, IntToStr(LMetin.CountChar('<')));
       Kontrol('D03 EditValue DFM''e yazildi', Pos('EditValue = ''A;AS''', LMetin) > 0);
       LBin.Position := 0;
       LYeni := TDfmForm.CreateNew(nil);
       try
         LBin.ReadComponent(LYeni);
         LCb := LYeni.FindComponent('cbTip') as TRadCheckComboBox;
-        Kontrol('D04 geri okununca Items yeniden kuruldu', (LCb <> nil) and
-          (LCb.Properties.Items.Count = 3));
+        Kontrol('D04 geri okununca Items, Value ve taban aynasi', (LCb <> nil) and
+          (LCb.Properties.Items.Count = 3) and (LCb.Properties.Items[2].Description = 'Alici ve Satici') and
+          (LCb.Properties.Items[2].Value = 'AS') and (Taban(LCb.Properties).Count = 3));
         Kontrol('D05 geri okununca AValues korundu', (LCb <> nil) and (Dizi(LCb.AValues) = 'A|AS'));
       finally
         LYeni.Free;
@@ -286,8 +319,8 @@ begin
     LRapor := RadChainAudit(LForm);
     Kontrol('A00 duzgun kurulumda rapor bos', LRapor = '', LRapor);
 
-    LCb.Properties.AValueItems.Add('Tekrar=A');           { ayni deger }
-    LCb.Properties.AValueItems.Add('Ayracli=X;Y');        { ayrac iceren deger }
+    LCb.Properties.Items.AddItem('Tekrar', 'A');           { ayni deger }
+    LCb.Properties.Items.AddItem('Ayracli', 'X;Y');        { ayrac iceren deger }
     LCb.Properties.OnStatesToEditValue := LOlay.StatesToValue;   { olay kazanir }
     LT := TVirtualTable.Create(LForm);
     LT.AddField('kisa', ftString, 3);

@@ -10,12 +10,14 @@ src/
 ├── core/        reusable library code (RTL + mORMot2 only) — help.*.pas units
 │                (help.date, help.rtti, help.str, Help.DB, Help.uni, Help.vcl)
 │                plus rad.*.pas core units (rad.cache, rad.cmd, rad.eventbus,
-│                rad.permission, rad.thread, rad.utils, rad.worker, ...)
+│                rad.permission, rad.sqlfilter, rad.customfield, rad.thread, rad.utils,
+│                rad.worker, ...)
 ├── component/   VCL components and their editors (Permission.Edit,
-│                rad.db, rad.rtl, rad.vcl) — no separate fmx/ split yet;
+│                rad.db, rad.rtl, rad.vcl, rad.dev, rad.dev.customfields —
+│                custom-field frame — and rad.dev.customfielddesigner, its
+│                definition dialog) — no separate fmx/ split yet;
 │                everything here targets VCL today
-├── share/       shared forms used across components (Core.Form,
-│                Kisayol.Edit) — not part of the original layout contract
+├── share/       shared forms used across components (Kisayol.Edit) — not part of the original layout contract
 │                below; kept as its own top-level folder rather than
 │                forced into component/
 ├── packages/    Delphi package project files (RadKon.dpk/.dproj) plus

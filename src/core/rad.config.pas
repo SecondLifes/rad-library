@@ -19,55 +19,23 @@ type
   end;
 
 
-
-  IRadConfig = interface (ILockable)
-    ['{7B2E4A61-9C3D-4F58-8A17-6D0B5E9C4A22}']
-
-    function LoadFromFile(const aFileName: TFileName; const aSectionName: string): boolean;
-    function Json: IDocObject;
-    function FolderName: TFileName;
-    function SaveIfNeeded: boolean;
-    function GetFileName: TFileName;
-    procedure SetFileName(const Value: TFileName);
-
-
-
-    function GetValue(const aKey:string; const aDefault:Variant):Variant; overload;
-    function Get(const aKey:string; const aDefault:string =''):string; overload;
-    function Get(const aKey:string; const aDefault:Int64 =0):Int64; overload;
-    function Get(const aKey:string; const aDefault:Double =0):Double; overload;
-    function Get(const aKey:string; const aDefault:TDateTime =0):TDateTime; overload;
-
-
-
-
-    function SetJson(const aKey:string; const v:string):IRadConfig;
-    function SetValue(const aKey:string; const v:Variant):IRadConfig; overload;
-    function SetV(const aKey:string; const v:string):IRadConfig; overload;
-    function SetV(const aKey:string; const v:Int64):IRadConfig; overload;
-    function SetV(const aKey:string; const v:Double):IRadConfig; overload;
-    function SetV(const aKey:string; const v:TDateTime):IRadConfig; overload;
-    function SetV(const aKey:string; const v:TObject):IRadConfig; overload;
-
-
-
-  end;
-
-  TRadConfig = class(TAbstractLockable,IRadConfig)
-  class var Config :IRadConfig;
+  TRadConfig = class(TSynAutoCreateFields)//class(TAbstractLockable,IRadConfig)
+  class var Config :TRadConfig;
+  strict private
+    FJson   : IDocDict;
+    FSafe   : TRadLock;
   private
-    fCurrentContent, fSectionName: RawUtf8;
+    fSectionName: RawUtf8;
     fFileName: TFileName;
     fSettingsOptions: TSynJsonFileSettingsOptions;
     fCurrentHash: cardinal;
     // could be overriden to validate the content coherency and/or clean fields
 
-   FJson    : IDocDict;
 
 
    function GetFileName: TFileName;
    procedure SetFileName(const Value: TFileName);
-   function AfterLoad(const aText: RawUtf8): boolean; virtual;
+   function AfterLoad(const aText: RawUtf8): boolean;
 
     function LoadFromYamlText(const aYaml: RawUtf8): boolean;
     function LoadFromIniText(const aIni, aSectionName: RawUtf8): boolean;
@@ -79,7 +47,9 @@ type
    destructor Destroy; override;
 
    function LoadFromFile(const aFileName: TFileName; const aSectionName: string='Main'): boolean;  overload;
+   /// <summary>Anlik goruntu: uzerine yazilan degisiklik KAYBOLUR; yazmak icin SetV/SetValue.</summary>
    function Json: IDocDict;
+
 
    function FolderName: TFileName;
    function SaveIfNeeded: boolean;
@@ -88,24 +58,26 @@ type
 
 
    function GetValue(const aKey:string; const aDefault:Variant):Variant; overload;
-   function Get(const aKey:string; const aDefault:string =''):string; overload;
-   function Get(const aKey:string; const aDefault:Int64 =0):Int64; overload;
-   function Get(const aKey:string; const aDefault:Double =0):Double; overload;
-   function Get(const aKey:string; const aDefault:TDateTime =0):TDateTime; overload;
+   function Get(const aKey:string; const aDefault:string):string; overload;
+   function Get(const aKey:string; const aDefault:Integer):Integer; overload;
+   function Get(const aKey:string; const aDefault:Int64):Int64; overload;
+   function Get(const aKey:string; const aDefault:Boolean):Boolean; overload;
+   function Get(const aKey:string; const aDefault:Double):Double; overload;
+   function GetDateTime(const aKey:string; const aDefault:TDateTime):TDateTime;
 
 
 
 
-   function SetJson(const aKey:string; const v:string):IRadConfig;
-   function SetValue(const aKey:string; const v:Variant):IRadConfig; overload;
-   function SetV(const aKey:string; const v:string):IRadConfig; overload;
-   function SetV(const aKey:string; const v:Int64):IRadConfig; overload;
-   function SetV(const aKey:string; const v:Double):IRadConfig; overload;
-   function SetV(const aKey:string; const v:TDateTime):IRadConfig; overload;
-   function SetV(const aKey:string; const v:TObject):IRadConfig; overload;
+   function SetJson(const aKey:string; const v:string):TRadConfig;
+   function SetValue(const aKey:string; const v:Variant):TRadConfig; overload;
+   function SetV(const aKey:string; const v:string):TRadConfig; overload;
+   function SetV(const aKey:string; const v:Int64):TRadConfig; overload;
+   function SetV(const aKey:string; const v:Double):TRadConfig; overload;
+   function SetV(const aKey:string; const v:TDateTime):TRadConfig; overload;
+   function SetV(const aKey:string; const v:TObject):TRadConfig; overload;
 
   published
-   //property Root: IDocDict read Json;
+   property Root: IDocDict read FJson write FJson;
   end;
 
 //function NewConfig(const AFileName: string = ''; const ADefaults: string = '{}'): IRadConfig;
@@ -130,7 +102,6 @@ uses
 
 function TRadConfig.AfterLoad(const aText: RawUtf8): boolean;
 begin
-  fCurrentContent := aText;
   fCurrentHash := DefaultHashTrim(aText);
   result := true; // success
 
@@ -141,15 +112,12 @@ begin
   inherited;
   FSafe.Init(True);
   FJson    := DocDict('{}');
-
-  AutoCreateFields(Self);
-  SetFileName(ChangeFileExt(ParamStr(0),'.json'));
+  SetFileName(ChangeFileExt(ParamStr(0),'.setting.json'));
 end;
 
 destructor TRadConfig.Destroy;
 begin
-  SaveIfNeeded;
-  AutoDestroyFields(Self);
+  //SaveIfNeeded;
   FJson :=nil;
   inherited;
 end;
@@ -167,6 +135,16 @@ begin
  try Result:=GetValue(aKey,aDefault); except Result :=aDefault end;
 end;
 
+function TRadConfig.Get(const aKey: string; const aDefault: Integer): Integer;
+begin
+ try Result:=GetValue(aKey,aDefault); except Result :=aDefault end;
+end;
+
+function TRadConfig.Get(const aKey: string; const aDefault: Boolean): Boolean;
+begin
+ try Result:=GetValue(aKey,aDefault); except Result :=aDefault end;
+end;
+
 function TRadConfig.Get(const aKey: string; const aDefault: Int64): Int64;
 begin
  try Result:=GetValue(aKey,aDefault); except Result :=aDefault end;
@@ -177,7 +155,7 @@ begin
  try Result:=GetValue(aKey,aDefault); except Result :=aDefault end;
 end;
 
-function TRadConfig.Get(const aKey: string; const aDefault: TDateTime): TDateTime;
+function TRadConfig.GetDateTime(const aKey: string; const aDefault: TDateTime): TDateTime;
 begin
   try Result:=GetValue(aKey,aDefault); except Result :=aDefault end;
 end;
@@ -207,20 +185,31 @@ end;
 
 function TRadConfig.Json: IDocDict;
 begin
- Result := FJson;
+  FSafe.ReadLock;
+  try
+    Result :=DocDict(ObjectToJson(self));
+    //Result.Merge(FJson);
+  finally
+   FSafe.ReadUnlock;
+  end;
+
+
 end;
+
+
+
 
 function TRadConfig.LoadFromFile(const aFileName: TFileName; const aSectionName: string): boolean;
 var
  text: RawUtf8;
 begin
-   fCurrentContent := ''; // ignore file neither valid JSON nor INI/YAML
+
   fCurrentHash := 0;
   fFileName := aFileName;
   text := RawUtf8FromFile(aFileName); // may detect BOM
   if text = '' then
     Exit(False);
- WriteLock;
+ FSafe.WriteLock;
  try
    //Result := LoadFromFile(aFileName,StringToUtf8(aSectionName));
 
@@ -236,7 +225,7 @@ begin
     end;
 
  finally
-  WriteUnlock;
+  FSafe.WriteUnlock;
  end;
 
 end;
@@ -255,11 +244,9 @@ end;
 function TRadConfig.LoadFromJsonText(const aJson: RawUtf8): boolean;
 begin
   result := JsonSettingsToObject(aJson, self) and AfterLoad(aJson);
-  FJson :=DocDict(aJson);
 end;
 
-function TRadConfig.LoadFromText(const aContent,
-  aSectionName: RawUtf8): boolean;
+function TRadConfig.LoadFromText(const aContent, aSectionName: RawUtf8): boolean;
 begin
   if fsoReadIni in fSettingsOptions then
   begin
@@ -290,11 +277,12 @@ function TRadConfig.SaveIfNeeded: boolean;
 var
   saved: RawUtf8;
   opt: TTextWriterWriteObjectOptions;
+  LHash:Cardinal;
 begin
   result := false;
   if (self = nil) or (fFileName = '') or (fsoDisableSaveIfNeeded in fSettingsOptions) then
     exit;
-  ReadLock;
+  FSafe.WriteLock;
   try
 
   opt := SETTINGS_WRITEOPTIONS;
@@ -306,83 +294,92 @@ begin
   else
   begin
 
-    //saved := ObjectToJson(self, opt);
+    //Json.Merge(DocDict(ObjectToJson(self, opt)));
 
-    Json.Merge(DocDict(ObjectToJson(self, opt)));
-    saved:=Json.Json;
+    saved:=ObjectToJson(self,opt);
 
     if fsoWriteYaml in fSettingsOptions then
       saved := JsonToYaml(saved)
     else if fsoWriteHjson in fSettingsOptions then
       saved := JsonReformat(saved, jsonH); // very human friendly
   end;
-  if saved = fCurrentContent then
+   LHash :=DefaultHashTrim(saved);
+  if fCurrentHash = LHash then
     exit; // don't rewrite the same content on disk
   result := FileFromString(saved, fFileName);
   if not result then
     exit;
-  fCurrentContent := saved;
-  fCurrentHash := DefaultHashTrim(saved);
+
+  fCurrentHash := LHash;
 
   finally
-   ReadUnlock;
+   FSafe.WriteUnlock;
   end;
 end;
 
 procedure TRadConfig.SetFileName(const Value: TFileName);
 begin
 fFileName := Value;
-if FileExists(Value) then
-  LoadFromFile(fFileName);
+if FileExists(Value) and (TFile.GetSize(Value) > 0) and not LoadFromFile(Value) then
+begin
+  { Destroy kaydetmesin: bozuk dosyanin uzerine varsayilanlar yazilirdi. }
+  include(fSettingsOptions, fsoDisableSaveIfNeeded);
+  raise ERadConfig.CreateFmt('Ayar dosyasi okunamadi: %s', [Value]);
+end;
 end;
 
-function TRadConfig.SetJson(const aKey, v: string): IRadConfig;
+function TRadConfig.SetJson(const aKey, v: string): TRadConfig;
 begin
- WriteLock;
+ Result := Self;
+ FSafe.WriteLock;
  try
   FJson.O[StringToUtf8(aKey)]:=DocDict(StringToUtf8(v));
  finally
-  WriteUnlock;
+  FSafe.WriteUnlock;
  end;
 end;
 
-function TRadConfig.SetV(const aKey: string; const v: Double): IRadConfig;
+function TRadConfig.SetV(const aKey: string; const v: Double): TRadConfig;
 begin
   Result := SetValue(aKey,v);
 end;
 
-function TRadConfig.SetV(const aKey: string; const v: Int64): IRadConfig;
+function TRadConfig.SetV(const aKey: string; const v: Int64): TRadConfig;
 begin
  Result := SetValue(aKey,v);
 end;
 
-function TRadConfig.SetV(const aKey, v: string): IRadConfig;
+function TRadConfig.SetV(const aKey, v: string): TRadConfig;
 begin
  Result := SetValue(aKey,v);
 end;
 
-function TRadConfig.SetValue(const aKey: string; const v: Variant): IRadConfig;
+function TRadConfig.SetValue(const aKey: string; const v: Variant): TRadConfig;
 begin
  Result := Self;
- WriteLock;
+ FSafe.WriteLock;
  try
   FJson.Item[StringToUtf8(aKey)]:=v;
   //FJson.Merge(StringToUtf8(aKey),v);
  finally
-  WriteUnlock;
+  FSafe.WriteUnlock;
  end;
 end;
 
-function TRadConfig.SetV(const aKey: string; const v: TDateTime): IRadConfig;
+function TRadConfig.SetV(const aKey: string; const v: TDateTime): TRadConfig;
 begin
   Result := SetValue(aKey,v);
 end;
 
-function TRadConfig.SetV(const aKey: string; const v: TObject): IRadConfig;
+function TRadConfig.SetV(const aKey: string; const v: TObject): TRadConfig;
 begin
   Result := SetValue(aKey,ObjectToVariant(v,True));
 
 end;
 
+
+initialization
+finalization
+  FreeAndNil(TRadConfig.Config);
 
 end.

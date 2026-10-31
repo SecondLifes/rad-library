@@ -47,12 +47,17 @@ type
   private
     FAutoFree   : Boolean;
     FIsShow     : Boolean;
+    FMDIClientEdge: Boolean;
+    FHideFromTabs: Boolean;    // ters tutulur: sifir baslangic = ShowInTabs True
     { Yasam dongusu kancalarinin CAGIRDIGI tek nokta. DoEvent'i dogrudan
       cagirmiyorlar: DoEvent turev icin uzanti noktasidir ve `inherited`
       cagirmayan bir override, global fabrika baglantisini sessizce
       koparirdi. Buradan ikisi de garanti calisir. }
     procedure NotifyEvent(const AEvent: TFormEventType);
     procedure CMTextChanged(var Msg: TMessage); message CM_TEXTCHANGED;
+    procedure SetMDIClientEdge(AValue: Boolean);
+    function GetShowInTabs: Boolean;
+    procedure SetShowInTabs(AValue: Boolean);
   protected
     procedure ClientWndProc(var Message: TMessage); override;
     procedure WmCMD(var Msg: TMessage); message WM_CMD;
@@ -81,6 +86,12 @@ type
 
     end;
    }
+  published
+    { MDI ana formda istemci alaninin cukur cercevesi: False (varsayilan) = kaldirilir,
+      True = VCL'in kendi davranisi. OnCreate'te atanabilir; sonradan da atanabilir. }
+    property MDIClientEdge: Boolean read FMDIClientEdge write SetMDIClientEdge default False;
+    /// <summary>Sekme cubugu (TRadFormTabs) bu formu sekme yapsin mi.</summary>
+    property ShowInTabs: Boolean read GetShowInTabs write SetShowInTabs default True;
   end;
 
   TPersistentHack = class(TPersistent)
@@ -125,12 +136,16 @@ type
   TFormFactory = class//(TComponent, IEventHandler) //IFormVisualManager
   private
     FOnEvent: TGlobalFormEvent; // Global Event Handler
+    FListeners: TList<TGlobalFormEvent>;
     FForms: TDictionary<string, TCustomForm>;
   protected
     procedure DoEvent(const AForm: TForm; const AEvent: TFormEventType);
   public
 
     procedure RegisterEvent(AEvent: TGlobalFormEvent);
+    /// <summary>Coklu dinleyici; RegisterEvent'teki tek slota dokunmaz.</summary>
+    procedure AddListener(AEvent: TGlobalFormEvent);
+    procedure RemoveListener(AEvent: TGlobalFormEvent);
     procedure UnregisterForm(const AForm: TCustomForm);
 
     function Get<T: TForm>(const AUniqueName: string = ''; const AFormStyle: TFormStyle = fsNormal; AOwner: TComponent = nil): T;
@@ -184,6 +199,8 @@ type
   private
 
   public
+   class Procedure _MainFormLock;
+   class Procedure _MainFormUnLock;
    class function _New(const AFormStyle: TFormStyle=fsNormal; AOwner: TComponent = nil):TForm; overload;
 
    class function _Modal(const APosition:TPosition = TPosition.poScreenCenter; const AOnCreate:TProc<TCustomForm>=nil; const AOnBeforeFree:TProc<TCustomForm>=nil):TModalResult; overload;
@@ -206,14 +223,14 @@ type
      const AOnError: TProc<Exception> = nil): TModalResult;
 
 
-   { DefClientProc KALDIRILDI. Tek cagiran Core.Form.ClientWndProc idi ve o
+   { DefClientProc KALDIRILDI. Tek cagiran TRadFormBase.ClientWndProc idi ve o
      artik `inherited` kullaniyor. Kaldirilma sebebi cagrisiz kalmasi degil,
      BOZUK olmasiydi: GetWindowLong(Self.Handle, GWL_WNDPROC) formun
      yordamini, ustelik VCL alt siniklamayi yaptiktan SONRA donduruyordu.
      VCL'in gercek karsiligi FDefClientProc'tur ve ISTEMCI penceresinin
      yordamini alt siniklamadan ONCE yakalar (Vcl.Forms.pas:7889). Alan
      private oldugu icin taklit edilemez; dogru cozum ona ihtiyac
-     duymamaktir. Ayrinti: Core.Form.ClientWndProc'un basligi.
+     duymamaktir. Ayrinti: TRadFormBase.ClientWndProc'un basligi.
 
      function TFormHelper.DefClientProc: TFarProc;
     begin
@@ -229,7 +246,7 @@ type
    function  _SetStateMinimized:TCustomForm;
    function  _SetStateMaximized:TCustomForm;
 
-   // TCoreForm formları için
+   // TRadFormBase formları için
    function  _SetAutoFree(const aAutoFree:Boolean):TCustomForm;
 
    //function _Modal(const AOnClose:TProc<TCustomForm>=nil):TModalResult; overload;
@@ -604,6 +621,17 @@ Result := Self;
     Self.Hide;
 end;
 
+class procedure TFormHelper._MainFormLock;
+begin
+   if Application.MainForm <> nil then
+    LockWindowUpdate(Application.MainForm.ClientHandle);
+end;
+
+class procedure TFormHelper._MainFormUnLock;
+begin
+  LockWindowUpdate(0);
+end;
+
 function TFormHelper._MakeMDIChild: TCustomForm;
 var
   LGorunurdu: Boolean;
@@ -746,6 +774,7 @@ class function TFormHelper._New(const AFormStyle: TFormStyle; AOwner: TComponent
 var
   LNeedStyleChange: Boolean;
 begin
+
   if AOwner = nil then AOwner := Application;
   Result := TFormClass(Self).Create(AOwner);
   LNeedStyleChange := (Result.FormStyle <> AFormStyle);
@@ -1037,14 +1066,14 @@ end;
 
 constructor TFormEventBridge.CreateBridge(const AForm: TForm; const aAutoFree: Boolean);
 begin
-  { Eski hâlde AForm bir TCoreForm ise `inherited Create` HIC CAGRILMIYORDU.
+  { Eski hâlde AForm bir TRadFormBase (eski adiyla TCoreForm) ise `inherited Create` HIC CAGRILMIYORDU.
     Sonucu: TComponent kurucusu calismadigi icin nesnenin sahibi yoktu -
-    kimse Free etmiyordu, yani her TCoreForm icin bir bridge SIZIYORDU.
+    kimse Free etmiyordu, yani her TRadFormBase icin bir bridge SIZIYORDU.
     Ustelik FControl/FOldProc nil kaliyor, nesne yari kurulmus donuyordu.
 
     Simdi inherited HER DURUMDA cagriliyor (nesne gecerli ve forma ait
-    olsun diye). TCoreForm'a ozel olan tek sey OnClose kancasinin
-    takilmamasi: TCoreForm AutoFree'yi kendi yonetiyor, iki mekanizma ust
+    olsun diye). TRadFormBase'e ozel olan tek sey OnClose kancasinin
+    takilmamasi: TRadFormBase AutoFree'yi kendi yonetiyor, iki mekanizma ust
     uste binmemeli. }
   if AForm = nil then
     raise Exception.Create('TFormEventBridge: AForm nil olamaz');
@@ -1054,7 +1083,7 @@ begin
 
   if AForm is TRadFormBase then
   begin
-    // TCoreForm kapanis davranisini kendi yonetir; OnClose'u ele gecirmiyoruz.
+    // TRadFormBase kapanis davranisini kendi yonetir; OnClose'u ele gecirmiyoruz.
     AForm._SetAutoFree(aAutoFree);
     Exit;
   end;
@@ -1128,6 +1157,7 @@ constructor TFormFactory.Create;
 begin
   //inherited;
   FForms := TDictionary<string, TCustomForm>.Create;
+  FListeners := TList<TGlobalFormEvent>.Create;
 end;
 
 
@@ -1145,14 +1175,19 @@ begin
 
     Fabrika yalnizca KAYIT tutar, SAHIPLIK iddia etmez. }
   FForms.Free;
+  FListeners.Free;
   inherited;
 end;
 
 
 
 procedure TFormFactory.DoEvent(const AForm: TForm; const AEvent: TFormEventType);
+var
+  LListener: TGlobalFormEvent;
 begin
   if Assigned(FOnEvent) then FOnEvent(AForm,AEvent);
+  for LListener in FListeners.ToArray do   // dinleyici kendini cikarabilir
+    LListener(AForm, AEvent);
 end;
 
 
@@ -1223,6 +1258,17 @@ end;
 procedure TFormFactory.RegisterEvent(AEvent: TGlobalFormEvent);
 begin
  FOnEvent:=AEvent;
+end;
+
+procedure TFormFactory.AddListener(AEvent: TGlobalFormEvent);
+begin
+  if Assigned(AEvent) and (FListeners.IndexOf(AEvent) < 0) then
+    FListeners.Add(AEvent);
+end;
+
+procedure TFormFactory.RemoveListener(AEvent: TGlobalFormEvent);
+begin
+  FListeners.Remove(AEvent);
 end;
 
 function TFormFactory.Get<T>(const AUniqueName: string; const AFormStyle: TFormStyle; AOwner: TComponent): T;
@@ -1950,6 +1996,16 @@ end;
 
 { TRadFormBase }
 
+function TRadFormBase.GetShowInTabs: Boolean;
+begin
+  Result := not FHideFromTabs;
+end;
+
+procedure TRadFormBase.SetShowInTabs(AValue: Boolean);
+begin
+  FHideFromTabs := not AValue;
+end;
+
 procedure TRadFormBase.NotifyEvent(const AEvent: TFormEventType);
 begin
   DoEvent(AEvent);                                // turev icin uzanti noktasi
@@ -1957,64 +2013,62 @@ begin
     GlobalFormFactory.DoEvent(Self, AEvent);      // global dinleyici
 end;
 
-procedure TRadFormBase.ClientWndProc(var Message: TMessage);
 const
-  { MDICLIENT'in kendini kurarken ve yerlesimini yeniden hesaplarken
-    gonderdigi IC yapilandirma mesaji. Windows SDK'da BELGELENMEMISTIR ve
-    Winapi.Messages de onu tanimlamaz - o yuzden kendi adimizla tutuluyor.
-    Cikplak $3F yazmak, ileride bu satiri okuyanin neye baktigini
-    bilememesi demekti. }
+  { MDICLIENT'in $3F mesaji (belgesiz; cocuk pencere degisince gonderir).
+    Winapi.Messages tanimlamaz. }
   WM_MDICLIENT_FRAMECALC = $3F;
+
+{ MDIClientEdge = False iken MDI istemci alaninin cukur cercevesini
+  (WS_EX_CLIENTEDGE) kaldirir.
+
+  VCL'in kendi $3F blogu (Vcl.Forms.pas, TCustomForm.ClientWndProc) once
+  MDICLIENT'in yordamini cagirir, sonra ShowMDIClientEdge ile cerceveyi cocuk
+  buyutulmemisken GERI KOYAR. Mesaji inherited'a gonderip sonra silmek bu
+  yuzden sonsuz $3F dongusu uretir (olculdu: 25 sn'de 1.1 milyon cagri).
+  Mesaji hic islememek ise MDICLIENT'in kaydirma cubugu hesabini da oldurur.
+  Cerceveyi CreateWnd sonrasi BIR KEZ silmek de denendi (Delphi 13, olculdu):
+  ClientHandle o anda var ve silme tutuyor, ama Show sirasindaki ilk 'de
+  VCL cerceveyi geri koyuyor ve cocuk buyutulene kadar geri gelmiyor.
+  Cozum: VCL bloguna girmeden MDICLIENT'in sinif yordamini cagirip cerceveyi
+  ardindan silmek. Kenarlik isteniyorsa (True) her sey inherited'a gider. }
+procedure TRadFormBase.ClientWndProc(var Message: TMessage);
 var
-  { NativeInt, DWORD DEGIL: Get/SetWindowLongPtr Win64'te LONG_PTR (64 bit)
-    kullanir. DWORD'e almak sessiz bir daralmadir - GWL_EXSTYLE degeri 32
-    bite sigdigi icin pratikte calisiyordu, ama tip yanlisti ve derleyici
-    bunun icin uyari uretmiyor. }
   ExStyle: NativeInt;
 begin
-  if (FormStyle = fsMDIForm) and (Message.Msg = WM_MDICLIENT_FRAMECALC) then
+  if (FormStyle = fsMDIForm) and (Message.Msg = WM_MDICLIENT_FRAMECALC)
+    and not FMDIClientEdge then
   begin
-    { ClientHandle 0 olabilir (pencere henuz yaratilmamis ya da yok
-      edilmis). Korumasiz GetWindowLongPtr(0, ...) anlamsiz deger dondurur
-      ve ardindaki SetWindowPos gecersiz tutamaca yazmaya calisir. }
     if ClientHandle <> 0 then
     begin
-      ExStyle := GetWindowLongPtr(ClientHandle, GWL_EXSTYLE);
+      Message.Result := CallWindowProc(Pointer(GetClassLongPtr(ClientHandle, GCL_WNDPROC)),
+        ClientHandle, Message.Msg, Message.WParam, Message.LParam);
 
-      { Yalnizca stil GERCEKTEN varsa dokun. Kosulsuz yazmak her yerlesim
-        hesabinda bir SetWindowPos tetikliyordu; SWP_FRAMECHANGED cerceveyi
-        yeniden cizdirdigi icin bu gorunur titremeye yol acar. }
+      ExStyle := GetWindowLongPtr(ClientHandle, GWL_EXSTYLE);
+      { Yalnizca stil varsa dokun: kosulsuz SWP_FRAMECHANGED titreme yapar. }
       if (ExStyle and WS_EX_CLIENTEDGE) <> 0 then
       begin
         SetWindowLongPtr(ClientHandle, GWL_EXSTYLE, ExStyle and not WS_EX_CLIENTEDGE);
-
-        { SWP_FRAMECHANGED sart: stil degisikligi ancak bu bayrakla pencereye
-          uygulanir. Digerleri "konumu/boyutu/z-sirasini degistirme" demek. }
         SetWindowPos(ClientHandle, 0, 0, 0, 0, 0, SWP_FRAMECHANGED or
           SWP_NOACTIVATE or SWP_NOMOVE or SWP_NOSIZE or SWP_NOZORDER);
       end;
     end;
-
-    { $3F BURADA TUKETILIR - inherited'a GITMEZ, ve bu bilincli bir karardir.
-
-      "Her yolda inherited cagrilmali" diye degistirmeyi denedik; sonuc
-      OLCULDU: 30 saniyede 796.240 ClientWndProc cagrisi, %100 CPU, kilitli
-      surec. Sebep geri besleme dongusu - inherited MDICLIENT'in kendi
-      yordamina gider, o da WS_EX_CLIENTEDGE'i GERI KOYAR; biz tekrar
-      sileriz, SWP_FRAMECHANGED yeni bir $3F dogurur, bastan baslar.
-      Stili "zaten temizse dokunma" korumasi bunu engellemez, cunku her
-      turda inherited onu yeniden setler.
-
-      Yani bu Exit bir ihmal degil, donguyu kiran seyin ta kendisi.
-      Kaldirmadan once rad_coreform testini calistirin: 08 numarali iddia
-      tam bu firtinayi yakalar. }
+    { shortcut: VCL'in CustomTitleBar'li ilk-gosterim SWP_FRAMECHANGED'i atlaniyor;
+      depoda CustomTitleBar kullanilmiyor, kullanilirsa buraya eklenmeli. }
     Exit;
   end;
 
   inherited;
-
 end;
 
+procedure TRadFormBase.SetMDIClientEdge(AValue: Boolean);
+begin
+  if FMDIClientEdge = AValue then
+    Exit;
+  FMDIClientEdge := AValue;
+  { Pencere varsa degisikligi hemen uygulat; yoksa (OnCreate) ilk $3F'de okunur. }
+  if (FormStyle = fsMDIForm) and (ClientHandle <> 0) then
+    SendMessage(ClientHandle, WM_MDICLIENT_FRAMECALC, 0, 0);
+end;
 procedure TRadFormBase.CMTextChanged(var Msg: TMessage);
 begin
   inherited;

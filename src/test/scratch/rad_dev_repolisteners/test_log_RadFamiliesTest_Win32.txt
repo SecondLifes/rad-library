@@ -1,0 +1,159 @@
+Embarcadero Delphi for Win32 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(328) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(328) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(330) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(330) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(342) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(342) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(344) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(344) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(769) Warning: W1035 Return value of function 'TDataSetHelper._LoadValueALL' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(932) Hint: H2164 Variable 's' is declared but never used in 'TDataSetHelper._Values'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.permission.pas(62) Hint: H2445 Inline function 'StringToUtf8' has not been expanded because its unit 'mormot.core.unicode' is specified in USES statement of IMPLEMENTATION section and current function is inline function or being inline function
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(366) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(413) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(419) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(429) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(495) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(500) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(505) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(516) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(521) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(528) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(565) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(551) Hint: H2164 Variable 'Msg' is declared but never used in 'TRadTask.Start'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(583) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(602) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(728) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(739) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(265) Hint: H2269 Overriding virtual method 'TRadFilterItem.GetDisplayName' has lower visibility (strict private) than base class 'TCollectionItem' (protected)
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(504) Hint: H2269 Overriding virtual method 'TRadQuery.ApplyUpdates' has lower visibility (protected) than base class 'TUniQuery' (public)
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(505) Hint: H2269 Overriding virtual method 'TRadQuery.Post' has lower visibility (protected) than base class 'TUniQuery' (public)
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.uni.pas(419) Warning: W1035 Return value of function 'TUniConnectionHelper._ServerDate' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(638) Hint: H2077 Value assigned to 'i' never used
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.uni.pas(646) Warning: W1035 Return value of function 'TUniConnectionHelper._sqlCount' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(668) Hint: H2077 Value assigned to 'TUniConnectionHelper._StoredProc' never used
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(701) Warning: W1036 Variable 'sp' might not have been initialized
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(666) Hint: H2164 Variable 'Prm' is declared but never used in 'TUniConnectionHelper._StoredProc'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(786) Hint: H2164 Variable 'j' is declared but never used in 'TUniConnectionHelper._StoredProc.[0]'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(880) Hint: H2164 Variable 'LQuery' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(881) Hint: H2164 Variable 'LKeyField' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(882) Hint: H2164 Variable 'LCurrentID' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(883) Hint: H2164 Variable 'LOperator' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(883) Hint: H2164 Variable 'LOrderDir' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(883) Hint: H2164 Variable 'LSQL' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.uni.pas(1026) Warning: W1035 Return value of function 'TDADataSetyHelper._Transaction' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1186) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1186) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1219) Hint: H2077 Value assigned to 'TRadConnection.TableExists' never used
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1282) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1285) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1299) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1989) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.pas(210) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.pas(237) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.Dev.pas(641) Warning: W1035 Return value of function 'TcxCustomGridTableViewhelper._EditMode' might be undefined
+345668 lines, 1.09 seconds, 17511968 bytes code, 995148 bytes data.
+
+=== ButtonEdit: Properties / Assign / container ===
+  [OK]   ButtonEdit edit/DB edit Properties sinifi Rad
+  [OK]   ButtonEdit RadSetting yaratildi
+  [OK]   ButtonEdit GetContainerClass = Rad editoru (grid inplace)
+  [OK]   ButtonEdit Properties.Assign RadSetting'i tasir
+  [OK]   ButtonEdit yok olan hedef/master nil'lendi
+
+=== ButtonEdit: DFM ===
+  [OK]   ButtonEdit varsayilanken RadSetting DFM'e yazilmaz
+  [OK]   ButtonEdit DFM yazilir ve geri okunur
+
+=== ButtonEdit: paylasilan RepositoryItem ===
+  [OK]   ButtonEdit repository item Properties sinifi Rad
+  [OK]   ButtonEdit tuketiciler KENDI Key'ini korur, item'inki bos
+
+=== ButtonEdit: gridde inplace editor ===
+  [OK]   ButtonEdit inplace editor Rad sinifi
+         True
+  [OK]   ButtonEdit sutunun KENDI Key'i inplace InternalProperties'e geldi
+
+=== ImageComboBox: Properties / Assign / container ===
+  [OK]   ImageComboBox edit/DB edit Properties sinifi Rad
+  [OK]   ImageComboBox RadSetting yaratildi
+  [OK]   ImageComboBox GetContainerClass = Rad editoru (grid inplace)
+  [OK]   ImageComboBox Properties.Assign RadSetting'i tasir
+  [OK]   ImageComboBox yok olan hedef/master nil'lendi
+
+=== ImageComboBox: DFM ===
+  [OK]   ImageComboBox varsayilanken RadSetting DFM'e yazilmaz
+  [OK]   ImageComboBox DFM yazilir ve geri okunur
+
+=== ImageComboBox: paylasilan RepositoryItem ===
+  [OK]   ImageComboBox repository item Properties sinifi Rad
+  [OK]   ImageComboBox tuketiciler KENDI Key'ini korur, item'inki bos
+
+=== ImageComboBox: gridde inplace editor ===
+  [OK]   ImageComboBox inplace editor Rad sinifi
+         True
+  [OK]   ImageComboBox sutunun KENDI Key'i inplace InternalProperties'e geldi
+
+=== ExtLookupComboBox: Properties / Assign / container ===
+  [OK]   ExtLookupComboBox edit/DB edit Properties sinifi Rad
+  [OK]   ExtLookupComboBox RadSetting yaratildi
+  [OK]   ExtLookupComboBox GetContainerClass = Rad editoru (grid inplace)
+  [OK]   ExtLookupComboBox Properties.Assign RadSetting'i tasir
+  [OK]   ExtLookupComboBox yok olan hedef/master nil'lendi
+
+=== ExtLookupComboBox: DFM ===
+  [OK]   ExtLookupComboBox varsayilanken RadSetting DFM'e yazilmaz
+  [OK]   ExtLookupComboBox DFM yazilir ve geri okunur
+
+=== ExtLookupComboBox: paylasilan RepositoryItem ===
+  [OK]   ExtLookupComboBox repository item Properties sinifi Rad
+  [OK]   ExtLookupComboBox tuketiciler KENDI Key'ini korur, item'inki bos
+
+=== ExtLookupComboBox: gridde inplace editor ===
+  [OK]   ExtLookupComboBox inplace editor Rad sinifi
+         True
+  [OK]   ExtLookupComboBox sutunun KENDI Key'i inplace InternalProperties'e geldi
+
+=== PopupEdit: Properties / Assign / container ===
+  [OK]   PopupEdit edit/DB edit Properties sinifi Rad
+  [OK]   PopupEdit RadSetting yaratildi
+  [OK]   PopupEdit GetContainerClass = Rad editoru (grid inplace)
+  [OK]   PopupEdit Properties.Assign RadSetting'i tasir
+  [OK]   PopupEdit yok olan hedef/master nil'lendi
+
+=== PopupEdit: DFM ===
+  [OK]   PopupEdit varsayilanken RadSetting DFM'e yazilmaz
+  [OK]   PopupEdit DFM yazilir ve geri okunur
+
+=== PopupEdit: paylasilan RepositoryItem ===
+  [OK]   PopupEdit repository item Properties sinifi Rad
+  [OK]   PopupEdit tuketiciler KENDI Key'ini korur, item'inki bos
+
+=== PopupEdit: gridde inplace editor ===
+  [OK]   PopupEdit inplace editor Rad sinifi
+         True
+  [OK]   PopupEdit sutunun KENDI Key'i inplace InternalProperties'e geldi
+
+=== CheckComboBox: Properties / Assign / container ===
+  [OK]   CheckComboBox edit/DB edit Properties sinifi Rad
+  [OK]   CheckComboBox RadSetting yaratildi
+  [OK]   CheckComboBox GetContainerClass = Rad editoru (grid inplace)
+  [OK]   CheckComboBox Properties.Assign RadSetting'i tasir
+  [OK]   CheckComboBox yok olan hedef/master nil'lendi
+
+=== CheckComboBox: DFM ===
+  [OK]   CheckComboBox varsayilanken RadSetting DFM'e yazilmaz
+  [OK]   CheckComboBox DFM yazilir ve geri okunur
+
+=== CheckComboBox: paylasilan RepositoryItem ===
+  [OK]   CheckComboBox repository item Properties sinifi Rad
+  [OK]   CheckComboBox tuketiciler KENDI Key'ini korur, item'inki bos
+
+=== CheckComboBox: gridde inplace editor ===
+  [OK]   CheckComboBox inplace editor Rad sinifi
+         True
+  [OK]   CheckComboBox sutunun KENDI Key'i inplace InternalProperties'e geldi
+
+=== SONUC: 55 basarili, 0 hata ===

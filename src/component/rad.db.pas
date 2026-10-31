@@ -398,6 +398,7 @@ type
     FIDGenerator : TRadIDGenerator;
     FCmdExecutor : TRadCmdExecutor;
     FGlobalEvent : TRadDSNotifyEvent;
+    FAuditUser   : string;
   private
     FOnConnectSetting: TNotifyEvent;
     function  CloneConnection: TUniConnection;
@@ -405,6 +406,9 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor  Destroy; override;
+
+    /// <summary>Audit kaydına yazılan kullanıcı adı (sys_audit_log.kullanici). Oturum açılınca uygulama doldurur.</summary>
+    property AuditUser: string read FAuditUser write FAuditUser;
 
 
 
@@ -1261,11 +1265,12 @@ var
   LField    : TField;
   TableName : string;
   RecID     : string;
-  AuditID   : Variant;
 begin
-  AuditID   := DoGenID('SYS_AUDIT_LOG');
   TableName := (ADataSet as TRadQuery)._TableName;
-  RecID     := ADataSet.FieldByName((ADataSet as TRadQuery).KeyFields).AsString;
+  // GUID alanların AsString değeri süslü parantezlidir; kayit_id'ye düz uuid yazılır.
+  LField    := ADataSet.FindField((ADataSet as TRadQuery).KeyFields);
+  if LField <> nil then
+   RecID     :=  LField.AsString.Trim(['{', '}']);
 
   LSnapshot := DocDict();
   for i := 0 to ADataSet.FieldCount - 1 do
@@ -1280,14 +1285,18 @@ begin
       LSnapshot.SetDefault(LField.FieldName, LField.Value);
   end;
 
+  // id yazılmaz: sys_audit_log.id uuidv7() varsayılanını kendisi üretir.
+  // Kullanıcı adı AuditUser'dan gelir; oturum açılmadıysa NULL kalır.
+
+  if TableName.IsEmpty then TableName := '<Bilinmeye>';
+  if RecID.IsEmpty then     RecID     := '<Bilinmeye>';
   Result :=
-    'INSERT INTO sys_audit_log (id, tablo_adi, kayit_id, kayiteden, operasyon, snapshot) ' +
-    'VALUES (' + QuotedStr(VarToStr(AuditID)) + ', ' +
-               QuotedStr(TableName)           + ', ' +
-               QuotedStr(RecID)               + ', ' +
-               QuotedStr('Sistem')            + ', ' +
-               QuotedStr(AOperation)          + ', ' +
-               QuotedStr(LSnapshot.Json)      + ')';
+    'INSERT INTO sys_audit_log (tablo_adi, kayit_id, kullanici, operasyon, snapshot) ' +
+    'VALUES (' + QuotedStr(TableName)           + ', ' +
+               QuotedStr(RecID)                 + ', ' +
+               IfThen(FAuditUser = '', 'NULL', QuotedStr(FAuditUser)) + ', ' +
+               QuotedStr(AOperation)            + ', ' +
+               QuotedStr(LSnapshot.Json)        + ')';
 end;
 
 { Query factory & RAII }
@@ -2300,3 +2309,4 @@ begin
 end;
 
 end.
+

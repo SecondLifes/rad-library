@@ -75,22 +75,22 @@ TDbClass = class
     function _Post:TDataSet;
     function _Edit:TDataSet;
     procedure _Bookmark(AProc:TProc<TDataset>;var AGoto:Boolean);
-    function  _Value(const AFieldName:string; AValue:Variant;const AIIF:Boolean=true):TDataSet;
+    function  _Value(const AFieldName:string; AValue:Variant;const AIIF:Boolean=true; const aError:Boolean=True):TDataSet;
     function _Values:TArray<Variant>;overload;
     function _Values(const AFields:TArray<string>):TArray<Variant>;overload;
     //function _ToList(const AFiedName:string):TDataSet;
 
     function _WTry(const AFieldName:string; const AProc:TProc<TField>):TDataSet;overload;
 
-    function _W(const AFieldName:string;const V:string;const AIIF:Boolean=true):TDataSet; overload;
-    function _W(const AFieldName:string;const V:Integer;const AIIF:Boolean=true):TDataSet;overload;
-    function _W(const AFieldName:string;const V:Boolean;const AIIF:Boolean=true):TDataSet;overload;
-    function _W(const AFieldName:string;const V:Variant;const AIIF:Boolean=true):TDataSet;overload;
-    function _W(const AFieldName:string;const V:TStream;const AIIF:Boolean=true):TDataSet;overload;
+    function _W(const AFieldName:string; const V:string; const AIIF:Boolean=true; const aError:Boolean=True):TDataSet; overload;
+    function _W(const AFieldName:string; const V:Integer; const AIIF:Boolean=true; const aError:Boolean=True):TDataSet;overload;
+    function _W(const AFieldName:string; const V:Boolean; const AIIF:Boolean=true; const aError:Boolean=True):TDataSet;overload;
+    function _W(const AFieldName:string; const V:Variant; const AIIF:Boolean=true; const aError:Boolean=True):TDataSet;overload;
+    function _W(const AFieldName:string; const V:TStream; const AIIF:Boolean=true; const aError:Boolean=True):TDataSet;overload;
 
 
     function _WDt(const AFieldName:string):TDataSet;overload;
-    function _WDt(const AFieldName:string;const V:TDateTime;const AIIF:Boolean=true):TDataSet;overload;
+    function _WDt(const AFieldName:string; const V:TDateTime; const AIIF:Boolean=true; const aError:Boolean=True):TDataSet;overload;
     Function _F(Const FieldName: String): TField;
 
 
@@ -162,7 +162,7 @@ TDbClass = class
 
 implementation
   uses
-   ZLib, System.Variants,
+   ZLib, System.Variants,Data.DBConsts,
   System.StrUtils, System.Rtti, System.Math, System.TypInfo, FmtBcd,
   mormot.core.text, mormot.core.json, mormot.core.datetime,
   mormot.core.variants, mormot.core.buffers;
@@ -915,11 +915,16 @@ begin
   end;
 end;
 
-function TDataSetHelper._Value(const AFieldName: string; AValue: Variant;const AIIF:Boolean): TDataSet;
+function TDataSetHelper._Value(const AFieldName: string; AValue: Variant;const AIIF:Boolean; const aError:Boolean): TDataSet;
 begin
  Result:=self;
- if AIIF then 
- FieldByName(AFieldName).Value:=AValue;
+ var fld := FindField(AFieldName);
+ if fld = nil then
+  begin
+     if aError then
+       DatabaseErrorFmt(SFieldNotFound, [AFieldName], Self);
+  end else if AIIF then
+   fld.Value:=AValue;
 end;
 
 function TDataSetHelper._Values(const AFields: TArray<string>): TArray<Variant>;
@@ -934,26 +939,90 @@ begin
 end;
 
 
-function TDataSetHelper._W(const AFieldName: string; const V: Boolean;const AIIF: Boolean): TDataSet;
+function TDataSetHelper._W(const AFieldName: string; const V: Boolean;const AIIF: Boolean; const aError:Boolean): TDataSet;
 begin
-   if AIIF then
-   _B[AFieldName]:=V;
+ var fld := FindField(AFieldName);
+ if fld = nil then
+  begin
+     if aError then
+       DatabaseErrorFmt(SFieldNotFound, [AFieldName], Self);
+  end else if AIIF then
+   fld.AsBoolean :=V;
+ Result:=Self;
+end;
+
+function TDataSetHelper._W(const AFieldName, V: string;const AIIF: Boolean; const aError:Boolean): TDataSet;
+begin
+ var fld := FindField(AFieldName);
+ if fld = nil then
+  begin
+     if aError then
+       DatabaseErrorFmt(SFieldNotFound, [AFieldName], Self);
+  end else if AIIF then
+   fld.AsString:=V;
    Result:=Self;
 end;
 
-function TDataSetHelper._W(const AFieldName, V: string;const AIIF: Boolean): TDataSet;
+function TDataSetHelper._W(const AFieldName: string; const V: Integer;const AIIF: Boolean; const aError:Boolean): TDataSet;
 begin
-if AIIF then
-   _S[AFieldName]:=V;
-   Result:=Self;
-end;
-
-function TDataSetHelper._W(const AFieldName: string; const V: Integer;const AIIF: Boolean): TDataSet;
-begin
-if AIIF then
-  _I[AFieldName]:=V;
+ var fld := FindField(AFieldName);
+ if fld = nil then
+  begin
+     if aError then
+       DatabaseErrorFmt(SFieldNotFound, [AFieldName], Self);
+  end else if AIIF then
+  fld.AsInteger:=V;
   Result:=Self;
 end;
+
+function TDataSetHelper._W(const AFieldName: string; const V: Variant;  const AIIF: Boolean; const aError:Boolean): TDataSet;
+begin
+   Result:=_Value(AFieldName,v,AIIF,aError)
+end;
+
+function TDataSetHelper._W(const AFieldName: string; const V: TStream; const AIIF: Boolean; const aError:Boolean): TDataSet;
+begin
+ var fld := FindField(AFieldName);
+ if fld = nil then
+  begin
+     if aError then
+       DatabaseErrorFmt(SFieldNotFound, [AFieldName], Self);
+  end else if AIIF then
+  TBlobField(fld).LoadFromStream(V);
+   Result:=Self;
+
+end;
+
+
+function TDataSetHelper._WDt(const AFieldName: string): TDataSet;
+begin
+  Result:=Self._WDt(AFieldName,Now,True);
+end;
+
+function TDataSetHelper._WDt(const AFieldName: string; const V: TDateTime; const AIIF: Boolean; const aError:Boolean): TDataSet;
+begin
+ var fld := FindField(AFieldName);
+ if fld = nil then
+  begin
+     if aError then
+       DatabaseErrorFmt(SFieldNotFound, [AFieldName], Self);
+  end else if AIIF then
+   fld.AsDateTime:=V;
+   Result:=Self;
+end;
+
+
+function TDataSetHelper._WTry(const AFieldName: string; const AProc: TProc<TField>): TDataSet;
+begin
+ Result:=Self;
+ if not Assigned(AProc) then exit;
+
+ var fld:= FindField(AFieldName);
+ if fld <> nil then
+  AProc(fld);
+
+end;
+
 
 function TDataSetHelper._Values: TArray<Variant>;
 var
@@ -1155,39 +1224,6 @@ begin
   // Alt s�n�flar override edebilir
 end;
 
-function TDataSetHelper._W(const AFieldName: string; const V: Variant;  const AIIF: Boolean): TDataSet;
-begin
-   Result:=_Value(AFieldName,v,AIIF)
-end;
 
-function TDataSetHelper._WDt(const AFieldName: string): TDataSet;
-begin
-  Result:=Self._WDt(AFieldName,Now,True);
-end;
-
-function TDataSetHelper._WDt(const AFieldName: string; const V: TDateTime; const AIIF: Boolean): TDataSet;
-begin
-   if AIIF then _DT[AFieldName]:=V;
-   Result:=Self;
-end;
-
-
-function TDataSetHelper._WTry(const AFieldName: string; const AProc: TProc<TField>): TDataSet;
-begin
- Result:=Self;
- if not Assigned(AProc) then exit;
-
- var fld:= FindField(AFieldName);
- if fld <> nil then
-  AProc(fld);
-
-end;
-
-function TDataSetHelper._W(const AFieldName: string; const V: TStream; const AIIF: Boolean): TDataSet;
-begin
-  if AIIF then TBlobField(_F(AFieldName)).LoadFromStream(V);
-   Result:=Self;
-
-end;
 
 end.

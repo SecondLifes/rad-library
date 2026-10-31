@@ -6,7 +6,7 @@ object dm_dev: Tdm_dev
   object SkinController: TdxSkinController
     NativeStyle = False
     SkinName = 'WXICompact'
-    SkinPaletteName = 'Darkness'
+    SkinPaletteName = 'Clearness'
     Left = 584
     Top = 8
   end

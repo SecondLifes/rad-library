@@ -6,7 +6,7 @@
         <FrameworkType>VCL</FrameworkType>
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
-        <Platform Condition="'$(Platform)'==''">Win64</Platform>
+        <Platform Condition="'$(Platform)'==''">Win32</Platform>
         <ProjectName Condition="'$(ProjectName)'==''">RadKon</ProjectName>
         <TargetedPlatforms>1048579</TargetedPlatforms>
         <AppType>Package</AppType>
@@ -88,7 +88,7 @@
         <SanitizedProjectName>RadKon</SanitizedProjectName>
         <VerInfo_Locale>1055</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
-        <DCC_UnitSearchPath>..\vendor\synopse\mORMot2\src\core;..\vendor\synopse\mORMot2\src\db;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
+        <DCC_UnitSearchPath>E:\system\dev\Delphi\src\git\synopse\mORMot2\src\core;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\app;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\crypt;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\db;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\lib;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\ui;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Android)'!=''">
         <DCC_CBuilderOutput>None</DCC_CBuilderOutput>
@@ -105,17 +105,17 @@
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dac370;Jcl;JvCore;JvStdCtrls;tdsprovider370;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;unidacvcl370;dacvcl370;cxVerticalGridRS37;vquery370;dxSkinsCoreRS37;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dac370;Jcl;JvCore;JvStdCtrls;tdsprovider370;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;unidacvcl370;dacvcl370;cxVerticalGridRS37;vquery370;dxSkinsCoreRS37;Dext.Core;TMSVCLUIPackPkg;$(DCC_UsePackage)</DCC_UsePackage>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
-        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;Dext.Core;TMSVCLUIPackPkg;$(DCC_UsePackage)</DCC_UsePackage>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64x)'!=''">
-        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;TMSVCLUIPackPkg;$(DCC_UsePackage)</DCC_UsePackage>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
@@ -184,6 +184,8 @@
         <DCCReference Include="JvCore.dcp"/>
         <DCCReference Include="JvStdCtrls.dcp"/>
         <DCCReference Include="dxSkinsCoreRS37.dcp"/>
+        <DCCReference Include="Dext.Core.dcp"/>
+        <DCCReference Include="TMSVCLUIPackPkg.dcp"/>
         <DCCReference Include="Rad.Register.pas"/>
         <DCCReference Include="Rad.Editor.pas"/>
         <DCCReference Include="..\share\Kisayol.Edit.pas">
@@ -199,13 +201,23 @@
         <DCCReference Include="..\core\Help.DB.pas"/>
         <DCCReference Include="..\core\rad.permission.pas"/>
         <DCCReference Include="..\core\Help.uni.pas"/>
-        <DCCReference Include="..\core\rad.cache.pas"/>
         <DCCReference Include="..\core\rad.cmd.pas"/>
         <DCCReference Include="..\core\rad.eventbus.pas"/>
         <DCCReference Include="..\core\rad.thread.pas"/>
         <DCCReference Include="..\core\rad.utils.pas"/>
         <DCCReference Include="..\core\rad.core.pas"/>
         <DCCReference Include="..\component\Rad.Dev.pas"/>
+        <DCCReference Include="..\core\rad.cache.pas"/>
+        <DCCReference Include="..\core\rad.config.pas"/>
+        <DCCReference Include="..\core\rad.sqlfilter.pas"/>
+        <DCCReference Include="..\core\rad.customfield.pas"/>
+        <DCCReference Include="..\component\rad.dev.customfields.pas">
+            <Form>RadCustomFieldsFrame</Form>
+            <DesignClass>TFrame</DesignClass>
+        </DCCReference>
+        <DCCReference Include="..\component\rad.dev.customfielddesigner.pas">
+            <Form>RadCustomFieldDesigner</Form>
+        </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -229,6 +241,21 @@
                 <Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dcloffice2k370.bpl">Microsoft Office 2000 Sample Automation Server Wrapper Components</Excluded_Packages>
                     <Excluded_Packages Name="$(BDSBIN)\dclofficexp370.bpl">Microsoft Office XP Sample Automation Server Wrapper Components</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfsBDE37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfsBDE37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfqbBDE37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfqbBDE37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfrxBDE37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfrxBDE37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfsIBX37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfsIBX37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfqbIBX37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfqbIBX37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfrxIBX37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfrxIBX37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfrxIBO37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfrxIBO37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfqbFIB37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfqbFIB37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfrxFIB37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfrxFIB37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfsTee37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfsTee37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfrxTee37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfrxTee37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfcxpTee37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfcxpTee37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfcxc37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfcxc37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfrxReportConverters37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfrxReportConverters37.bpl not found</Excluded_Packages>
+                    <Excluded_Packages Name="C:\01\FastReport\Lib\RS37\Win32\dclfrxReportConverterRave37.bpl">File C:\01\FastReport\Lib\RS37\Win32\dclfrxReportConverterRave37.bpl not found</Excluded_Packages>
                 </Excluded_Packages>
             </Delphi.Personality>
             <Deployment Version="5">

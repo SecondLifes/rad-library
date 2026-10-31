@@ -9,6 +9,8 @@ SqlTimSt,Help.DB,System.Rtti,DBAccess
               // mormot birimlerine bagli, hicbir Help.* birimini bilmiyor.
 ,DASQLGenerator,CRAccess,SqlClassesUni
 ,DAScript, UniScript,Variants
+,rad.sqlfilter
+,rad.customfield
 
   {$IFDEF MSWINDOWS}
    ,UniDacVcl
@@ -142,6 +144,16 @@ type
     /// </example>
     function _ConnectTestAsync(const AConnectionString:string=''):TRadTask;
 
+    /// <summary>ProviderName → TRadSqlDialect. Tanınmayan sağlayıcıda ERadSqlFilter.</summary>
+    function _SqlDialect: TRadSqlDialect;
+    /// <summary>Bu bağlantının lehçesiyle yeni IRadSqlFilter.</summary>
+    function _NewFilter(AMode: TRadFilterMode = rfmSkipEmpty): IRadSqlFilter;
+    /// <summary>Bu bağlantı üstünde özel alan tanım deposu (TRadUniCustomFieldStore).</summary>
+    function _CustomFields: IRadCustomFieldStore;
+    /// <summary>Aktif özel alan kolonları: ', a.ozel_1, a.ozel_2' (baş virgüllü); yoksa ''.
+    /// Açık kolon listeli sorguda &amp;makro yerine gider.</summary>
+    function _CustomFieldColumns(const ATable: string; const AAlias: string = ''): string;
+
 
    {$IFDEF MSWINDOWS}
     //function _CreateDB(const ADBName:string; const AFolder:string='' ):Boolean;
@@ -187,6 +199,14 @@ type
      //procedure _FastFiltre(const AValue:TValue;const AField:TArray<string>);
 
      function _Macro(const AMacroName,Avalue:string):TCustomDADataSet;
+     /// <summary>Filtrenin parametre değerlerini yazar; SQL metni (GetWhere/GetSql) önce atanmış olmalı.</summary>
+     function _ApplyFilter(const AFilter: IRadSqlFilter): TCustomDADataSet;
+     /// <summary>SQL'deki &amp;AMacro yerine tablonun özel alan kolonlarını yazar
+     /// ('select c.id, c.kod &amp;ozel from cari c'). Makro yoksa UniDAC hata verir.</summary>
+     function _ApplyCustomFieldMacro(const AMacro, ATable: string; const AAlias: string = ''): TCustomDADataSet;
+     /// <summary>Persistent TField'lı KAPALI dataset'te eksik ozel_* alanları için TField yaratır.
+     /// Persistent alan yoksa işlemsiz. Açık dataset'te ERadCustomField.</summary>
+     function _EnsureCustomFields: TCustomDADataSet;
 
      function _DataService:TDADataSetService;
 
@@ -214,6 +234,44 @@ type
 
 
 
+  end;
+
+{$ENDREGION}
+
+{$REGION 'Custom fields'}
+
+  /// <summary>IRadCustomFieldStore'un UniDAC uygulaması. Tanım tabloları: ozel_alan_grup,
+  /// ozel_alan, ozel_alan_duzen (rad.customfield.TRadCustomFieldDdl). Bağlantıya sahip değildir.</summary>
+  TRadUniCustomFieldStore = class(TInterfacedObject, IRadCustomFieldStore)
+  private
+    FCon: TUniConnection;
+    FDialect: TRadSqlDialect;
+    FTx: TUniTransaction;   // yalnız Firebird: DDL + insert için ayrı transaction (bkz. InTransaction)
+    function Q(const ASql: string): TUniQuery;
+    procedure Exec(const ASql: string);
+    function CountOf(const ASql: string; const ANames: array of string; const AValues: array of Variant): Integer;
+    function TableExists(const ATable: string): Boolean;
+    function ColumnExists(const ATable, AColumn: string): Boolean;
+    function ExistingColumnNames(const ATable: string): TArray<string>;
+    procedure ReadGroup(AQ: TUniQuery; AGroup: TRadCustomFieldGroupDef);
+    procedure ReadField(AQ: TUniQuery; ADef: TRadCustomFieldDef);
+    procedure WriteFieldParams(AQ: TUniQuery; ADef: TRadCustomFieldDef);
+    procedure InTransaction(AProc: TProc);
+  public
+    constructor Create(ACon: TUniConnection);
+    class function New(ACon: TUniConnection): IRadCustomFieldStore;
+    function Dialect: TRadSqlDialect;
+    procedure EnsureDefinitionTables;
+    function LoadGroups(const ATable: string; AIncludeInactive: Boolean = False): TRadCustomFieldGroups;
+    procedure AddGroup(AGroup: TRadCustomFieldGroupDef);
+    procedure UpdateGroup(AGroup: TRadCustomFieldGroupDef);
+    procedure AddField(ADef: TRadCustomFieldDef);
+    procedure UpdateField(ADef: TRadCustomFieldDef);
+    procedure ExtendLength(ADef: TRadCustomFieldDef; ANewLength: Integer);
+    function ColumnNames(const ATable: string): TArray<string>;
+    function LoadLayout(const ATable: string; AUserId: Integer; AStream: TStream): Boolean;
+    procedure SaveLayout(const ATable: string; AUserId: Integer; AStream: TStream);
+    procedure DeleteLayout(const ATable: string; AUserId: Integer);
   end;
 
 {$ENDREGION}
@@ -249,7 +307,7 @@ implementation
   { rad.thread BURADAN KALDIRILDI - artik ARAYUZ uses'inda (bkz. birim basi).
     Ayni birimi iki uses cumlesinde birden bildirmek E2004 'Identifier
     redeclared' verir. }
-  System.StrUtils,System.DateUtils,System.NetEncoding,System.TypInfo,System.Character
+  System.StrUtils,System.DateUtils,System.NetEncoding,System.TypInfo,System.Character,System.Generics.Collections
 
   //,Help.SQL.MSSQL
 
@@ -379,6 +437,36 @@ begin
     kurar, sonra Start der. Ayrica Start gorevi kendi serbest birakir
     (TRadTask.DoFree), dolayisiyla BASLATILMIS bir gorevi dondurmek sarkan
     isaretci olurdu. Repo genelinde ayni kalip: TRadConnection.ExecAsync. }
+end;
+
+function TUniConnectionHelper._SqlDialect: TRadSqlDialect;
+begin
+  if SameText(ProviderName, 'PostgreSQL') then Result := sdPostgreSQL
+  else if SameText(ProviderName, 'SQL Server') then Result := sdMSSQL
+  else if SameText(ProviderName, 'MySQL') then Result := sdMySQL
+  else if SameText(ProviderName, 'InterBase') then Result := sdFirebird
+  else
+    raise ERadSqlFilter.CreateFmt('rad.sqlfilter: desteklenmeyen sağlayıcı "%s"', [ProviderName]);
+end;
+
+function TUniConnectionHelper._NewFilter(AMode: TRadFilterMode): IRadSqlFilter;
+begin
+  Result := TRadSqlFilter.New(_SqlDialect, AMode);
+end;
+
+function TUniConnectionHelper._CustomFields: IRadCustomFieldStore;
+begin
+  Result := TRadUniCustomFieldStore.New(Self);
+end;
+
+function TUniConnectionHelper._CustomFieldColumns(const ATable, AAlias: string): string;
+var
+  S, LPrefix: string;
+begin
+  Result := '';
+  if AAlias <> '' then LPrefix := AAlias + '.' else LPrefix := '';
+  for S in _CustomFields.ColumnNames(ATable) do
+    Result := Result + ', ' + LPrefix + S;
 end;
 
 function TUniConnectionHelper._ServerDate: TDateTime;
@@ -931,6 +1019,40 @@ begin
  Result:=self;
 end;
 
+function TDADataSetyHelper._ApplyFilter(const AFilter: IRadSqlFilter): TCustomDADataSet;
+var
+  P: TRadSqlParam;
+begin
+  for P in AFilter.Params do
+    ParamByName(P.Name).Value := P.Value;
+  Result := Self;
+end;
+
+function TDADataSetyHelper._ApplyCustomFieldMacro(const AMacro, ATable, AAlias: string): TCustomDADataSet;
+begin
+  MacroByName(AMacro).Value := _AsUni._CustomFieldColumns(ATable, AAlias);
+  Result := Self;
+end;
+
+function TDADataSetyHelper._EnsureCustomFields: TCustomDADataSet;
+var
+  i: Integer;
+  LDef: TFieldDef;
+begin
+  Result := Self;
+  if Active then
+    raise ERadCustomField.Create('_EnsureCustomFields: dataset kapalı olmalı.');
+  if FieldCount = 0 then Exit;   // persistent alan yok: dinamik alanlar yeni kolonu zaten görür
+  FieldDefs.Updated := False;
+  FieldDefs.Update;
+  for i := 0 to FieldDefs.Count - 1 do
+  begin
+    LDef := FieldDefs[i];
+    if (TRadCustomFieldDdl.NumberOf(LDef.Name) > 0) and (FindField(LDef.Name) = nil) then
+      LDef.CreateField(Self);
+  end;
+end;
+
 
 
 function TDADataSetyHelper._SQLGenerate(const Index: Integer): string;
@@ -1115,6 +1237,464 @@ begin
   mc.Value:=''''+AValue+'''';
   Result:=Self;
    //Result:=_Add(AMacroName,''''+AValue+'''');
+end;
+
+{ TRadUniCustomFieldStore }
+
+function FieldBool(AField: TField): Boolean;
+begin
+  // MySQL tinyint(1) sayı gelir; diğerleri TBooleanField.
+  if AField is TBooleanField then Result := AField.AsBoolean
+  else Result := AField.AsInteger <> 0;
+end;
+
+constructor TRadUniCustomFieldStore.Create(ACon: TUniConnection);
+begin
+  inherited Create;
+  if ACon = nil then
+    raise ERadCustomField.Create('TRadUniCustomFieldStore: bağlantı nil.');
+  FCon := ACon;
+  FDialect := ACon._SqlDialect;
+end;
+
+class function TRadUniCustomFieldStore.New(ACon: TUniConnection): IRadCustomFieldStore;
+begin
+  Result := TRadUniCustomFieldStore.Create(ACon);
+end;
+
+function TRadUniCustomFieldStore.Dialect: TRadSqlDialect;
+begin
+  Result := FDialect;
+end;
+
+function TRadUniCustomFieldStore.Q(const ASql: string): TUniQuery;
+begin
+  Result := TUniQuery.Create(nil);
+  Result.Connection := FCon;
+  if FTx <> nil then
+  begin
+    Result.Transaction := FTx;
+    Result.SpecificOptions.Values['AutoCommit'] := 'False';
+  end;
+  Result.SQL.Text := ASql;
+end;
+
+procedure TRadUniCustomFieldStore.Exec(const ASql: string);
+var
+  LQ: TUniQuery;
+begin
+  LQ := Q(ASql);
+  try
+    LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniCustomFieldStore.CountOf(const ASql: string; const ANames: array of string;
+  const AValues: array of Variant): Integer;
+var
+  LQ: TUniQuery;
+  i: Integer;
+begin
+  LQ := Q(ASql);
+  try
+    for i := 0 to High(ANames) do
+      LQ.ParamByName(ANames[i]).Value := AValues[i];
+    LQ.Open;
+    Result := LQ.Fields[0].AsInteger;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniCustomFieldStore.TableExists(const ATable: string): Boolean;
+begin
+  Result := CountOf(TRadCustomFieldDdl.TableExistsSql(FDialect), ['t'],
+    [TRadCustomFieldDdl.CatalogName(FDialect, ATable)]) > 0;
+end;
+
+function TRadUniCustomFieldStore.ColumnExists(const ATable, AColumn: string): Boolean;
+begin
+  Result := CountOf(TRadCustomFieldDdl.ColumnExistsSql(FDialect), ['t', 'c'],
+    [TRadCustomFieldDdl.CatalogName(FDialect, ATable), TRadCustomFieldDdl.CatalogName(FDialect, AColumn)]) > 0;
+end;
+
+procedure TRadUniCustomFieldStore.InTransaction(AProc: TProc);
+begin
+  (* Firebird (UniDAC InterBase sağlayıcısı): bağlantının AutoCommit'i her
+     değişiklikten sonra CommitRetaining yapar, DDL de dahil - bağlantı
+     transaction'ı içinde Rollback kolonu geri almaz (FbDdlProbe A: kolon kaldı).
+     Ayrı TUniTransaction + sorgu düzeyinde AutoCommit=False ile geri alınıyor
+     (FbDdlProbe H/I). Üstelik her SELECT varsayılan transaction'ı açık bırakır,
+     bu yüzden InTransaction kontrolü de Firebird'de anlamsız. *)
+  if FDialect = sdFirebird then
+  begin
+    FTx := TUniTransaction.Create(nil);
+    try
+      FTx.DefaultConnection := FCon;
+      FTx.StartTransaction;
+      try
+        AProc;
+        FTx.Commit;
+      except
+        FTx.Rollback;
+        raise;
+      end;
+    finally
+      FreeAndNil(FTx);
+    end;
+    Exit;
+  end;
+  if FCon.InTransaction then
+  begin
+    AProc;   // çağıranın transaction'ı; o yönetir
+    Exit;
+  end;
+  FCon.StartTransaction;
+  try
+    AProc;
+    FCon.Commit;
+  except
+    FCon.Rollback;
+    raise;
+  end;
+end;
+
+procedure TRadUniCustomFieldStore.EnsureDefinitionTables;
+var
+  LSql: TArray<string>;
+  LNames: array[0..2] of string;
+  i: Integer;
+begin
+  LSql := TRadCustomFieldDdl.CreateDefinitionTables(FDialect);
+  LNames[0] := TRadCustomFieldDdl.GroupTable;
+  LNames[1] := TRadCustomFieldDdl.FieldTable;
+  LNames[2] := TRadCustomFieldDdl.LayoutTable;
+  for i := 0 to 2 do
+    if not TableExists(LNames[i]) then
+      Exec(LSql[i]);
+end;
+
+procedure TRadUniCustomFieldStore.ReadGroup(AQ: TUniQuery; AGroup: TRadCustomFieldGroupDef);
+begin
+  AGroup.Id := AQ.FieldByName('id').AsInteger;
+  AGroup.TableName := AQ.FieldByName('tablo_adi').AsString;
+  AGroup.Name := AQ.FieldByName('adi').AsString;
+  AGroup.Order := AQ.FieldByName('sira').AsInteger;
+  AGroup.Active := FieldBool(AQ.FieldByName('aktif_mi'));
+end;
+
+procedure TRadUniCustomFieldStore.ReadField(AQ: TUniQuery; ADef: TRadCustomFieldDef);
+begin
+  ADef.Id := AQ.FieldByName('id').AsInteger;
+  ADef.GroupId := AQ.FieldByName('grup_id').AsInteger;
+  ADef.TableName := AQ.FieldByName('tablo_adi').AsString;
+  ADef.ColumnName := LowerCase(AQ.FieldByName('kolon_adi').AsString);
+  ADef.Caption := AQ.FieldByName('baslik').AsString;
+  ADef.FieldType := TRadCustomFieldDef.TypeOfCode(AQ.FieldByName('veri_tipi').AsString);
+  ADef.Length := AQ.FieldByName('uzunluk').AsInteger;
+  ADef.Decimals := AQ.FieldByName('ondalik').AsInteger;
+  ADef.Required := FieldBool(AQ.FieldByName('zorunlu_mu'));
+  ADef.DefaultValue := AQ.FieldByName('varsayilan').AsString;
+  ADef.SetOptionsText(AQ.FieldByName('secenekler').AsString);
+  ADef.Filterable := FieldBool(AQ.FieldByName('filtrele_mi'));
+  ADef.Order := AQ.FieldByName('sira').AsInteger;
+  ADef.Active := FieldBool(AQ.FieldByName('aktif_mi'));
+end;
+
+function TRadUniCustomFieldStore.LoadGroups(const ATable: string; AIncludeInactive: Boolean): TRadCustomFieldGroups;
+var
+  LQ: TUniQuery;
+  G: TRadCustomFieldGroupDef;
+  D: TRadCustomFieldDef;
+  LById: TDictionary<Integer, TRadCustomFieldGroupDef>;
+  LWhere: string;
+begin
+  Result := TRadCustomFieldGroups.Create(True);
+  LById := TDictionary<Integer, TRadCustomFieldGroupDef>.Create;
+  try
+    if AIncludeInactive then LWhere := '' else LWhere := ' and aktif_mi = :a';
+    LQ := Q(Format('select * from %s where tablo_adi = :t%s order by sira, id', [TRadCustomFieldDdl.GroupTable, LWhere]));
+    try
+      LQ.ParamByName('t').AsString := ATable;
+      if not AIncludeInactive then LQ.ParamByName('a').AsBoolean := True;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        G := TRadCustomFieldGroupDef.Create;
+        ReadGroup(LQ, G);
+        Result.Add(G);
+        LById.AddOrSetValue(G.Id, G);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+    LQ := Q(Format('select * from %s where tablo_adi = :t%s order by sira, id', [TRadCustomFieldDdl.FieldTable, LWhere]));
+    try
+      LQ.ParamByName('t').AsString := ATable;
+      if not AIncludeInactive then LQ.ParamByName('a').AsBoolean := True;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        D := TRadCustomFieldDef.Create;
+        ReadField(LQ, D);
+        if LById.TryGetValue(D.GroupId, G) then G.Fields.Add(D)
+        else D.Free;   // pasif gruptaki alan: görünmez
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+  finally
+    LById.Free;
+  end;
+end;
+
+procedure TRadUniCustomFieldStore.AddGroup(AGroup: TRadCustomFieldGroupDef);
+var
+  LQ: TUniQuery;
+begin
+  if Trim(AGroup.Name) = '' then
+    raise ERadCustomField.Create('Grup adı boş olamaz.');
+  if not TRadCustomFieldDdl.IsValidTableName(AGroup.TableName) then
+    raise ERadCustomField.Create('Tablo adı geçersiz.');
+  LQ := Q(Format('insert into %s (tablo_adi, adi, sira, aktif_mi) values (:t, :n, :s, :a)',
+    [TRadCustomFieldDdl.GroupTable]));
+  try
+    LQ.ParamByName('t').AsString := AGroup.TableName;
+    LQ.ParamByName('n').AsString := AGroup.Name;
+    LQ.ParamByName('s').AsInteger := AGroup.Order;
+    LQ.ParamByName('a').AsBoolean := AGroup.Active;
+    LQ.ExecSQL;
+    LQ.SQL.Text := Format('select id from %s where tablo_adi = :t and adi = :n', [TRadCustomFieldDdl.GroupTable]);
+    LQ.ParamByName('t').AsString := AGroup.TableName;
+    LQ.ParamByName('n').AsString := AGroup.Name;
+    LQ.Open;
+    AGroup.Id := LQ.Fields[0].AsInteger;
+  finally
+    LQ.Free;
+  end;
+end;
+
+procedure TRadUniCustomFieldStore.UpdateGroup(AGroup: TRadCustomFieldGroupDef);
+var
+  LQ: TUniQuery;
+begin
+  if Trim(AGroup.Name) = '' then
+    raise ERadCustomField.Create('Grup adı boş olamaz.');
+  LQ := Q(Format('update %s set adi = :n, sira = :s, aktif_mi = :a where id = :id', [TRadCustomFieldDdl.GroupTable]));
+  try
+    LQ.ParamByName('n').AsString := AGroup.Name;
+    LQ.ParamByName('s').AsInteger := AGroup.Order;
+    LQ.ParamByName('a').AsBoolean := AGroup.Active;
+    LQ.ParamByName('id').AsInteger := AGroup.Id;
+    LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniCustomFieldStore.ExistingColumnNames(const ATable: string): TArray<string>;
+var
+  LQ: TUniQuery;
+  LList: TList<string>;
+begin
+  LList := TList<string>.Create;
+  try
+    LQ := Q(Format('select kolon_adi from %s where tablo_adi = :t', [TRadCustomFieldDdl.FieldTable]));
+    try
+      LQ.ParamByName('t').AsString := ATable;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        LList.Add(LQ.Fields[0].AsString);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+    Result := LList.ToArray;
+  finally
+    LList.Free;
+  end;
+end;
+
+procedure TRadUniCustomFieldStore.WriteFieldParams(AQ: TUniQuery; ADef: TRadCustomFieldDef);
+begin
+  AQ.ParamByName('b').AsString := ADef.Caption;
+  AQ.ParamByName('z').AsBoolean := ADef.Required;
+  if Trim(ADef.DefaultValue) = '' then AQ.ParamByName('v').Clear
+  else AQ.ParamByName('v').AsString := ADef.DefaultValue;
+  AQ.ParamByName('o').DataType := ftMemo;
+  if ADef.HasOptions then AQ.ParamByName('o').AsString := ADef.OptionsText
+  else AQ.ParamByName('o').Clear;
+  AQ.ParamByName('f').AsBoolean := ADef.Filterable;
+  AQ.ParamByName('s').AsInteger := ADef.Order;
+  AQ.ParamByName('a').AsBoolean := ADef.Active;
+end;
+
+procedure TRadUniCustomFieldStore.AddField(ADef: TRadCustomFieldDef);
+var
+  LErr: string;
+begin
+  LErr := ADef.Validate;
+  if LErr <> '' then
+    raise ERadCustomField.Create(LErr);
+  if ADef.GroupId = 0 then
+    raise ERadCustomField.Create('Alan bir gruba bağlı olmalı.');
+  ADef.ColumnName := TRadCustomFieldDdl.ColumnName(TRadCustomFieldDdl.NextNumber(ExistingColumnNames(ADef.TableName)));
+  if ColumnExists(ADef.TableName, ADef.ColumnName) then
+    raise ERadCustomField.CreateFmt('"%s" kolonu "%s" tablosunda zaten var; tanım tablosu ile tablo uyumsuz.',
+      [ADef.ColumnName, ADef.TableName]);
+  InTransaction(
+    procedure
+    var
+      LQ: TUniQuery;
+    begin
+      Exec(TRadCustomFieldDdl.AddColumn(FDialect, ADef.TableName, ADef));
+      LQ := Q(Format('insert into %s (grup_id, tablo_adi, kolon_adi, baslik, veri_tipi, uzunluk, ondalik, ' +
+        'zorunlu_mu, varsayilan, secenekler, filtrele_mi, sira, aktif_mi, olusturan, olusturma_zamani) ' +
+        'values (:g, :t, :c, :b, :vt, :u, :d, :z, :v, :o, :f, :s, :a, :who, :when)', [TRadCustomFieldDdl.FieldTable]));
+      try
+        LQ.ParamByName('g').AsInteger := ADef.GroupId;
+        LQ.ParamByName('t').AsString := ADef.TableName;
+        LQ.ParamByName('c').AsString := ADef.ColumnName;
+        LQ.ParamByName('vt').AsString := ADef.TypeCode;
+        LQ.ParamByName('u').AsInteger := ADef.Length;
+        LQ.ParamByName('d').AsInteger := ADef.Decimals;
+        WriteFieldParams(LQ, ADef);
+        LQ.ParamByName('who').AsString := FCon.Username;
+        LQ.ParamByName('when').AsDateTime := Now;
+        LQ.ExecSQL;
+        LQ.SQL.Text := Format('select id from %s where tablo_adi = :t and kolon_adi = :c', [TRadCustomFieldDdl.FieldTable]);
+        LQ.ParamByName('t').AsString := ADef.TableName;
+        LQ.ParamByName('c').AsString := ADef.ColumnName;
+        LQ.Open;
+        ADef.Id := LQ.Fields[0].AsInteger;
+      finally
+        LQ.Free;
+      end;
+    end);
+end;
+
+procedure TRadUniCustomFieldStore.UpdateField(ADef: TRadCustomFieldDef);
+var
+  LQ: TUniQuery;
+  LErr: string;
+begin
+  LErr := ADef.Validate;
+  if LErr <> '' then
+    raise ERadCustomField.Create(LErr);
+  LQ := Q(Format('select veri_tipi, kolon_adi from %s where id = :id', [TRadCustomFieldDdl.FieldTable]));
+  try
+    LQ.ParamByName('id').AsInteger := ADef.Id;
+    LQ.Open;
+    if LQ.Eof then
+      raise ERadCustomField.CreateFmt('Özel alan tanımı bulunamadı (id=%d).', [ADef.Id]);
+    if not SameText(LQ.Fields[0].AsString, ADef.TypeCode) or not SameText(LQ.Fields[1].AsString, ADef.ColumnName) then
+      raise ERadCustomField.Create('Özel alanın tipi ve kolon adı değiştirilemez.');
+    LQ.SQL.Text := Format('update %s set grup_id = :g, baslik = :b, zorunlu_mu = :z, varsayilan = :v, secenekler = :o, ' +
+      'filtrele_mi = :f, sira = :s, aktif_mi = :a where id = :id', [TRadCustomFieldDdl.FieldTable]);
+    LQ.ParamByName('g').AsInteger := ADef.GroupId;
+    WriteFieldParams(LQ, ADef);
+    LQ.ParamByName('id').AsInteger := ADef.Id;
+    LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
+end;
+
+procedure TRadUniCustomFieldStore.ExtendLength(ADef: TRadCustomFieldDef; ANewLength: Integer);
+var
+  LSql: string;
+begin
+  LSql := TRadCustomFieldDdl.AlterLength(FDialect, ADef.TableName, ADef, ANewLength);   // doğrulamayı o yapar
+  InTransaction(
+    procedure
+    var
+      LQ: TUniQuery;
+    begin
+      Exec(LSql);
+      LQ := Q(Format('update %s set uzunluk = :u where id = :id', [TRadCustomFieldDdl.FieldTable]));
+      try
+        LQ.ParamByName('u').AsInteger := ANewLength;
+        LQ.ParamByName('id').AsInteger := ADef.Id;
+        LQ.ExecSQL;
+      finally
+        LQ.Free;
+      end;
+    end);
+  ADef.Length := ANewLength;
+end;
+
+function TRadUniCustomFieldStore.ColumnNames(const ATable: string): TArray<string>;
+var
+  LGroups: TRadCustomFieldGroups;
+  G: TRadCustomFieldGroupDef;
+  D: TRadCustomFieldDef;
+  LList: TList<string>;
+begin
+  LList := TList<string>.Create;
+  LGroups := LoadGroups(ATable, False);
+  try
+    for G in LGroups do
+      for D in G.ActiveFields do
+        LList.Add(D.ColumnName);
+    Result := LList.ToArray;
+  finally
+    LGroups.Free;
+    LList.Free;
+  end;
+end;
+
+function TRadUniCustomFieldStore.LoadLayout(const ATable: string; AUserId: Integer; AStream: TStream): Boolean;
+var
+  LQ: TUniQuery;
+begin
+  LQ := Q(Format('select duzen from %s where tablo_adi = :t and kullanici_id = :u', [TRadCustomFieldDdl.LayoutTable]));
+  try
+    LQ.ParamByName('t').AsString := ATable;
+    LQ.ParamByName('u').AsInteger := AUserId;
+    LQ.Open;
+    Result := not LQ.Eof and not LQ.Fields[0].IsNull;
+    if Result then
+      TBlobField(LQ.Fields[0]).SaveToStream(AStream);
+  finally
+    LQ.Free;
+  end;
+end;
+
+procedure TRadUniCustomFieldStore.SaveLayout(const ATable: string; AUserId: Integer; AStream: TStream);
+var
+  LQ: TUniQuery;
+begin
+  DeleteLayout(ATable, AUserId);
+  LQ := Q(Format('insert into %s (tablo_adi, kullanici_id, duzen) values (:t, :u, :d)', [TRadCustomFieldDdl.LayoutTable]));
+  try
+    LQ.ParamByName('t').AsString := ATable;
+    LQ.ParamByName('u').AsInteger := AUserId;
+    AStream.Position := 0;
+    LQ.ParamByName('d').LoadFromStream(AStream, ftBlob);
+    LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
+end;
+
+procedure TRadUniCustomFieldStore.DeleteLayout(const ATable: string; AUserId: Integer);
+var
+  LQ: TUniQuery;
+begin
+  LQ := Q(Format('delete from %s where tablo_adi = :t and kullanici_id = :u', [TRadCustomFieldDdl.LayoutTable]));
+  try
+    LQ.ParamByName('t').AsString := ATable;
+    LQ.ParamByName('u').AsInteger := AUserId;
+    LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
 end;
 
 end.

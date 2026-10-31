@@ -1,0 +1,80 @@
+Embarcadero Delphi for Win32 compiler version 37.0
+Copyright (c) 1983,2026 Embarcadero Technologies, Inc.
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(328) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(328) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(330) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(330) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(342) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(342) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(344) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(344) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(769) Warning: W1035 Return value of function 'TDataSetHelper._LoadValueALL' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.DB.pas(932) Hint: H2164 Variable 's' is declared but never used in 'TDataSetHelper._Values'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.permission.pas(62) Hint: H2445 Inline function 'StringToUtf8' has not been expanded because its unit 'mormot.core.unicode' is specified in USES statement of IMPLEMENTATION section and current function is inline function or being inline function
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(366) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(413) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(419) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(429) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(495) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(500) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(505) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(516) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(521) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(528) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(565) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(551) Hint: H2164 Variable 'Msg' is declared but never used in 'TRadTask.Start'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(583) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(602) Hint: H2443 Inline function 'TSynLog.Add' has not been expanded because unit 'mormot.core.rtti' is not specified in USES list
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(728) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.thread.pas(739) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(265) Hint: H2269 Overriding virtual method 'TRadFilterItem.GetDisplayName' has lower visibility (strict private) than base class 'TCollectionItem' (protected)
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(504) Hint: H2269 Overriding virtual method 'TRadQuery.ApplyUpdates' has lower visibility (protected) than base class 'TUniQuery' (public)
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(505) Hint: H2269 Overriding virtual method 'TRadQuery.Post' has lower visibility (protected) than base class 'TUniQuery' (public)
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.uni.pas(419) Warning: W1035 Return value of function 'TUniConnectionHelper._ServerDate' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(638) Hint: H2077 Value assigned to 'i' never used
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.uni.pas(646) Warning: W1035 Return value of function 'TUniConnectionHelper._sqlCount' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(668) Hint: H2077 Value assigned to 'TUniConnectionHelper._StoredProc' never used
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(701) Warning: W1036 Variable 'sp' might not have been initialized
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(666) Hint: H2164 Variable 'Prm' is declared but never used in 'TUniConnectionHelper._StoredProc'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(786) Hint: H2164 Variable 'j' is declared but never used in 'TUniConnectionHelper._StoredProc.[0]'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(880) Hint: H2164 Variable 'LQuery' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(881) Hint: H2164 Variable 'LKeyField' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(882) Hint: H2164 Variable 'LCurrentID' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(883) Hint: H2164 Variable 'LOperator' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(883) Hint: H2164 Variable 'LOrderDir' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.uni.pas(883) Hint: H2164 Variable 'LSQL' is declared but never used in 'TDADataSetyHelper._GetFastID'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\Help.uni.pas(1026) Warning: W1035 Return value of function 'TDADataSetyHelper._Transaction' might be undefined
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1186) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1186) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1219) Hint: H2077 Value assigned to 'TRadConnection.TableExists' never used
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1282) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1285) Warning: W1057 Implicit string cast from 'string' to 'UTF8String'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1299) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\component\rad.db.pas(1989) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.pas(210) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\rad.pas(237) Warning: W1057 Implicit string cast from 'UTF8String' to 'string'
+E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\help.Dev.pas(641) Warning: W1035 Return value of function 'TcxCustomGridTableViewhelper._EditMode' might be undefined
+RadCheckListLiveTest.dpr(258) Warning: W1036 Variable 'LCon' might not have been initialized
+345620 lines, 1.00 seconds, 18079800 bytes code, 4189536 bytes data.
+Baglandi: 127.0.0.1/testdb
+
+=== Okuma ===
+  [OK]   L01 kayit 1 (A;S): Alici ve Satici secili
+  [OK]   L02 kayit 2 (AS): yalniz Alici ve Satici
+  [OK]   L03 bos kayit: hicbiri secili degil
+
+=== Yazma ===
+  [OK]   L04 tiklama kaydi duzenleme moduna alir
+  [OK]   L05 Post alana yazdi (A;S;AS)
+  [OK]   L06 veritabanina yazildi
+
+=== Filtre (AValuesIn gercek SQL'de) ===
+  [OK]   L07 AValuesIn metni
+  [OK]   L08 filtre gercek sorguda calisir (tam eslesme)
+  [OK]   L09 iki deger: IN listesi
+  [OK]   L10 tek tirnakli deger SQL'i bozmaz
+  [OK]   L11 FieldWarning: varchar(20) alani, tek deger sigar
+  [OK]   L12 FieldWarning: tum degerler alana sigmiyorsa bildirir
+rad_test_cari silindi.
+
+=== SONUC: 12 basarili, 0 hata ===

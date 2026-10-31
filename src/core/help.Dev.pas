@@ -93,6 +93,15 @@ type
       procedure _Visible(const AutoCmds: TRadQueryCmds);
     end;
 
+    TcxGridTableOptionsDataHelper = class helper for TcxGridTableOptionsData
+
+    end;
+
+    TcxCustomGridTableViewhelper = class helper for TcxCustomGridTableView
+    public
+      function _EditMode(const IsEdit:Boolean) :TcxCustomGridTableView;
+    end;
+
 (*  ── Tuketici erisimcileri ────────────────────────────────────────────────
     Bir zincir/ortak olay isleyicisinin elinde bir TComponent olur - ama bu
     bilesen formdaki bir EDITOR de olabilir, bir GRID KOLONU da. Asagidaki
@@ -616,6 +625,19 @@ begin
     GKayitli := True;
   end;
   Yenile;
+end;
+
+
+
+{ TcxCustomGridTableViewhelper }
+
+function TcxCustomGridTableViewhelper._EditMode( const IsEdit: Boolean): TcxCustomGridTableView;
+begin
+ OptionsSelection.CellSelect:=IsEdit;
+ //OptionsData.Deleting:=IsEdit;
+ OptionsData.Deleting:=IsEdit;
+ OptionsData.Editing:=IsEdit;
+ OptionsData.Inserting:=IsEdit;
 end;
 
 initialization

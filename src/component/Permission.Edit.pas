@@ -20,6 +20,7 @@ resourcestring
   SRadPermClosed    = 'TRadPermission "%s": "%s" dataset''i kapali; alan okunup yazilamaz.';
   SRadPermNoField   = 'TRadPermission "%s": "%s" dataset''inde "%s" adli alan yok.';
   SRadPermNoRecord  = 'TRadPermission "%s": "%s" dataset''inde gecerli kayit yok (bos).';
+  SRadPermReadOnly  = 'TRadPermission "%s": "%s" alani duzenlenemiyor (salt okunur ya da dataset izin vermiyor).';
 
 
 type
@@ -87,11 +88,24 @@ type
     property DataBinding: TcxDBDataBinding read GetDataBinding write SetDataBinding;
   end;
 
+  /// <summary>Bir sablonun uygulanma ozeti (TPermission_Edit.ApplyTemplate).</summary>
+  TRadTemplateResult = record
+    Targets: Integer;   // sablonun uygulandigi dugum sayisi
+    Added  : Integer;   // yeni olusturulan dugum sayisi
+    Skipped: Integer;   // kod zaten var oldugu icin atlanan dugum sayisi
+    Failed : Integer;   // bozuk girdi yuzunden uygulanamayan sablon girdisi
+  end;
+
   TcxTreeListHack = class(cxTL.TcxTreeList)
   private
     FOnAdd: TcxTreeListNodeChangedEvent;
   public
    function AddNode(ANode, ARelative: TcxTreeListNode; AData: Pointer; AttachMode: TcxTreeListNodeAttachMode): TcxTreeListNode; override;
+   /// <summary>
+   ///   ANode'dan hemen SONRA, ayni seviyede yeni dugum acar. Navigator'in Insert'i
+   ///   dugumun ONCESINE ekler (cxTL.pas DoAction NBDI_INSERT -> tlamInsert).
+   /// </summary>
+   function InsertAfter(ANode: TcxTreeListNode): Boolean;
    property OnAddNode:TcxTreeListNodeChangedEvent read FOnAdd write FOnAdd;
   end;
 
@@ -136,7 +150,9 @@ type
     FRootName : string;
     FJson:IDocDict;
     FEditMode:Boolean;
-    procedure LoadJson(const Json:IDocAny; ANode:TcxTreeListNode);
+    FMnuSaveTpl: TMenuItem;
+    FAdded, FSkipped, FFailed: Integer;
+    FQuiet: Boolean;    procedure LoadJson(const Json:IDocAny; ANode:TcxTreeListNode);
     procedure OnAddNode(Sender: TcxCustomTreeList; ANode: TcxTreeListNode);
 
     procedure Fix;
@@ -144,10 +160,25 @@ type
     procedure SetYetki(const Value: RawUtf8);
     function GetYetki:RawUtf8;
     procedure Ekle(const AList: IDocList; const ANode: TcxTreeListNode);
+    procedure SaveTemplateClick(Sender: TObject);
+    procedure RebuildTemplateMenu;
+    procedure SeedDefaultTemplates;
+    function TemplateIndexOf(const AId: string): Integer;
+    function TemplateList: IDocList;
+    procedure CollectTemplate(const AList: IDocList; const ANode: TcxTreeListNode);
   public
     { Public declarations }
     procedure ReLoad(const aRootName:string);
-
+    /// <summary>
+    ///   ATemplateIndex'teki sablonu SECILI dugumlerin (secim yoksa odaktakinin)
+    ///   hepsine uygular. Var olan kodlar atlanir (mesaj kutusu yok), ozet doner.
+    /// </summary>
+    function ApplyTemplate(ATemplateIndex: Integer): TRadTemplateResult;
+    /// <summary>
+    ///   ANode'un alt dugumlerini AId/AName adli sablon olarak saklar; ayni kodlu
+    ///   sablon varsa degistirir. Alt dugumsuz ya da kodsuz girdide False/istisna.
+    /// </summary>
+    function SaveAsTemplate(ANode: TcxTreeListNode; const AId, AName: string): Boolean;
     procedure Load(const AJsonStr:PRawUtf8); overload;
     class procedure Load(const AJsonStr:PRawUtf8; const IsEdit:Boolean); overload;
     procedure AfterConstruction; override;
@@ -177,7 +208,7 @@ type
     function _SetKod(aKod:string):TcxTreeListNode;
     function _AsStrBase:string;
     function _AsString(ALevel:Integer=0; const ABirles:Boolean=True):string;
-    function _AddNode(AKod, ACaption:string;const AChecked:Boolean):TcxTreeListNode;
+    function _AddNode(AKod, ACaption:string;const AChecked:Boolean; out ACreated: Boolean):TcxTreeListNode;
     //function _FindID(const AKod:string):TcxTreeListNode;
     function _FindChildID(const AKod:string):TcxTreeListNode;
     //function _IDCheck(const AKod:string):Boolean;
@@ -197,7 +228,7 @@ begin
 
  case TAction(Sender).tag of
   1: cxTree.Navigator.Buttons.Append.Click;
-  2: cxTree.Navigator.Buttons.Insert.Click;
+  2: cxTree.InsertAfter(nd);
   3: if nd <> nil then Clipboard.AsText:=nd._AsString();   //nd.Texts[Col_kod.ItemIndex];
 
  end;
@@ -221,6 +252,10 @@ procedure TPermission_Edit.AfterConstruction;
 begin
   inherited;
   self.cxTree.Clear;
+  FMnuSaveTpl := TMenuItem.Create(Self);
+  FMnuSaveTpl.Caption := 'Şablon Olarak Kaydet...';
+  FMnuSaveTpl.OnClick := SaveTemplateClick;
+  PopupMenu1.Items.Add(FMnuSaveTpl);
   EditMode:=false;
 end;
 
@@ -392,6 +427,10 @@ procedure TPermission_Edit.Load(const AJsonStr: PRawUtf8);
 begin
  FJson:=DocDict(AJsonStr^,mFast);
  FJson.PathDelim:='.';
+ { Sablon anahtari HIC yoksa (kayit ilk kez duzenleniyor) hazir CRUD sablonu eklenir.
+   Kullanici tum sablonlari silerse anahtar bos dizi olarak kalir, tekrar tohumlanmaz. }
+ if FEditMode and not FJson.Exists('sablon') then
+  SeedDefaultTemplates;
  ReLoad('permisson');
 end;
 
@@ -400,6 +439,7 @@ var
  v:TDocDictFields;
  val:TDocValue;
  obj:IDocObject;
+ LCreated: Boolean;
 
  nd:TcxTreeListNode;
 begin
@@ -424,8 +464,15 @@ begin
      if json.AsDict.Exists('id') then
       begin
 
-       nd:=ANode._AddNode(Json.AsDict.S['id'],Json.AsDict.S['name'],True);
-       if Json.AsDict.Exists('child') then
+       nd:=ANode._AddNode(Json.AsDict.S['id'],Json.AsDict.S['name'],True,LCreated);
+       if LCreated then
+        Inc(FAdded)
+       else
+        begin
+         Inc(FSkipped);
+         if not FQuiet then
+          ShowMessage(Format('Bu id kullanılıyor. (%s -> %s)',[nd._Kod,Json.AsDict.S['name']]));
+        end;       if Json.AsDict.Exists('child') then
         LoadJson(Json.AsDict.A['child'],nd);
 
       end;
@@ -442,7 +489,7 @@ begin
         if val.Kind = dvObject then
            LoadJson(IDocDict(val),ANode);
         except
-
+         Inc(FFailed);
         end;
 
 
@@ -567,21 +614,189 @@ end;
 
 procedure TPermission_Edit.SablonClick(Sender: TObject);
 var
- itm : TMenuItem absolute sender;
- aList: IDocList;
+ LRes: TRadTemplateResult;
 begin
-  try
-    aList:=FJson.L['sablon'].O[itm.Tag].L['child'];
-    if aList<>nil then
-     begin
-      LoadJson(aList,nil);
-     end;
-  finally
-
-  end;
-
+  LRes := ApplyTemplate(TMenuItem(Sender).Tag);
+  if (LRes.Targets > 1) or (LRes.Skipped > 0) or (LRes.Failed > 0) then
+    ShowMessage(Format('Şablon %d düğüme uygulandı: %d eklendi, %d zaten vardı (atlandı), %d hatalı girdi.',
+      [LRes.Targets, LRes.Added, LRes.Skipped, LRes.Failed]));
 end;
 
+function TPermission_Edit.ApplyTemplate(ATemplateIndex: Integer): TRadTemplateResult;
+var
+ LList: IDocList;
+ LTargets: TArray<TcxTreeListNode>;
+ LTarget: TcxTreeListNode;
+ i: Integer;
+begin
+  Result := Default(TRadTemplateResult);
+  if (FJson = nil) or not SameText(FRootName,'permisson') or not FJson.Exists('sablon') then
+    Exit;
+  if (ATemplateIndex < 0) or (ATemplateIndex >= FJson.L['sablon'].Len) then
+    Exit;
+  LList := FJson.L['sablon'].O[ATemplateIndex].L['child'];
+  if LList = nil then
+    Exit;
+
+  { Hedef listesi UYGULAMADAN ONCE alinir: eklenen dugumler secimi degistirebilir. }
+  SetLength(LTargets, cxTree.SelectionCount);
+  for i := 0 to cxTree.SelectionCount - 1 do
+    LTargets[i] := cxTree.Selections[i];
+  { Coklu secimde Ctrl-tik odaktaki dugumun secimini kaldirabilir (SelectionCount = 0);
+    eski davranis olan "odaktaki dugume uygula"ya dus. }
+  if (Length(LTargets) = 0) and (cxTree.FocusedNode <> nil) then
+    LTargets := [cxTree.FocusedNode];
+
+  FAdded := 0;
+  FSkipped := 0;
+  FFailed := 0;
+  FQuiet := True;      // tekrar eden kodlar icin dugum basina mesaj kutusu YOK, ozet var
+  cxTree.BeginUpdate;
+  try
+    for LTarget in LTargets do
+      LoadJson(LList, LTarget);
+  finally
+    cxTree.EndUpdate;
+    FQuiet := False;
+  end;
+  Result.Targets := Length(LTargets);
+  Result.Added := FAdded;
+  Result.Skipped := FSkipped;
+  Result.Failed := FFailed;
+end;
+
+function TPermission_Edit.TemplateList: IDocList;
+begin
+  { IDocDict.A[] okuma yolu VAR OLAN diziyi bekler (yoksa EDocVariant); ReLoad de
+    bu yuzden once atiyor. }
+  if not FJson.Exists('sablon') then
+    FJson.A['sablon'] := DocList(mFast);
+  Result := FJson.A['sablon'];
+end;
+
+function TPermission_Edit.TemplateIndexOf(const AId: string): Integer;
+var
+ i: Integer;
+begin
+  Result := -1;
+  if (FJson = nil) or not FJson.Exists('sablon') then
+    Exit;
+  for i := 0 to FJson.L['sablon'].Len - 1 do
+    if SameText(FJson.L['sablon'].O[i].S['id'], AId) then
+      Exit(i);
+end;
+
+procedure TPermission_Edit.CollectTemplate(const AList: IDocList; const ANode: TcxTreeListNode);
+var
+ i: Integer;
+ nd: TcxTreeListNode;
+ dic: IDocDict;
+ LId: string;
+begin
+  for i := 0 to ANode.Count - 1 do
+  begin
+    nd := ANode.Items[i];
+    LId := nd._AsStrBase;   // sadece KENDI kodu: sablon her uygulandigi yerin onekini alir
+    if LId.IsEmpty then
+      raise EInvalidOpException.CreateFmt('"%s" için ID boş olamaz.', [nd.Texts[0]]);
+    dic := DocDict();
+    dic.S['id'] := LId;
+    dic.S['name'] := nd.Texts[0].Trim;
+    if nd.HasChildren then
+    begin
+      dic.A['child'] := DocList();
+      CollectTemplate(dic.A['child'], nd);
+    end;
+    AList.AppendDoc(dic);
+  end;
+end;
+
+function TPermission_Edit.SaveAsTemplate(ANode: TcxTreeListNode; const AId, AName: string): Boolean;
+var
+ dic: IDocDict;
+ LKids: IDocList;
+ LIndex: Integer;
+begin
+  Result := False;
+  if (FJson = nil) or (ANode = nil) or not ANode.HasChildren or AId.Trim.IsEmpty then
+    Exit;
+  dic := DocDict();
+  dic.S['id'] := AId.Trim;
+  dic.S['name'] := AName.Trim;
+  LKids := DocList();
+  CollectTemplate(LKids, ANode);       // hata varsa kayit degismeden istisna
+  dic.A['child'] := LKids;
+
+  LIndex := TemplateIndexOf(AId.Trim);
+  if LIndex >= 0 then
+    TemplateList.Pop(LIndex);
+  TemplateList.AppendDoc(dic);
+  RebuildTemplateMenu;
+  Result := True;
+end;
+
+procedure TPermission_Edit.SaveTemplateClick(Sender: TObject);
+var
+ nd: TcxTreeListNode;
+ LName: string;
+begin
+  nd := cxTree.FocusedNode;
+  if (nd = nil) or not nd.HasChildren then
+  begin
+    ShowMessage('Önce alt düğümleri olan bir düğüm seçin.');
+    Exit;
+  end;
+  LName := nd.Texts[0].Trim;
+  if not InputQuery('Şablon olarak kaydet', 'Şablon adı', LName) or LName.Trim.IsEmpty then
+    Exit;
+  if (TemplateIndexOf(LName.Trim) >= 0) and
+     (MessageDlg(Format('"%s" adlı şablon zaten var. Üzerine yazılsın mı?', [LName.Trim]),
+        TMsgDlgType.mtConfirmation, [TMsgDlgBtn.mbYes, TMsgDlgBtn.mbNo], 0) <> mrYes) then
+    Exit;
+  try
+    SaveAsTemplate(nd, LName, LName);
+  except
+    on E: Exception do
+      MessageDlg(E.Message, TMsgDlgType.mtError, [TMsgDlgBtn.mbOK], 0);
+  end;
+end;
+
+procedure TPermission_Edit.RebuildTemplateMenu;
+var
+ i: Integer;
+begin
+  itmSablonlar._ClearSubMenu;
+  if not FJson.Exists('sablon') then
+    Exit;
+  for i := 0 to FJson.L['sablon'].Len -1 do
+    itmSablonlar._Add(FJson.L['sablon'].O[i].S['name'])
+    ._SetClick(SablonClick)
+    ._SetTag(i)
+    ._SetHint(FJson.L['sablon'].O[i].S['id']);
+end;
+
+procedure TPermission_Edit.SeedDefaultTemplates;
+const
+ CVerbs: array[0..2, 0..1] of string = (('ekle','Ekle'), ('sil','Sil'), ('edit','Düzenle'));
+var
+ dic, kid: IDocDict;
+ LKids: IDocList;
+ i: Integer;
+begin
+  dic := DocDict();
+  dic.S['id'] := 'crud';
+  dic.S['name'] := 'Ekle - Sil - Düzenle';
+  LKids := DocList();
+  for i := Low(CVerbs) to High(CVerbs) do
+  begin
+    kid := DocDict();
+    kid.S['id'] := CVerbs[i, 0];
+    kid.S['name'] := CVerbs[i, 1];
+    LKids.AppendDoc(kid);
+  end;
+  dic.A['child'] := LKids;
+  TemplateList.AppendDoc(dic);
+end;
 procedure TPermission_Edit.ReLoad(const aRootName:string);
 var
  i:Integer;
@@ -601,21 +816,7 @@ begin
    LoadJson(FJson.A[FRootName],cxTree.Root);
    TcxTreeListHack(cxTree).OnAddNode:=OnAddNode;
    if SameText(FRootName,'permisson') then
-    begin
-     itmSablonlar._ClearSubMenu;
-     if FJson.Exists('sablon') then
-      begin
-       for i := 0 to FJson.L['sablon'].Len -1 do
-        begin
-         itmSablonlar._Add(FJson.L['sablon'].O[i].S['name'])
-         ._SetClick(SablonClick)
-         ._SetTag(i)
-         ._SetHint(FJson.L['sablon'].O[i].S['id']);
-        end;
-      end;
-
-
-    end;
+    RebuildTemplateMenu;
 
 end;
 
@@ -633,6 +834,8 @@ begin
   cxTree.OptionsData.Deleting:=Value;
 
   cxTree.OptionsSelection.CellSelect:=Value;
+  cxTree.OptionsSelection.MultiSelect:=Value;   // sablon birden cok dugume uygulanabilsin
+  FMnuSaveTpl.Visible:=Value;
   cxTree.Navigator.Visible:=Value;
   Col_kod.Visible:=Value;
 
@@ -664,26 +867,21 @@ end;
 
 { TcxTreeListNodeHelper }
 
-function TcxTreeListNodeHelper._AddNode(AKod,ACaption: string; const AChecked: Boolean): TcxTreeListNode;
+function TcxTreeListNodeHelper._AddNode(AKod,ACaption: string; const AChecked: Boolean; out ACreated: Boolean): TcxTreeListNode;
 begin
  AKod :=_KodeFix(Self._Kod+'.'+AKod);
 
  Result :=_FindChildID(AKod);
- if Result = nil then
+ ACreated := Result = nil;
+ if ACreated then
   begin
    Result:=Self.AddChild;
    Result.Texts[0]:=ACaption.Trim;
-   //if Self = self.Root then
-   // Result.Texts[1]:=Trim(AKod)
-   //else
    Result._SetKod(AKod);
    Result.CheckGroupType:=ncgCheckGroup;
    Result.Checked:=AChecked;
-   end
-   else
-     ShowMessage(Format('Bu id kullanılıyor. (%s -> %s)',[AKod,ACaption]))
+  end;
 end;
-
 function TcxTreeListNodeHelper._AsStrBase: string;
 begin
   Result:=Trim(StringReplace(Texts[1],' ','',[rfReplaceAll]));
@@ -753,6 +951,24 @@ function TcxTreeListHack.AddNode(ANode, ARelative: TcxTreeListNode;
 begin
     Result:=inherited AddNode(ANode, ARelative, AData, AttachMode);
     if Assigned(FOnAdd) then FOnAdd(Self,Result);
+end;
+
+function TcxTreeListHack.InsertAfter(ANode: TcxTreeListNode): Boolean;
+var
+  LNext: TcxTreeListNode;
+begin
+  Result := False;
+  if ANode = nil then
+    Exit;
+  LNext := ANode.getNextSibling;
+  if not Controller.CanInsertNode(LNext = nil) then
+    Exit;
+  if LNext <> nil then
+    Result := InsertNode(LNext, False)         // LNext'in ONCESI = ANode'dan hemen sonra
+  else
+    Result := InsertNode(ANode.Parent, True);  // son kardes olarak
+  if Result and (FocusedNode <> nil) then
+    FocusedNode.MakeVisible;
 end;
 
 { TRadPermission }
@@ -854,27 +1070,38 @@ end;
 
 function TRadPermission.SaveToField: Boolean;
 var
+  LDataSet : TDataSet;
   LBizAldik: Boolean;
 begin
   CheckLink;
+  LDataSet := FDataBinding.DataSource.DataSet;
   { Dataset ZATEN duzenleme modundaysa Post ETMEYIZ. Etseydik cagiranin
     ayni kayittaki DIGER bekleyen degisikliklerini de, o daha hazir
     olmadan islerdik - bilesenin isi yetki alanini yazmak, cagiranin kayit
     akisini yonetmek degil. O durumda alani doldurup birakiyoruz; Post
-    cagirana ait. }
+    cagirana ait.
 
-  LBizAldik := not (FDataBinding.DataSource.State in [dsEdit, dsInsert]);
-  if LBizAldik then
-    FDataBinding.SetEditMode;
+    Duzenlemeyi BIZ actiysak Post de bizimdir. TcxDBDataBinding.UpdateDataSource
+    Post ETMEZ (yalnizca TDataLink.UpdateRecord -> OnUpdateData; cxDB.pas,
+    Data.DB.pas), bu yuzden alan dolu ama kayit dsEdit'te kalip veritabanina
+    HIC gitmiyordu. Post hata verirse (kisit, dogrulama) dataset dsEdit'te
+    askida kalmasin diye Cancel edilir ve istisna aynen yukari gider. }
+  LBizAldik := not (LDataSet.State in [dsEdit, dsInsert]);
+  if LBizAldik and not FDataBinding.SetEditMode then
+    raise ERadPermission.CreateResFmt(@SRadPermReadOnly, [Name, FDataBinding.DataField]);
 
-  FDataBinding.Field.AsString := Utf8ToString(FTree);
-
-  if LBizAldik then
-    FDataBinding.UpdateDataSource;
+  try
+    FDataBinding.Field.AsString := Utf8ToString(FTree);
+    if LBizAldik then
+      LDataSet.Post;
+  except
+    if LBizAldik then
+      LDataSet.Cancel;
+    raise;
+  end;
 
   Result := True;
 end;
-
 procedure TRadPermission.Edit;
 var
   LOncekiTree: RawUtf8;

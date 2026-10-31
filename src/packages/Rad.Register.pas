@@ -16,6 +16,7 @@ implementation
  ,rad.rtl
  ,rad.db, Permission.Edit
  ,Rad.Dev
+ ,rad.tms.formtabs
  //,Aksa.Collections,Aksa.BoundLabel
  //,Aksa.Vcl
 
@@ -43,6 +44,10 @@ implementation
   ,TRadLookupComboBox,TRadDBLookupComboBox,TRadComboBox,TRadDBComboBox
   ,TRadFieldCascade
   ,TRadCheckComboBox,TRadDBCheckComboBox
+  ,TRadCheckListBox,TRadDBCheckListBox
+  ,TRadButtonEdit,TRadDBButtonEdit,TRadImageComboBox,TRadDBImageComboBox
+  ,TRadExtLookupComboBox,TRadDBExtLookupComboBox,TRadPopupEdit,TRadDBPopupEdit
+  ,TRadFormTabs
   {
   TDepoValue,TStickyLabel
   //TCommadList,
@@ -69,6 +74,10 @@ initialization
   //RegisterEditRepositoryItem(TEditRepositoryFilterLookupEditItem, 'TEditRepositoryFilterLookupEditItem');//   ayraç |
   RegisterEditRepositoryItem(TRadComboBoxRepository, 'Rad ComboBox');//   ayraç |
   RegisterEditRepositoryItem(TRadCheckComboBoxRepository, 'Rad CheckComboBox');
+  RegisterEditRepositoryItem(TRadButtonEditRepository, 'Rad ButtonEdit');
+  RegisterEditRepositoryItem(TRadImageComboBoxRepository, 'Rad ImageComboBox');
+  RegisterEditRepositoryItem(TRadExtLookupComboBoxRepository, 'Rad ExtLookupComboBox');
+  RegisterEditRepositoryItem(TRadPopupEditRepository, 'Rad PopupEdit');
   RegisterEditRepositoryItem(TRadLookupComboBoxRepository, 'Rad LookupComboBox');//   ayraç |
 
   //GetRegisteredEditProperties.Register(TAkComboBoxDBProperties, 'TcxEditRepositoryComboBoxDBItem');
@@ -81,6 +90,10 @@ finalization
   UnRegisterEditRepositoryItem(TRadComboBoxRepository);
   UnRegisterEditRepositoryItem(TRadLookupComboBoxRepository);
   UnRegisterEditRepositoryItem(TRadCheckComboBoxRepository);
+  UnRegisterEditRepositoryItem(TRadButtonEditRepository);
+  UnRegisterEditRepositoryItem(TRadImageComboBoxRepository);
+  UnRegisterEditRepositoryItem(TRadExtLookupComboBoxRepository);
+  UnRegisterEditRepositoryItem(TRadPopupEditRepository);
 
   //FilterEditsController.Unregister(TcxComboBoxProperties, TcxFilterComboBoxHelper);
   //dxUnitsLoader.RemoveUnit(SysInit.HInstance, dxThisUnitName, TcxInplaceComboBoxCustomDrawHelper.Finalize);

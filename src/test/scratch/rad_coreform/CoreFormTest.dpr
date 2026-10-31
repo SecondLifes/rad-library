@@ -3,10 +3,10 @@ program CoreFormTest;
 {$APPTYPE CONSOLE}
 
 {
-  TCoreForm.ClientWndProc sondasi.
+  TRadFormBase.ClientWndProc / MDIClientEdge sondasi.
 
-  Core.Form sadelestirildikten sonra bu birimde TEK is kaldi: MDI istemci
-  alaninin cukur cercevesini kaldirmak. Eski test dosyasi artik var olmayan
+  Bu davranis eskiden Core.Form (TCoreForm) icindeydi; birim silindi, tek is
+  olan MDI istemci cercevesi yonetimi TRadFormBase'e tasindi. Eski test dosyasi artik var olmayan
   bir API'yi (AutoFree, _ShowMDIChild, ACmdSys) sinamaya calisiyordu ve
   derlenmiyordu; onun hâlâ gecerli olan iddialari rad_formfactory'ye tasindi.
 }
@@ -19,8 +19,7 @@ uses
   Vcl.Forms,
   Vcl.Controls,
   rad.core   in '..\..\..\core\rad.core.pas',
-  Help.vcl   in '..\..\..\core\Help.vcl.pas',
-  Core.Form  in '..\..\..\share\Core.Form.pas';
+  Help.vcl   in '..\..\..\core\Help.vcl.pas';
 
 const
   WM_MDICLIENT_FRAMECALC = $3F;
@@ -47,7 +46,7 @@ begin
 end;
 
 type
-  TMdiTest = class(TCoreForm)
+  TMdiTest = class(TRadFormBase)
   public
     constructor Create(AOwner: TComponent); override;
     procedure ClientWndProc(var Message: TMessage); override;
@@ -112,23 +111,20 @@ begin
     Chk((IstemciStili(LF) and WS_EX_CLIENTEDGE) = 0,
       '03 $3F mesaji cukur kenarligi TEMIZLEDI');
 
-    { $3F BILEREK TUKETILIR - nisan degeri DEGISMEMELI.
-
-      Bu iddia bir "eksigi" degil, KASITLI bir tasarimi korur. Mesaji
-      inherited'a iletmeyi denedik: MDICLIENT kenarligi geri koyuyor, biz
-      siliyoruz, SWP_FRAMECHANGED yeni $3F doguruyor - 30 saniyede 796.240
-      cagri, kilitli surec. Bu satir kirmiziya donerse birisi o degisikligi
-      tekrar denemis demektir; 08 numarali iddia da onunla birlikte duser. }
-    Chk(LSonuc = CNISAN,
-      '04 $3F tuketildi, inherited a iletilmedi (dongu kirici)');
+    { $3F, MDICLIENT'in sinif yordamina gider (sonuc nisani ezilir) ama VCL'in
+      ShowMDIClientEdge blogu atlanir. Nisan DEGISMEZSE mesaj yutulmus
+      demektir: MDICLIENT'in kaydirma hesabi olur (13 numarali iddia). Cerceve
+      yine de gelmemis olmali: 0 cocuklu formda VCL blogu onu geri koyardi. }
+    Chk(LSonuc <> CNISAN,
+      '04 $3F MDICLIENT yordamina iletildi (mesaj yutulmadi)');
 
     { C-03: stil zaten temizken tekrar yazip SWP_FRAMECHANGED tetiklemek
       gereksiz cerceve cizimi (titreme) demekti. }
     LSonuc := LF.GonderClient(WM_MDICLIENT_FRAMECALC);
     Chk((IstemciStili(LF) and WS_EX_CLIENTEDGE) = 0,
       '05 ikinci $3F stili bozmadi');
-    Chk(LSonuc = CNISAN,
-      '06 ikinci $3F de tuketildi');
+    Chk(LSonuc <> CNISAN,
+      '06 ikinci $3F de MDICLIENT yordamina iletildi');
 
     { $3F DISINDAKI mesajlar her zaman inherited a gitmeli. }
     LSonuc := LF.GonderClient(WM_USER + 4242);
@@ -172,6 +168,132 @@ begin
   end;
 end;
 
+function ScrollGorunur(AWnd: HWND; AObj: Integer): Boolean;
+var
+  LI: TScrollBarInfo;
+begin
+  FillChar(LI, SizeOf(LI), 0);
+  LI.cbSize := SizeOf(LI);
+  Result := GetScrollBarInfo(AWnd, AObj, LI) and
+    ((LI.rgstate[0] and STATE_SYSTEM_INVISIBLE) = 0);
+end;
+
+procedure Bekle(AMs: Cardinal);
+var
+  LSon: UInt64;
+begin
+  LSon := GetTickCount64 + AMs;
+  while GetTickCount64 < LSon do
+  begin
+    Application.ProcessMessages;
+    Sleep(5);
+  end;
+end;
+
+{ Gercek mesaj akisi: yukaridakiler ClientWndProc'u elle cagirir, MDICLIENT'in
+  kendi $3F trafigini hic gormez. Eski "Exit" tasarimi bu bolumde 13'te
+  kalirdi (kaydirma cubugu hic cikmaz). }
+procedure GercekAkis;
+var
+  LF: TMdiTest;
+  LC1, LC2: TForm;
+  LOnce: Integer;
+begin
+  Writeln;
+  Writeln('=== gercek MDI mesaj akisi ===');
+
+  Application.CreateForm(TMdiTest, LF);
+  try
+    LF.SetBounds(100, 100, 900, 600);
+    LF.FormStyle := fsMDIForm;
+    LF.Show;
+    LOnce := GCagriSayaci;
+    Bekle(200);
+
+    LC1 := TForm.CreateNew(LF);
+    LC1.FormStyle := fsMDIChild;
+    LC1.Show;
+    LC2 := TForm.CreateNew(LF);
+    LC2.FormStyle := fsMDIChild;
+    LC2.Show;
+    Bekle(200);
+    Chk((IstemciStili(LF) and WS_EX_CLIENTEDGE) = 0,
+      '11 iki cocukla cerceve yok');
+
+    LC2.WindowState := wsMaximized;
+    Bekle(200);
+    LC2.WindowState := wsNormal;
+    Bekle(200);
+    Chk((IstemciStili(LF) and WS_EX_CLIENTEDGE) = 0,
+      '12 buyut/geri al sonrasi cerceve yok (VCL burada geri koyardi)');
+
+    LC1.SetBounds(LF.ClientWidth + 150, 20, 300, 200);
+    Bekle(300);
+    Chk(ScrollGorunur(LF.ClientHandle, OBJID_HSCROLL),
+      '13 cocuk disari tasinca yatay kaydirma cubugu cikti (MDICLIENT calisiyor)');
+    LC1.SetBounds(20, 20, 300, 200);
+    Bekle(300);
+    Chk(not ScrollGorunur(LF.ClientHandle, OBJID_HSCROLL),
+      '14 cocuk geri gelince kaydirma cubugu kayboldu');
+
+    LF.Tile;
+    LF.Cascade;
+    Bekle(200);
+    Chk(GCagriSayaci - LOnce < 1000,
+      Format('15 mesaj firtinasi YOK (gercek akis cagrisi: %d)', [GCagriSayaci - LOnce]));
+  finally
+    LF.Free;
+  end;
+end;
+
+{ MDIClientEdge ayari. OnCreate'te atama = pencere yokken atama: bayrak ilk $3F'de
+  okunur, setter'in SendMessage dali calismaz. }
+procedure KenarlikAyari;
+var
+  LF: TMdiTest;
+  LC: TForm;
+
+  function Kenarlik: Boolean;
+  begin
+    Result := (IstemciStili(LF) and WS_EX_CLIENTEDGE) <> 0;
+  end;
+
+begin
+  Writeln;
+  Writeln('=== MDIClientEdge ayari ===');
+
+  Application.CreateForm(TMdiTest, LF);
+  try
+    Chk(not LF.MDIClientEdge, '16 varsayilan MDIClientEdge = False');
+    LF.MDIClientEdge := True;     // OnCreate'teki gibi: pencere ve FormStyle yok
+    LF.SetBounds(100, 100, 900, 600);
+    LF.FormStyle := fsMDIForm;
+    LF.Show;
+    Bekle(300);
+    Chk(Kenarlik, '17 True, pencere yokken atandi: cocuksuz formda VCL kenarligi var');
+
+    LC := TForm.CreateNew(LF);
+    LC.FormStyle := fsMDIChild;
+    LC.Show;
+    LC.WindowState := wsMaximized;
+    Bekle(300);
+    Chk(not Kenarlik, '18 True: buyutulmus cocukta VCL kenarligi kaldirir');
+    LC.WindowState := wsNormal;
+    Bekle(300);
+    Chk(Kenarlik, '19 True: cocuk geri alininca VCL kenarligi geri koyar');
+
+    LF.MDIClientEdge := False;    // calisma zamaninda: SendMessage dali
+    Chk(not Kenarlik, '20 True->False hemen uygulandi (mesaj beklenmedi)');
+    Bekle(300);
+    Chk(not Kenarlik, '21 False kalici (VCL geri koymadi)');
+
+    LF.MDIClientEdge := True;
+    Chk(Kenarlik, '22 False->True hemen uygulandi');
+  finally
+    LF.Free;
+  end;
+end;
+
 begin
   GOk := 0;
   GFail := 0;
@@ -195,6 +317,8 @@ begin
   try
     CukurCerceve;
     MdiOlmayanForm;
+    GercekAkis;
+    KenarlikAyari;
   except
     on E: Exception do
     begin

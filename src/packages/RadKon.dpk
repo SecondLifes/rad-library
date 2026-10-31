@@ -1,4 +1,4 @@
-package RadKon;
+﻿package RadKon;
 
 {$R *.res}
 {$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
@@ -9,21 +9,21 @@ package RadKon;
 {$EXTENDEDSYNTAX ON}
 {$IMPORTEDDATA ON}
 {$IOCHECKS ON}
-{$LOCALSYMBOLS OFF}
+{$LOCALSYMBOLS ON}
 {$LONGSTRINGS ON}
 {$OPENSTRINGS ON}
-{$OPTIMIZATION ON}
-{$OVERFLOWCHECKS OFF}
-{$RANGECHECKS OFF}
-{$REFERENCEINFO OFF}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS ON}
+{$RANGECHECKS ON}
+{$REFERENCEINFO ON}
 {$SAFEDIVIDE OFF}
-{$STACKFRAMES OFF}
+{$STACKFRAMES ON}
 {$TYPEDADDRESS OFF}
 {$VARSTRINGCHECKS ON}
 {$WRITEABLECONST OFF}
 {$MINENUMSIZE 1}
 {$IMAGEBASE $400000}
-{$DEFINE RELEASE}
+{$DEFINE DEBUG}
 {$ENDIF IMPLICITBUILDING}
 {$IMPLICITBUILD ON}
 
@@ -53,7 +53,9 @@ requires
   Jcl,
   JvCore,
   JvStdCtrls,
-  dxSkinsCoreRS37;
+  dxSkinsCoreRS37,
+  Dext.Core,
+  TMSVCLUIPackPkg;
 
 contains
   Rad.Register in 'Rad.Register.pas',
@@ -66,13 +68,18 @@ contains
   Help.DB in '..\core\Help.DB.pas',
   rad.permission in '..\core\rad.permission.pas',
   Help.uni in '..\core\Help.uni.pas',
-  rad.cache in '..\core\rad.cache.pas',
   rad.cmd in '..\core\rad.cmd.pas',
   rad.eventbus in '..\core\rad.eventbus.pas',
   rad.thread in '..\core\rad.thread.pas',
   rad.utils in '..\core\rad.utils.pas',
   rad.core in '..\core\rad.core.pas',
-  Rad.Dev in '..\component\Rad.Dev.pas';
+  Rad.Dev in '..\component\Rad.Dev.pas',
+  rad.cache in '..\core\rad.cache.pas',
+  rad.config in '..\core\rad.config.pas',
+  rad.sqlfilter in '..\core\rad.sqlfilter.pas',
+  rad.customfield in '..\core\rad.customfield.pas',
+  rad.dev.customfields in '..\component\rad.dev.customfields.pas' {RadCustomFieldsFrame: TFrame},
+  rad.dev.customfielddesigner in '..\component\rad.dev.customfielddesigner.pas' {RadCustomFieldDesigner};
 
 end.
 

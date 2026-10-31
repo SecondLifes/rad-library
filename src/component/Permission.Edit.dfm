@@ -169,7 +169,7 @@ object Permission_Edit: TPermission_Edit
     end
     object act_ins: TAction
       Tag = 2
-      Caption = 'Ekle'
+      Caption = 'Alta Ekle'
       Enabled = False
       ShortCut = 16424
       Visible = False

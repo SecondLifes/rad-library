@@ -267,11 +267,9 @@ type
     /// <summary>JSON nesnesini noktalı cache anahtarlarına dönüştürür.</summary>
     /// <returns>Olay dinleyicilerinin reddettiği değer sayısı.</returns>
     /// <exception cref="ESmartCacheJson">JSON bozuksa, kök nesne değilse veya değer desteklenmiyorsa.</exception>
-    function LoadJson(const AJson: string;
-      const AClearFirst: Boolean = True): Integer;
+    function LoadJson(const AJson: string;  const AClearFirst: Boolean = True): Integer;
     /// <summary>JSON/YAML/XML dosyasını yükler; hatada OnError çağırıp False döner.</summary>
-    function FileLoad(const AFileName: string = '';
-      AClearFirst: Boolean = True): Boolean;
+    function FileLoad(const AFileName: string = ''; AClearFirst: Boolean = True): Boolean;
 
 
     property AutoSave: Boolean read GetAutoSave write SetAutoSave;
@@ -296,6 +294,18 @@ type
     function GetIntf<T: IInterface>(const AKey: string): T;
 
     property Cache: ISmartCache read FCache;
+  end;
+
+
+  TAutoCacheCreate = class(TSynAutoCreateFields)
+  private
+    FUniqID : string;
+    //procedure SetVar(const Index: Integer; const Value: Variant);
+    //function VarGet(const Index: Integer): Variant;
+  public
+    constructor Create; override;
+  published
+
   end;
 
 
@@ -503,7 +513,7 @@ begin
   end;
   FAutoSaveDelaySeconds := DefaultAutoSaveDelaySeconds;
   {$IFDEF MSWINDOWS}
-   FSaveFileName  := ChangeFileExt(ParamStr(0),'.json');  //TPath.GetAppPath+
+   FSaveFileName  := ChangeFileExt(ParamStr(0),'.cache.json');
   {$ENDIF}
   {$IFDEF POSIX}
 
@@ -1558,8 +1568,7 @@ begin
   Result := XmlToJson(AXml);
 end;
 
-procedure TSmartCache.FileSave(AFileName: string = '';
-  const ACipher: Boolean = False);
+procedure TSmartCache.FileSave(AFileName: string = ''; const ACipher: Boolean = False);
 var
   LJson: RawUtf8;
   LFileType: Integer;
@@ -1625,12 +1634,9 @@ begin
     LTemporaryFileName := SiblingTemporaryFileName(AFileName);
     try
       case LFileType of
-        0:
-          FileFromString(LJson, LTemporaryFileName);
-        1, 2:
-          FileFromString(JsonToYaml(LJson), LTemporaryFileName);
-        3:
-          FileFromString(CacheJsonToXml(LJson), LTemporaryFileName);
+        0     : FileFromString(LJson, LTemporaryFileName);
+        1, 2  : FileFromString(JsonToYaml(LJson), LTemporaryFileName);
+        3     : FileFromString(CacheJsonToXml(LJson), LTemporaryFileName);
       end;
       ReplaceFileAtomically(LTemporaryFileName, AFileName);
       LTemporaryFileName := '';
@@ -1747,6 +1753,16 @@ begin
       ReportError(LFileName, E);
     end;
   end;
+end;
+
+
+
+{ TAutoCacheCreate }
+
+constructor TAutoCacheCreate.Create;
+begin
+  inherited Create;
+  FUniqID:= TGUID.NewGuid.ToString;
 end;
 
 

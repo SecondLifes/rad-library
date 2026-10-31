@@ -104,7 +104,7 @@ function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTi
 
 function RadApp: TRadApp;
 
-function Config :IRadConfig;
+function Config :TRadConfig;
 
 implementation
 uses
@@ -114,7 +114,7 @@ System.Generics.Collections, System.DateUtils, System.IOUtils
 
 ;
 
-function Config :IRadConfig;
+function Config :TRadConfig;
 begin
   if TRadConfig.Config = nil then
     TRadConfig.Config :=rad.config.TRadConfig.Create;

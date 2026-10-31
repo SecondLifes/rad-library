@@ -298,6 +298,48 @@ begin
     '18 ayni anahtar YENI nesne yaratti (kayit dusurulmus)');
 end;
 
+procedure CokluDinleyici;
+var
+  A, B, C: TOlayDinleyici;
+  LDuz: TDuzTest;
+  LOnce: Integer;
+begin
+  Writeln;
+  Writeln('=== AddListener: coklu dinleyici, RegisterEvent tek slotu bozulmaz ===');
+  A := TOlayDinleyici.Create;
+  B := TOlayDinleyici.Create;
+  C := TOlayDinleyici.Create;
+  try
+    GlobalFormFactory.AddListener(A.Yakala);
+    GlobalFormFactory.AddListener(B.Yakala);
+    GlobalFormFactory.AddListener(B.Yakala);     // ayni dinleyici ikinci kez eklenmez
+    GlobalFormFactory.RegisterEvent(C.Yakala);   // eski tek slot ayni kalir
+
+    LDuz := GlobalFormFactory.Get<TDuzTest>('coklu-duz');
+    LDuz.Show;
+    Application.ProcessMessages;
+    Chk((A.DuzSayaci > 0) and (B.DuzSayaci > 0) and (C.DuzSayaci > 0),
+      '19 liste dinleyicileri ve tek slot ayni olayi aldi');
+    Chk(B.DuzSayaci = A.DuzSayaci, '20 ayni dinleyici iki kez eklenmedi (cift sayim yok)');
+
+    GlobalFormFactory.RemoveListener(A.Yakala);
+    LOnce := A.DuzSayaci;
+    LDuz.Caption := 'degisti';
+    Application.ProcessMessages;
+    Chk(A.DuzSayaci = LOnce, '21 RemoveListener sonrasi olay gelmez');
+    Chk(B.DuzSayaci > LOnce, '22 diger dinleyiciler etkilenmedi');
+
+    GlobalFormFactory.RegisterEvent(nil);
+    GlobalFormFactory.RemoveListener(B.Yakala);
+    LDuz.Close;
+    Application.ProcessMessages;
+  finally
+    C.Free;
+    B.Free;
+    A.Free;
+  end;
+end;
+
 begin
   GOk := 0;
   GFail := 0;
@@ -309,6 +351,7 @@ begin
     GlobalOlaylar;
     ShowWaitDavranisi;
     SarkanIsaretci;
+    CokluDinleyici;
   except
     on E: Exception do
     begin

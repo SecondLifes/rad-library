@@ -167,6 +167,19 @@ that break something else in the kit.
   (`FacadeTest` 24/24 Win32+Win64 PG canlı, `FacadeVclTest` 7/7 Win32); HooksTest 34/34, ScriptLiveTest 78/78.
 - `.agents/skills/rad-script/SKILL.md` — script yazma skill'i (kanca adları, facade, yapılmazlar, 5 örnek, host sözleşmesi).
 - `docs/script-api.md` — `TRadScriptEngine.ExportReference` ile üretilen API referansı (FacadeTest her koşuda yeniler).
+- `src/vendor/tms/rad.script.ide.pas`, `rad.script.packages.pas/.dfm`, `rad.script.newscript.pas/.dfm` — **script sistemi
+  6. aşama (RAD-15, son): IDE ve paket yöneticisi.** `TRadScriptIde.Open` TMS `TIDEDialog`'u paketin üstünde açar (script =
+  sanal dosya: `OnCheckValidFile/OnLoadFile/OnSaveFile/...` DB'ye, diske dosya yok; `pencere` DFM'si `DesignFormResource` +
+  `SaveEvents`), IDE scripter'ı `TRadScriptEngine.CreateFor` ile sarılır (`AdoptScript`; aynı sınıflar/form zinciri/facade/
+  palet), `Deneme` menüsü (`Calistir(Olay)` deneme olayıyla; form/komut yalnız derlenir). `TRadScriptPackagesForm`
+  (cxGrid, DFM): paket/script/parametre/DB adımı/kaynak, `.radpaket` içe/dışa aktarma, IDE'de aç, Tasarla, satır içi düzenleme;
+  `TRadScriptNewScriptForm` türe göre iskelet. `TRadScriptEvent.Fill`, `TRadScriptDesigner.RegisterPaletteInto`.
+  `RadScriptTmsDesign` 6 birim, requires `TMSScripter_Memo`. Test `src/test/scratch/rad_script_ide/` IdeTest 18/18;
+  regresyonlar yeşil. Form kalıbı (`RegisterFormClass`) uygulanmadı (spec'te gerekçe).
+- `docs/specs/rad.script.ide.md` — 6. aşama spec'i (onaylandı ve uygulandı; sapma/ölçüm bölümü eklendi): paket yöneticisi formu (DevExpress, DFM),
+  TMS `TIDEDialog` gömülü IDE (paket = proje, script = sanal dosya; `OnLoadFile/OnSaveFile` ile DB), `TRadScriptEngine.CreateFor`
+  ile IDE scripter'ına aynı sınıf/facade dünyası, `olay/zaman/kutuphane/pencere` için çalıştırma + hata ayıklama, deneme olayı,
+  form script'leri için form kalıbı denemesi.
 - `src/core/rad.script.override.pas`, `src/vendor/tms/rad.script.design.pas`, `rad.script.design.bar.pas/.dfm`,
   `rad.script.design.tools.pas/.dfm`, `src/packages/RadScriptTmsDesign.dpk/.dproj/.res` — **script sistemi 5. aşama
   (RAD-15): tasarımcı.** `TRadPropSnapshot` (adlı bileşenlerin yayımlanmış özellikleri, fark, `duzen.json`, uygulama;

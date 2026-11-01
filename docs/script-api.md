@@ -620,6 +620,9 @@ Atası: TObject
 - `PackageCode: string` (salt okunur)
 - `ScriptCode: string` (salt okunur)
 
+### Metotlar
+- `Fill(AChannel: string; AJson: string; APackageCode: string; AScriptCode: string)`
+
 ## TRadScriptQuery
 Atası: TObject
 

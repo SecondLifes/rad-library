@@ -67,6 +67,8 @@ type
     class function ExtractDfmEvents(var ADfm: string): TArray<string>; static;
     /// Pencere paleti sayfası + sınıf (DFM'den okunabilmesi için Classes.RegisterClass de yapılır).
     class procedure RegisterPaletteClass(const APage: string; AClass: TComponentClass); static;
+    /// Kayıtlı paleti bir IDE motoruna yazar (IDE'nin pencere tasarımcısı da aynı listeyi görür).
+    class procedure RegisterPaletteInto(AEngine: TIDEEngine); static;
     class property Active: TRadScriptDesigner read FActive;
     /// Form kipi: fark + yerleşim akışları pakete; pencere kipi: DFM pakete. Store.SavePackage.
     procedure Save;
@@ -149,6 +151,18 @@ class procedure TRadScriptDesigner.RegisterPaletteClass(const APage: string; ACl
 begin
   FPalette.Add(TPair<string, TComponentClass>.Create(APage, AClass));
   System.Classes.RegisterClass(AClass);
+end;
+
+class procedure TRadScriptDesigner.RegisterPaletteInto(AEngine: TIDEEngine);
+var
+  P: TPair<string, TComponentClass>;
+begin
+  AEngine.BeginRegisterComponents;
+  try
+    for P in FPalette do AEngine.RegisterComponent(P.Key, P.Value);
+  finally
+    AEngine.EndRegisterComponents;
+  end;
 end;
 
 class function TRadScriptDesigner.Start(AForm: TCustomForm; const APackageCode: string): TRadScriptDesigner;
@@ -281,20 +295,13 @@ begin
 end;
 
 procedure TRadScriptDesigner.Open;
-var
-  P: TPair<string, TComponentClass>;
 begin
   FActive := Self;
   FForm.FreeNotification(Self);
   FForm.Show;
   FEngine := TIDEEngine.Create(Self);
   FEngine.PreventDefaultEventCreation := True;   // kod editörü 6. aşamada
-  if FMode = dmWindow then
-  begin
-    FEngine.BeginRegisterComponents;
-    for P in FPalette do FEngine.RegisterComponent(P.Key, P.Value);
-    FEngine.EndRegisterComponents;
-  end;
+  if FMode = dmWindow then RegisterPaletteInto(FEngine);
   FDesigner := TIDEFormDesigner.Create(FForm);
   FDesigner.FreeNotification(Self);
   FDesigner.OnKeyDown := DesignerKeyDown;

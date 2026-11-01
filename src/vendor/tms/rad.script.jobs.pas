@@ -21,6 +21,8 @@ type
     FPackageCode: string;
     FScriptCode: string;
   public
+    /// IDE deneme olayı için; KP'de Run doldurur.
+    procedure Fill(const AChannel, AJson, APackageCode, AScriptCode: string);
     property Channel: string read FChannel;
     property Json: string read FJson;
     property Time: TDateTime read FTime;
@@ -74,6 +76,17 @@ implementation
 
 const
   ROUTINE_RUN = 'Calistir';
+
+{ TRadScriptEvent }
+
+procedure TRadScriptEvent.Fill(const AChannel, AJson, APackageCode, AScriptCode: string);
+begin
+  FChannel := AChannel;
+  FJson := AJson;
+  FTime := Now;
+  FPackageCode := APackageCode;
+  FScriptCode := AScriptCode;
+end;
 
 { TRadScriptJobs }
 

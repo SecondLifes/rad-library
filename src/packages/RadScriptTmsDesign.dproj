@@ -169,6 +169,7 @@
         <DCCReference Include="RadKon.dcp"/>
         <DCCReference Include="TMSScripter.dcp"/>
         <DCCReference Include="TMSScripter_VCL.dcp"/>
+        <DCCReference Include="TMSScripter_Memo.dcp"/>
         <DCCReference Include="TMSScripter_IDE.dcp"/>
         <DCCReference Include="RadScriptTms.dcp"/>
         <DCCReference Include="..\vendor\tms\rad.script.design.pas"/>
@@ -177,6 +178,13 @@
         </DCCReference>
         <DCCReference Include="..\vendor\tms\rad.script.design.tools.pas">
             <Form>RadScriptDesignTools</Form>
+        </DCCReference>
+        <DCCReference Include="..\vendor\tms\rad.script.ide.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.script.newscript.pas">
+            <Form>RadScriptNewScriptForm</Form>
+        </DCCReference>
+        <DCCReference Include="..\vendor\tms\rad.script.packages.pas">
+            <Form>RadScriptPackagesForm</Form>
         </DCCReference>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>

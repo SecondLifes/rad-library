@@ -57,7 +57,8 @@ Log.Yaz(metin); Log.Hata(metin); Mail.Gonder(kime, konu, govde)
 ```
 
 Standart kütüphane: `IntToStr`, `FormatDateTime`, `Now`, `Pos`, `Copy`, `Trim`, `StrToIntDef`...
-(TMS `ap_SysUtils/StrUtils/DateUtils/Math/Variants`). `BoolToStr` **yok**; `if` kullan.
+(TMS `ap_SysUtils/StrUtils/DateUtils/Math/Variants`). `BoolToStr` **yok**; `if` kullan. Script rutinlerinde `const`
+parametre **yok** (`Syntax error`): `function Ek(S: string): string`.
 
 ## Yapılmaz
 
@@ -140,6 +141,14 @@ yazar; `Attach` bunları **script'ten önce** uygular (`Form_AfterCreate` üstü
 kazanır. Elle de yazılabilir: anahtar `Bileşen.Özellik[.Alt]`, kök `Form.`, değer DFM metni (`True`, `clRed`,
 `[fsBold]`, bileşen başvurusu = adı). Bulunamayan anahtar uyarı verir, kalan uygulanır. Pencere tasarımı:
 `TRadScriptDesigner.StartWindow(Paket, Kod)`.
+
+## IDE ve paket yöneticisi (ERP içinden)
+
+Sistem → Script paketleri (`TRadScriptPackagesForm`): paket/script/parametre/DB adımı/kaynak; `.radpaket` içe/dışa
+aktarma; **IDE'de aç** TMS IDE'yi paketin üstünde açar (script = dosya, kayıt DB'ye; `Deneme` menüsü: deneme olayı
+kanal/JSON + `Calistir(Olay)`; `olay/zaman/kutuphane/pencere` çalıştırılır, kesme noktası/watch IDE'nin Run'ında;
+`form/komut` yalnız derlenir — `Form`/bileşenler orada çözülmez, hata ERP formu açılınca gelir). Deneme çalıştırması
+**şirket veritabanında** çalışır (onay sorulur). **Tasarla**: pencere script'i (DFM) ya da host açıyorsa form.
 
 ## Paketleme
 

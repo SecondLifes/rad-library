@@ -9,7 +9,7 @@ interface
 
 uses
   System.SysUtils, System.Classes, System.Generics.Collections, System.Variants, System.Diagnostics, System.SyncObjs,
-  atScript, atPascal, ap_Classes, ap_System, ap_SysUtils, ap_StrUtils, ap_DateUtils, ap_Math, ap_Variants,
+  atScript, atScripter, atPascal, ap_Classes, ap_System, ap_SysUtils, ap_StrUtils, ap_DateUtils, ap_Math, ap_Variants,
   Vcl.Controls, Vcl.Forms, Vcl.ScripterInit, Vcl.ScriptForm,
   rad.script;
 
@@ -27,7 +27,8 @@ type
     class constructor Create;
     class destructor Destroy;
   private
-    FScripter: TatPascalScripter;
+    FScripter: TatCustomScripter;
+    FOwnsScripter: Boolean;
     FScripts: TList<TatScript>;
     FCodes: TDictionary<TatScript, string>;
     FByCode: TDictionary<string, TatScript>;     // küçük harf kod → script
@@ -48,6 +49,7 @@ type
     function RoutineOf(AScript: TatScript; const AName: string): TatRoutineInfo;
     procedure DefineAndHide(AClass: TClass);
     procedure HideObjectLifetime;
+    procedure Init;
     procedure RelinkAncestors;
     procedure DefineVclMethods;
     procedure ControlShowProc(AMachine: TatVirtualMachine);
@@ -61,6 +63,9 @@ type
     function TranslateRuntime(const AScript: TatScript; E: Exception): Exception;
   public
     constructor Create;
+    /// Dışarıdan verilen scripter'ı (IDE'nin TIDEScripter'ı) sarar: aynı sınıf kayıtları, facade, form zinciri;
+    /// sahiplik çağıranda, motor yıkılınca scripter kalır.
+    constructor CreateFor(AScripter: TatCustomScripter);
     destructor Destroy; override;
     /// Her motora DefineClassByRTTI ile açılan sınıflar (global, 8 sınıf ≈ 2 ms).
     class procedure RegisterClass(AClass: TClass);
@@ -69,6 +74,8 @@ type
     class procedure RegisterClassHidden(AClass: TClass; const AHiddenMembers: array of string);
     /// Script kaynağını ekler; UnitName = Code (diğer script'ler `uses` ile görür).
     procedure AddScript(AScript: TRadScript);
+    /// Scripter'da zaten var olan script'i (IDE'nin proje dosyası) bu koda bağlar; Call/HasRoutine/SetFormResource görür.
+    procedure AdoptScript(AScript: TatScript; const ACode: string);
     /// `pencere` script'inin DFM metni (TMS dosya yerine bunu kullanır: DesignFormResource). AddScript'ten sonra.
     procedure SetFormResource(const AScriptCode, ADfmText: string);
     /// Paket kaynaklarını %LOCALAPPDATA%\rad\script\<paket>\ altına yazar, SearchPath'e ekler ({$FORM} için).
@@ -93,7 +100,7 @@ type
     procedure SetDeadline(AMs: Cardinal);
     /// Kayıtlı sınıflar ve açık nesneler için Markdown API referansı (rad-script skill'i bunu kullanır).
     function ExportReference: string;
-    property Scripter: TatPascalScripter read FScripter;
+    property Scripter: TatCustomScripter read FScripter;
     /// Bağlı paketler (Param facade'ı için); binder/jobs doldurur.
     property PackageIds: TArray<Integer> read FPackageIds write FPackageIds;
     /// Msg.HataMetni ile konur; tipli kanca (OnValidate) ErrorText olarak okur ve siler.
@@ -160,11 +167,25 @@ begin
 end;
 
 constructor TRadScriptEngine.Create;
-var
-  C: TClass;
 begin
   inherited Create;
   FScripter := TatPascalScripter.Create(nil);
+  FOwnsScripter := True;
+  Init;
+end;
+
+constructor TRadScriptEngine.CreateFor(AScripter: TatCustomScripter);
+begin
+  inherited Create;
+  FScripter := AScripter;
+  FOwnsScripter := False;
+  Init;
+end;
+
+procedure TRadScriptEngine.Init;
+var
+  C: TClass;
+begin
   FScripter.AddLibrary(TatClassesLibrary);
   FScripter.OnCompileError := CompileErrorHook;
   FScripter.ScriptFormClass := TRadScriptForm;
@@ -279,7 +300,7 @@ begin
   FByCode.Free;
   FCodes.Free;
   FScripts.Free;
-  FScripter.Free;
+  if FOwnsScripter then FScripter.Free;
   inherited;
 end;
 
@@ -332,12 +353,18 @@ procedure TRadScriptEngine.AddScript(AScript: TRadScript);
 var
   S: TatScript;
 begin
-  S := FScripter.Scripts.Add;
+  if FScripter is TatScripter then S := TatScripter(FScripter).AddScript(slPascal)   // çok dilli scripter (IDE): dil şart
+  else S := FScripter.Scripts.Add;
   S.UnitName := AScript.Code;
   S.SourceCode.Text := AScript.Source;
-  FScripts.Add(S);
-  FCodes.Add(S, AScript.Code);
-  FByCode.AddOrSetValue(LowerCase(AScript.Code), S);
+  AdoptScript(S, AScript.Code);
+end;
+
+procedure TRadScriptEngine.AdoptScript(AScript: TatScript; const ACode: string);
+begin
+  if not FScripts.Contains(AScript) then FScripts.Add(AScript);
+  FCodes.AddOrSetValue(AScript, ACode);
+  FByCode.AddOrSetValue(LowerCase(ACode), AScript);
 end;
 
 procedure TRadScriptEngine.SetFormResource(const AScriptCode, ADfmText: string);

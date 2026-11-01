@@ -297,6 +297,24 @@ begin
       Q.Free;
     end;
 
+    // kutuphane listesi (3. asama Attach bunu kullanir)
+    P.AddScript('Yardimci', skLibrary, '', 'function Ek: string; begin Result := ''ek''; end;');
+    P.AddScript('PasifLib', skLibrary, '', 'function Yok: string; begin Result := ''''; end;').Active := False;
+    LStore.SavePackage(P);
+    S := LStore.LibrariesOf([P.Id, 99999]);
+    try
+      Kontrol(AAd + ' S23 LibrariesOf: yalniz aktif kutuphane', (S.Count = 1) and (S[0].Code = 'Yardimci') and (S[0].PackageId = P.Id),
+        IntToStr(S.Count));
+    finally
+      S.Free;
+    end;
+    S := LStore.LibrariesOf([]);
+    try
+      Kontrol(AAd + ' S23b LibrariesOf bos', S.Count = 0);
+    finally
+      S.Free;
+    end;
+
     // kaynak akisi
     LBayt := TBytesStream.Create;
     try

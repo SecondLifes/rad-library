@@ -15,6 +15,22 @@ type
   ERadScript = class(Exception);
   ERadScriptFormat = class(ERadScript);
 
+  /// Derleme/çalışma/zaman aşımı hatası: hangi script, hangi konum.
+  ERadScriptExec = class(ERadScript)
+  private
+    FScriptCode: string;
+    FLine: Integer;
+    FCol: Integer;
+  public
+    constructor Create(const AScriptCode: string; ALine, ACol: Integer; const AMsg: string);
+    property ScriptCode: string read FScriptCode;
+    property Line: Integer read FLine;
+    property Col: Integer read FCol;
+  end;
+  ERadScriptCompile = class(ERadScriptExec);
+  ERadScriptRuntime = class(ERadScriptExec);
+  ERadScriptTimeout = class(ERadScriptExec);
+
   /// tur kodu: form, olay, zaman, komut, kutuphane
   TRadScriptKind = (skForm, skEvent, skSchedule, skCommand, skLibrary);
 
@@ -166,6 +182,8 @@ type
     /// Uygulanmamış adımlar sırayla; hata olursa durur ve yükseltir, uygulananlar işaretli kalır.
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
+    /// Verilen paketlerin aktif `kutuphane` script'leri (paket, sıra). Boş liste → boş.
+    function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
   end;
 
   /// Saf DDL metni; bağlantı yok, birim test edilir.
@@ -227,6 +245,18 @@ resourcestring
   SErrFormat = 'Paket dosyası okunamadı: %s';
   SErrFormatVersion = 'Paket dosyası biçimi %d desteklenmiyor (en çok %d).';
   SErrFormatKind = 'Bilinmeyen script türü: "%s".';
+
+{ ERadScriptExec }
+
+constructor ERadScriptExec.Create(const AScriptCode: string; ALine, ACol: Integer; const AMsg: string);
+begin
+  FScriptCode := AScriptCode;
+  FLine := ALine;
+  FCol := ACol;
+  if AScriptCode = '' then inherited Create(AMsg)
+  else if ALine > 0 then inherited CreateFmt('%s [%s %d:%d]', [AMsg, AScriptCode, ALine, ACol])
+  else inherited CreateFmt('%s [%s]', [AMsg, AScriptCode]);
+end;
 
 { TRadScript }
 

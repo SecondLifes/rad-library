@@ -127,6 +127,20 @@ that break something else in the kit.
   `src/test/scratch/rad_script/`: `ScriptModelTest` 37/37 Win32+Win64, `ScriptLiveTest` PG/MSSQL/FB
   72/72 Win32, PG+MSSQL 48/48 Win64; `CustomFieldLiveTest` 146/146 regresyon temiz. Paket `RadKon`'a eklendi.
 - `.agents/rules/component-patterns.md` — kullanıcı kuralı: görsel tasarım DFM'de, kod yalnız veri güdümlü parçaları kurar.
+- `src/vendor/tms/rad.script.engine.pas`, `rad.script.hooks.pas`, `rad.script.jobs.pas` + `src/packages/RadScriptTms.dpk/.dproj/.res`
+  — **script sistemi 3. aşama (RAD-15):** `TRadScriptEngine` (TMS Scripter sarmalayıcısı: çoklu script + `uses`,
+  script kodlu alt program çağrısı, nesne argümanları `NativeInt`, `OnCompileError` satır/sütun, `OnExecHook`
+  zaman aşımı, global derleme kilidi), `TRadNotifyHook` (RTTI olay sarmalayıcı, `Before` `False` iptal,
+  `TRadHookChain` ile paketler arası ortak iptal), `TRadScriptBinder.Attach` (sınıf zinciri ata önce,
+  kütüphaneler, `<Bileşen>_Before/_After`, `<Bileşen>_<Olay>_Before`, `Form_AfterCreate`, var parametreli
+  olay reddi, derleme hatası formu açmayı engellemez), `TRadScriptJobs` (eventbus `olay` + worker `zaman`,
+  tetikleme başına motor, yeniden giriş yok). `rad.script`: `ERadScriptCompile/Runtime/Timeout`,
+  `IRadScriptStore.LibrariesOf`. Öğrenilen: formun kendi sınıfı TMS'ye tanıtılmaz (kalıtım kopuyor).
+  Testler `src/test/scratch/rad_script_hooks/` (`HooksTest` 34/34 Win32+Win64, `Probe`/`Probe2` sondaları);
+  `ScriptLiveTest` 78/78 Win32 (S23 `LibrariesOf`).
+- `docs/specs/rad.script.hooks.md` — 3. aşama spec'i: `TRadScriptEngine` (TMS sarmalayıcısı, sınıf kaydı, zaman aşımı),
+  `TRadNotifyHook`/`TRadScriptBinder.Attach` (kanca adı kuralları, zincir, hata akışı), `TRadScriptJobs` (KP olay/zaman),
+  15 EARS ölçütü; kod yazılmadı.
 - `docs/specs/rad.script.md` — script sisteminin 2. aşama spec'i (paket/script tabloları, `IRadScriptStore`,
   `.radpaket` dışa/içe aktarma, cron, EARS ölçütleri); onaylı kullanım kararları: İngilizce `_Before/_After`
   kancaları, `_After` hatası geri alınmaz. Kod yazılmadı.

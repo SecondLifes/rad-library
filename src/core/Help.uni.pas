@@ -312,6 +312,7 @@ type
     function ScriptsFor(AKind: TRadScriptKind; const ATarget: string): TRadScripts;
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
+    function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
   end;
 
 {$ENDREGION}
@@ -2351,6 +2352,41 @@ begin
     end;
   finally
     LSteps.Free;
+  end;
+end;
+
+function TRadUniScriptStore.LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
+var
+  LQ: TUniQuery;
+  LIds: string;
+  i: Integer;
+  S: TRadScript;
+begin
+  Result := TRadScripts.Create(True);
+  if Length(APackageIds) = 0 then Exit;
+  try
+    LIds := '';
+    for i := 0 to High(APackageIds) do   // tamsayı: IN listesi güvenli
+      LIds := LIds + IfThen(i > 0, ',', '') + IntToStr(APackageIds[i]);
+    LQ := Q(Format('select * from %s where tur = :t and aktif_mi = :a and paket_id in (%s) order by paket_id, sira, id',
+      [TRadScriptDdl.ScriptTable, LIds]));
+    try
+      LQ.ParamByName('t').AsString := TRadScript.KindCodeOf(skLibrary);
+      LQ.ParamByName('a').AsBoolean := True;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        S := TRadScript.Create;
+        Result.Add(S);
+        ReadScript(LQ, S);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+  except
+    Result.Free;
+    raise;
   end;
 end;
 

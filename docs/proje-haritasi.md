@@ -43,6 +43,7 @@ moving or re-cloning the kit.
 | `rad-prompt-studio`, `rad-repo-scaffold` | System analysis and repository setup |
 | `rad-skill-finder`, `rad-web-scraping` | Capability discovery/research |
 | `rad-code-fix` | Measured whole-file audit, approved repair, enhancement, and application of an existing findings report |
+| `rad-script` | Script sistemi için script yazma rehberi: kanca adları, facade nesneleri, KP/komut türleri, yapılmazlar; üretilen `docs/script-api.md` referansına bağlanır |
 
 ## Commands and identities
 

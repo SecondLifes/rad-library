@@ -184,6 +184,8 @@ type
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
     /// Verilen paketlerin aktif `kutuphane` script'leri (paket, sıra). Boş liste → boş.
     function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
+    /// Verilen paketlerin parametreleri (facade Param için). Sahiplik çağırana.
+    function ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
   end;
 
   /// Saf DDL metni; bağlantı yok, birim test edilir.

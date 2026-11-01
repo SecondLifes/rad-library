@@ -1,0 +1,1026 @@
+﻿# Script API referansı
+
+Üretildi: TRadScriptEngine.ExportReference. Elle düzenleme yapma.
+
+## Global nesneler
+
+- `Db`: TRadScriptDb
+- `Msg`: TRadScriptMsg
+- `Kullanici`: TRadScriptKullanici
+- `Sirket`: TRadScriptSirket
+- `Param`: TRadScriptParams
+- `Log`: TRadScriptLog
+- `Mail`: TRadScriptMail
+
+## TRadScriptEvent
+Atası: TObject
+
+### Özellikler
+- `Channel: string` (salt okunur)
+- `Json: string` (salt okunur)
+- `Time: TDateTime` (salt okunur)
+- `PackageCode: string` (salt okunur)
+- `ScriptCode: string` (salt okunur)
+
+## TRadScriptQuery
+Atası: TObject
+
+### Metotlar
+- `Param(AName: string; AValue: Variant): TRadScriptQuery`
+- `Deger(): Variant`
+- `Sayi(): Integer`
+- `Calistir()`
+- `Ac(): TDataSet`
+- `Kapat()`
+
+## TRadScriptDb
+Atası: TObject
+
+### Metotlar
+- `Sorgu(ASql: string): TRadScriptQuery`
+- `Deger(ASql: string): Variant`
+- `Sayi(ASql: string): Integer`
+- `Calistir(ASql: string)`
+- `BaslaIslem()`
+- `Onayla()`
+- `GeriAl()`
+
+## TRadScriptMsg
+Atası: TObject
+
+### Metotlar
+- `Bilgi(AText: string)`
+- `Uyari(AText: string)`
+- `Hata(AText: string)`
+- `Soru(AText: string): Boolean`
+- `HataMetni(AText: string)`
+- `SonHata(): string`
+
+## TRadScriptKullanici
+Atası: TObject
+
+### Özellikler
+- `Id: Integer` (salt okunur)
+- `Ad: string` (salt okunur)
+- `Kod: string` (salt okunur)
+
+## TRadScriptSirket
+Atası: TObject
+
+### Özellikler
+- `Kod: string` (salt okunur)
+- `Ad: string` (salt okunur)
+
+## TRadScriptParams
+Atası: TObject
+
+### Metotlar
+- `Deger(AName: string): string`
+- `DegerVarsayilan(AName: string; ADefault: string): string`
+
+## TRadScriptLog
+Atası: TObject
+
+### Metotlar
+- `Yaz(AText: string)`
+- `Hata(AText: string)`
+
+## TRadScriptMail
+Atası: TObject
+
+### Metotlar
+- `Gonder(ATo: string; ASubject: string; ABody: string)`
+
+## TDataSet
+Atası: TComponent
+
+### Özellikler
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+- `AggFields: TFields` (salt okunur)
+- `Bof: Boolean` (salt okunur)
+- `Bookmark: TArray<System.Byte>`
+- `CanModify: Boolean` (salt okunur)
+- `CanRefresh: Boolean` (salt okunur)
+- `DataSetField: TDataSetField`
+- `DataSource: TDataSource` (salt okunur)
+- `DataSourceCount: Integer` (salt okunur)
+- `Designer: TDataSetDesigner` (salt okunur)
+- `Eof: Boolean` (salt okunur)
+- `BlockReadSize: Integer`
+- `FieldCount: Integer` (salt okunur)
+- `FieldDefs: TFieldDefs`
+- `FieldDefList: TFieldDefList` (salt okunur)
+- `Fields: TFields` (salt okunur)
+- `FieldList: TFieldList` (salt okunur)
+- `Found: Boolean` (salt okunur)
+- `IsUniDirectional: Boolean` (salt okunur)
+- `Modified: Boolean` (salt okunur)
+- `ObjectView: Boolean`
+- `StoredFieldKinds: TFieldKinds` (salt okunur)
+- `RecordCount: Integer` (salt okunur)
+- `RecNo: Integer`
+- `RecordSize: Word` (salt okunur)
+- `SparseArrays: Boolean`
+- `State: TDataSetState` (salt okunur)
+- `Filter: string`
+- `Filtered: Boolean`
+- `FilterOptions: TFilterOptions`
+- `Active: Boolean`
+- `AutoCalcFields: Boolean`
+- `BeforeOpen: TDataSetNotifyEvent`
+- `AfterOpen: TDataSetNotifyEvent`
+- `BeforeClose: TDataSetNotifyEvent`
+- `AfterClose: TDataSetNotifyEvent`
+- `BeforeInsert: TDataSetNotifyEvent`
+- `AfterInsert: TDataSetNotifyEvent`
+- `BeforeEdit: TDataSetNotifyEvent`
+- `AfterEdit: TDataSetNotifyEvent`
+- `BeforePost: TDataSetNotifyEvent`
+- `AfterPost: TDataSetNotifyEvent`
+- `BeforeCancel: TDataSetNotifyEvent`
+- `AfterCancel: TDataSetNotifyEvent`
+- `BeforeDelete: TDataSetNotifyEvent`
+- `AfterDelete: TDataSetNotifyEvent`
+- `BeforeScroll: TDataSetNotifyEvent`
+- `AfterScroll: TDataSetNotifyEvent`
+- `BeforeRefresh: TDataSetNotifyEvent`
+- `AfterRefresh: TDataSetNotifyEvent`
+- `OnCalcFields: TDataSetNotifyEvent`
+- `OnDeleteError: TDataSetErrorEvent`
+- `OnEditError: TDataSetErrorEvent`
+- `OnFilterRecord: TFilterRecordEvent`
+- `OnNewRecord: TDataSetNotifyEvent`
+- `OnPostError: TDataSetErrorEvent`
+- `DataSources: ` (salt okunur)
+- `FieldValues: `
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `ActiveBuffer(): Integer`
+- `Append()`
+- `AppendRecord(Values: TVarRec)`
+- `BookmarkValid(Bookmark: TArray<System.Byte>): Boolean`
+- `Cancel()`
+- `CheckBrowseMode()`
+- `ClearFields()`
+- `Close()`
+- `ControlsDisabled(): Boolean`
+- `CompareBookmarks(Bookmark1: TArray<System.Byte>; Bookmark2: TArray<System.Byte>): Integer`
+- `CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream`
+- `CursorPosChanged()`
+- `Delete()`
+- `DisableControls()`
+- `Edit()`
+- `EnableControls()`
+- `FieldByName(FieldName: string): TField`
+- `FindField(FieldName: string): TField`
+- `FindFirst(): Boolean`
+- `FindLast(): Boolean`
+- `FindNext(): Boolean`
+- `FindPrior(): Boolean`
+- `First()`
+- `FreeBookmark(Bookmark: TArray<System.Byte>)`
+- `GetBookmark(): TArray<System.Byte>`
+- `GetClonedDataSet(WithSettings: Boolean): TDataSet`
+- `GetCurrentRecord(Buffer: PByte): Boolean`
+- `GetDetailDataSets(List: TList)`
+- `GetDetailLinkFields(MasterFields: TList; DetailFields: TList)`
+- `GetBlobFieldData(FieldNo: Integer; var Buffer: TArray<System.Byte>): Integer`
+- `GetFieldData(Field: TField; var Buffer: Pointer; NativeFormat: Boolean): Boolean`
+- `GetFieldList(List: TList; FieldNames: string)`
+- `GetFieldNames(List: TStrings)`
+- `GotoBookmark(Bookmark: TArray<System.Byte>)`
+- `Insert()`
+- `InsertRecord(Values: TVarRec)`
+- `IsEmpty(): Boolean`
+- `IsLinkedTo(DataSource: TDataSource): Boolean`
+- `IsSequenced(): Boolean`
+- `Last()`
+- `Locate(KeyFields: string; KeyValues: Variant; Options: TLocateOptions): Boolean`
+- `Lookup(KeyFields: string; KeyValues: Variant; ResultFields: string): Variant`
+- `MoveBy(Distance: Integer): Integer`
+- `Next()`
+- `Open()`
+- `Post()`
+- `Prior()`
+- `Refresh()`
+- `Resync(Mode: TResyncMode)`
+- `SetFields(Values: TVarRec)`
+- `CopyFields(Source: TDataSet): Integer`
+- `Translate(Src: PAnsiChar; Dest: PAnsiChar; ToOem: Boolean): Integer`
+- `UpdateCursorPos()`
+- `UpdateRecord()`
+- `UpdateStatus(): TUpdateStatus`
+- `DefaultFields(): Boolean`
+
+## TField
+Atası: TComponent
+
+### Özellikler
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+- `AsBCD: TBcd`
+- `AsBoolean: Boolean`
+- `AsCurrency: Currency`
+- `AsDateTime: TDateTime`
+- `AsSQLTimeStamp: TSQLTimeStamp`
+- `AsSQLTimeStampOffset: TSQLTimeStampOffset`
+- `AsSingle: Single`
+- `AsFloat: Double`
+- `AsExtended: Extended`
+- `AsInteger: Integer`
+- `AsLargeInt: Int64`
+- `AsLargeUInt: UInt64`
+- `AsLongWord: Cardinal`
+- `AsString: string`
+- `AsWideString: string`
+- `AsAnsiString: AnsiString`
+- `AsBytes: TArray<System.Byte>`
+- `AsVariant: Variant`
+- `AsGuid: TGUID`
+- `AttributeSet: string`
+- `Calculated: Boolean`
+- `CanModify: Boolean` (salt okunur)
+- `LifeCycle: TFieldLifeCycle`
+- `CurValue: Variant` (salt okunur)
+- `DataSet: TDataSet`
+- `DataSize: Integer` (salt okunur)
+- `DataType: TFieldType` (salt okunur)
+- `DisplayName: string` (salt okunur)
+- `DisplayText: string` (salt okunur)
+- `EditMask: TEditMask`
+- `EditMaskPtr: TEditMask` (salt okunur)
+- `FieldNo: Integer` (salt okunur)
+- `FullName: string` (salt okunur)
+- `IsIndexField: Boolean` (salt okunur)
+- `IsNull: Boolean` (salt okunur)
+- `Lookup: Boolean`
+- `LookupList: TLookupList` (salt okunur)
+- `NewValue: Variant`
+- `Offset: Integer` (salt okunur)
+- `OldValue: Variant` (salt okunur)
+- `ParentField: TObjectField`
+- `Size: Integer`
+- `Text: string`
+- `Validating: Boolean` (salt okunur)
+- `ValidChars: TFieldChars`
+- `Value: Variant`
+- `Alignment: TAlignment`
+- `AutoGenerateValue: TAutoRefreshFlag`
+- `CustomConstraint: string`
+- `ConstraintErrorMessage: string`
+- `DefaultExpression: string`
+- `DisplayLabel: string`
+- `DisplayWidth: Integer`
+- `FieldKind: TFieldKind`
+- `FieldName: string`
+- `HasConstraints: Boolean` (salt okunur)
+- `Index: Integer`
+- `ImportedConstraint: string`
+- `LookupDataSet: TDataSet`
+- `LookupKeyFields: string`
+- `LookupResultField: string`
+- `KeyFields: string`
+- `LookupCache: Boolean`
+- `Origin: string`
+- `ProviderFlags: TProviderFlags`
+- `ReadOnly: Boolean`
+- `Required: Boolean`
+- `Visible: Boolean`
+- `OnChange: TFieldNotifyEvent`
+- `OnGetText: TFieldGetTextEvent`
+- `OnSetText: TFieldSetTextEvent`
+- `OnValidate: TFieldNotifyEvent`
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent(): TComponent`
+- `HasParent(): Boolean`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `AssignValue(Value: TVarRec)`
+- `Clear()`
+- `FocusControl()`
+- `GetData(var Buffer: Pointer; NativeFormat: Boolean): Boolean`
+- `IsBlob(): Boolean`
+- `IsValidChar(InputChar: Char): Boolean`
+- `RefreshLookupList()`
+- `SetData(Buffer: Pointer; NativeFormat: Boolean)`
+- `SetFieldType(Value: TFieldType)`
+- `SetFieldProps(FieldDef: TFieldDef)`
+- `SetFieldDefProps(FieldDef: TFieldDef)`
+- `SetParentComponent(AParent: TComponent)`
+- `Validate(Buffer: Pointer)`
+
+## TUniQuery
+Atası: TCustomUniDataSet
+
+### Özellikler
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+- `AggFields: TFields` (salt okunur)
+- `Bof: Boolean` (salt okunur)
+- `Bookmark: TArray<System.Byte>`
+- `CanModify: Boolean` (salt okunur)
+- `CanRefresh: Boolean` (salt okunur)
+- `DataSetField: TDataSetField`
+- `DataSource: TDataSource` (salt okunur)
+- `DataSourceCount: Integer` (salt okunur)
+- `Designer: TDataSetDesigner` (salt okunur)
+- `Eof: Boolean` (salt okunur)
+- `BlockReadSize: Integer`
+- `FieldCount: Integer` (salt okunur)
+- `FieldDefs: TFieldDefs`
+- `FieldDefList: TFieldDefList` (salt okunur)
+- `Fields: TFields` (salt okunur)
+- `FieldList: TFieldList` (salt okunur)
+- `Found: Boolean` (salt okunur)
+- `IsUniDirectional: Boolean` (salt okunur)
+- `Modified: Boolean` (salt okunur)
+- `ObjectView: Boolean`
+- `StoredFieldKinds: TFieldKinds` (salt okunur)
+- `RecordCount: Integer` (salt okunur)
+- `RecNo: Integer`
+- `RecordSize: Word` (salt okunur)
+- `SparseArrays: Boolean`
+- `State: TDataSetState` (salt okunur)
+- `Filter: string`
+- `Filtered: Boolean`
+- `FilterOptions: TFilterOptions`
+- `Active: Boolean`
+- `AutoCalcFields: Boolean`
+- `BeforeOpen: TDataSetNotifyEvent`
+- `AfterOpen: TDataSetNotifyEvent`
+- `BeforeClose: TDataSetNotifyEvent`
+- `AfterClose: TDataSetNotifyEvent`
+- `BeforeInsert: TDataSetNotifyEvent`
+- `AfterInsert: TDataSetNotifyEvent`
+- `BeforeEdit: TDataSetNotifyEvent`
+- `AfterEdit: TDataSetNotifyEvent`
+- `BeforePost: TDataSetNotifyEvent`
+- `AfterPost: TDataSetNotifyEvent`
+- `BeforeCancel: TDataSetNotifyEvent`
+- `AfterCancel: TDataSetNotifyEvent`
+- `BeforeDelete: TDataSetNotifyEvent`
+- `AfterDelete: TDataSetNotifyEvent`
+- `BeforeScroll: TDataSetNotifyEvent`
+- `AfterScroll: TDataSetNotifyEvent`
+- `BeforeRefresh: TDataSetNotifyEvent`
+- `AfterRefresh: TDataSetNotifyEvent`
+- `OnCalcFields: TDataSetNotifyEvent`
+- `OnDeleteError: TDataSetErrorEvent`
+- `OnEditError: TDataSetErrorEvent`
+- `OnFilterRecord: TFilterRecordEvent`
+- `OnNewRecord: TDataSetNotifyEvent`
+- `OnPostError: TDataSetErrorEvent`
+- `DataSources: ` (salt okunur)
+- `FieldValues: `
+- `Prepared: Boolean`
+- `CachedUpdates: Boolean`
+- `UpdatesPending: Boolean` (salt okunur)
+- `LocalUpdate: Boolean`
+- `UpdateRecordTypes: TUpdateRecordTypes`
+- `RangeFieldCount: Integer`
+- `Ranged: Boolean` (salt okunur)
+- `KeyExclusive: Boolean`
+- `Cloned: Boolean` (salt okunur)
+- `LocalConstraints: Boolean`
+- `OnUpdateError: TUpdateErrorEvent`
+- `OnUpdateRecord: TUpdateRecordEvent`
+- `IndexFieldNames: string`
+- `SQLInsert: TStrings`
+- `SQLDelete: TStrings`
+- `SQLUpdate: TStrings`
+- `SQLRefresh: TStrings`
+- `SQLLock: TStrings`
+- `SQLRecCount: TStrings`
+- `AggregatesActive: Boolean`
+- `Aggregates: TAggregates`
+- `Connection: TUniConnection`
+- `ParamCheck: Boolean`
+- `SQL: TStrings`
+- `FetchRows: Integer`
+- `Debug: Boolean`
+- `Params: TUniParams`
+- `ParamCount: Word` (salt okunur)
+- `Macros: TMacros`
+- `MacroCount: Word` (salt okunur)
+- `UniDirectional: Boolean`
+- `ReadOnly: Boolean`
+- `RowsAffected: Integer` (salt okunur)
+- `ParamsProcessed: Integer` (salt okunur)
+- `IsQuery: Boolean` (salt okunur)
+- `RefreshOptions: TRefreshOptions`
+- `Options: TUniDataSetOptions`
+- `BaseSQL: string` (salt okunur)
+- `FinalSQL: string` (salt okunur)
+- `FilterSQL: string`
+- `KeyFields: string`
+- `Disconnected: Boolean`
+- `FieldOptions: TFieldOptions`
+- `MasterSource: TDataSource`
+- `MasterFields: string`
+- `DetailFields: string`
+- `DataTypeMap: TDAMapRules`
+- `Conditions: TDAConditions`
+- `BeforeExecute: TBeforeExecuteEvent`
+- `AfterExecute: TAfterExecuteEvent`
+- `BeforeUpdateExecute: TUpdateExecuteEvent`
+- `AfterUpdateExecute: TUpdateExecuteEvent`
+- `BeforeFetch: TBeforeFetchEvent`
+- `AfterFetch: TAfterFetchEvent`
+- `CheckMode: TCheckMode`
+- `Encryption: TUniEncryption`
+- `SmartFetch: TSmartFetchOptions`
+- `Transaction: TUniTransaction`
+- `UpdateTransaction: TUniTransaction`
+- `SpecificOptions: TSpecificOptionsList`
+- `UpdateObject: TUniUpdateSQL`
+- `LastInsertId: Int64` (salt okunur)
+- `Cursor: TCRCursor`
+- `DMLRefresh: Boolean`
+- `LockMode: TLockMode`
+- `UpdatingTable: string`
+- `Constraints: TCheckConstraints`
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `ActiveBuffer(): Integer`
+- `Append()`
+- `AppendRecord(Values: TVarRec)`
+- `BookmarkValid(Bookmark: TArray<System.Byte>): Boolean`
+- `Cancel()`
+- `CheckBrowseMode()`
+- `ClearFields()`
+- `Close()`
+- `ControlsDisabled(): Boolean`
+- `CompareBookmarks(Bookmark1: TArray<System.Byte>; Bookmark2: TArray<System.Byte>): Integer`
+- `CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream`
+- `CursorPosChanged()`
+- `Delete()`
+- `DisableControls()`
+- `Edit()`
+- `EnableControls()`
+- `FieldByName(FieldName: string): TField`
+- `FindField(FieldName: string): TField`
+- `FindFirst(): Boolean`
+- `FindLast(): Boolean`
+- `FindNext(): Boolean`
+- `FindPrior(): Boolean`
+- `First()`
+- `FreeBookmark(Bookmark: TArray<System.Byte>)`
+- `GetBookmark(): TArray<System.Byte>`
+- `GetClonedDataSet(WithSettings: Boolean): TDataSet`
+- `GetCurrentRecord(Buffer: PByte): Boolean`
+- `GetDetailDataSets(List: TList)`
+- `GetDetailLinkFields(MasterFields: TList<Data.DB.TField>; DetailFields: TList<Data.DB.TField>)`
+- `GetBlobFieldData(FieldNo: Integer; var Buffer: TArray<System.Byte>): Integer`
+- `GetFieldData(Field: TField; var Buffer: Pointer; NativeFormat: Boolean): Boolean`
+- `GetFieldList(List: TList; FieldNames: string)`
+- `GetFieldNames(List: TStrings)`
+- `GotoBookmark(Bookmark: TArray<System.Byte>)`
+- `Insert()`
+- `InsertRecord(Values: TVarRec)`
+- `IsEmpty(): Boolean`
+- `IsLinkedTo(DataSource: TDataSource): Boolean`
+- `IsSequenced(): Boolean`
+- `Last()`
+- `Locate(KeyFields: TField; KeyValues: Variant; Options: TLocateOptions): Boolean`
+- `Lookup(KeyFields: string; KeyValues: Variant; ResultFields: string): Variant`
+- `MoveBy(Distance: Integer): Integer`
+- `Next()`
+- `Open()`
+- `Post()`
+- `Prior()`
+- `Refresh()`
+- `Resync(Mode: TResyncMode)`
+- `SetFields(Values: TVarRec)`
+- `CopyFields(Source: TDataSet): Integer`
+- `Translate(Src: PAnsiChar; Dest: PAnsiChar; ToOem: Boolean): Integer`
+- `UpdateCursorPos()`
+- `UpdateRecord()`
+- `UpdateStatus(): TUpdateStatus`
+- `DefaultFields(): Boolean`
+- `Prepare()`
+- `UnPrepare()`
+- `CheckPrepared()`
+- `GetFieldDescNo(Field: TField): Integer`
+- `GetFieldDesc(FieldName: string; TableName: string): TFieldDesc`
+- `GetBlob(Field: TField): TBlob`
+- `CreateConstraints()`
+- `DeferredPost()`
+- `LocateEx(KeyFields: TField; KeyValues: Variant; Options: TLocateExOptions): Boolean`
+- `UpdateResult(): TUpdateAction`
+- `ApplyUpdates(UpdateRecKinds: TUpdateRecKinds)`
+- `CommitUpdates()`
+- `CancelUpdates()`
+- `RestoreUpdates()`
+- `RevertRecord()`
+- `SaveToXML(FileName: string; IndentFormat: TXmlIndentFormat)`
+- `SaveToJSON(FileName: string; Options: TJsonOptions)`
+- `SetRange(StartValues: TVarRec; EndValues: TVarRec; StartExlusive: Boolean; EndExclusive: Boolean)`
+- `ApplyRange()`
+- `CancelRange()`
+- `SetRangeStart()`
+- `SetRangeEnd()`
+- `EditRangeStart()`
+- `EditRangeEnd()`
+- `InCacheProcessing(): Boolean`
+- `CloneCursor(Source: TMemDataSet; Reset: Boolean; KeepSettings: Boolean)`
+- `Execute(Iters: Integer; Offset: Integer)`
+- `ExecSQL()`
+- `Executing(): Boolean`
+- `Fetching(): Boolean`
+- `FetchingAll(): Boolean`
+- `Fetched(): Boolean`
+- `BreakExec()`
+- `FindKey(KeyValues: TVarRec): Boolean`
+- `FindNearest(KeyValues: TVarRec)`
+- `GotoCurrent(DataSet: TCustomDADataSet)`
+- `RefreshRecord()`
+- `Lock()`
+- `UnLock()`
+- `FindParam(Value: string): TUniParam`
+- `ParamByName(Value: string): TUniParam`
+- `FindMacro(Value: string): TMacro`
+- `MacroByName(Value: string): TMacro`
+- `SaveSQL()`
+- `RestoreSQL()`
+- `SQLSaved(): Boolean`
+- `AddWhere(Condition: string)`
+- `GetWhere(): string`
+- `DeleteWhere()`
+- `SetOrderBy(Fields: string)`
+- `DeleteOrderBy()`
+- `GetOrderBy(): string`
+- `GetField(FieldDesc: TFieldDesc): TField`
+- `GetDataType(FieldName: string): Integer`
+- `GetFieldPrecision(FieldName: string): Integer`
+- `GetFieldScale(FieldName: string): Integer`
+- `GetFieldObject(FieldName: string): TSharedObject`
+- `GetKeyFieldNames(List: TStrings)`
+- `GetObject(FieldName: string): TDBObject`
+- `GetArray(FieldName: string): TDBObject`
+- `CreateProcCall(Name: string)`
+- `OpenNext(): Boolean`
+- `RefreshQuick(CheckDeleted: Boolean)`
+
+## TRadQuery
+Atası: TUniQuery
+
+### Özellikler
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+- `AggFields: TFields` (salt okunur)
+- `Bof: Boolean` (salt okunur)
+- `Bookmark: TArray<System.Byte>`
+- `CanModify: Boolean` (salt okunur)
+- `CanRefresh: Boolean` (salt okunur)
+- `DataSetField: TDataSetField`
+- `DataSource: TDataSource` (salt okunur)
+- `DataSourceCount: Integer` (salt okunur)
+- `Designer: TDataSetDesigner` (salt okunur)
+- `Eof: Boolean` (salt okunur)
+- `BlockReadSize: Integer`
+- `FieldCount: Integer` (salt okunur)
+- `FieldDefs: TFieldDefs`
+- `FieldDefList: TFieldDefList` (salt okunur)
+- `Fields: TFields` (salt okunur)
+- `FieldList: TFieldList` (salt okunur)
+- `Found: Boolean` (salt okunur)
+- `IsUniDirectional: Boolean` (salt okunur)
+- `Modified: Boolean` (salt okunur)
+- `ObjectView: Boolean`
+- `StoredFieldKinds: TFieldKinds` (salt okunur)
+- `RecordCount: Integer` (salt okunur)
+- `RecNo: Integer`
+- `RecordSize: Word` (salt okunur)
+- `SparseArrays: Boolean`
+- `State: TDataSetState` (salt okunur)
+- `Filter: string`
+- `Filtered: Boolean`
+- `FilterOptions: TFilterOptions`
+- `Active: Boolean`
+- `AutoCalcFields: Boolean`
+- `BeforeOpen: TDataSetNotifyEvent`
+- `AfterOpen: TDataSetNotifyEvent`
+- `BeforeClose: TDataSetNotifyEvent`
+- `AfterClose: TDataSetNotifyEvent`
+- `BeforeInsert: TDataSetNotifyEvent`
+- `AfterInsert: TDataSetNotifyEvent`
+- `BeforeEdit: TDataSetNotifyEvent`
+- `AfterEdit: TDataSetNotifyEvent`
+- `BeforePost: TDataSetNotifyEvent`
+- `AfterPost: TDataSetNotifyEvent`
+- `BeforeCancel: TDataSetNotifyEvent`
+- `AfterCancel: TDataSetNotifyEvent`
+- `BeforeDelete: TDataSetNotifyEvent`
+- `AfterDelete: TDataSetNotifyEvent`
+- `BeforeScroll: TDataSetNotifyEvent`
+- `AfterScroll: TDataSetNotifyEvent`
+- `BeforeRefresh: TDataSetNotifyEvent`
+- `AfterRefresh: TDataSetNotifyEvent`
+- `OnCalcFields: TDataSetNotifyEvent`
+- `OnDeleteError: TDataSetErrorEvent`
+- `OnEditError: TDataSetErrorEvent`
+- `OnFilterRecord: TFilterRecordEvent`
+- `OnNewRecord: TDataSetNotifyEvent`
+- `OnPostError: TDataSetErrorEvent`
+- `DataSources: ` (salt okunur)
+- `FieldValues: `
+- `Prepared: Boolean`
+- `CachedUpdates: Boolean`
+- `UpdatesPending: Boolean` (salt okunur)
+- `LocalUpdate: Boolean`
+- `UpdateRecordTypes: TUpdateRecordTypes`
+- `RangeFieldCount: Integer`
+- `Ranged: Boolean` (salt okunur)
+- `KeyExclusive: Boolean`
+- `Cloned: Boolean` (salt okunur)
+- `LocalConstraints: Boolean`
+- `OnUpdateError: TUpdateErrorEvent`
+- `OnUpdateRecord: TUpdateRecordEvent`
+- `IndexFieldNames: string`
+- `SQLInsert: TStrings`
+- `SQLDelete: TStrings`
+- `SQLUpdate: TStrings`
+- `SQLRefresh: TStrings`
+- `SQLLock: TStrings`
+- `SQLRecCount: TStrings`
+- `AggregatesActive: Boolean`
+- `Aggregates: TAggregates`
+- `Connection: TUniConnection`
+- `ParamCheck: Boolean`
+- `SQL: TStrings`
+- `FetchRows: Integer`
+- `Debug: Boolean`
+- `Params: TUniParams`
+- `ParamCount: Word` (salt okunur)
+- `Macros: TMacros`
+- `MacroCount: Word` (salt okunur)
+- `UniDirectional: Boolean`
+- `ReadOnly: Boolean`
+- `RowsAffected: Integer` (salt okunur)
+- `ParamsProcessed: Integer` (salt okunur)
+- `IsQuery: Boolean` (salt okunur)
+- `RefreshOptions: TRefreshOptions`
+- `Options: TUniDataSetOptions`
+- `BaseSQL: string` (salt okunur)
+- `FinalSQL: string` (salt okunur)
+- `FilterSQL: string`
+- `KeyFields: string`
+- `Disconnected: Boolean`
+- `FieldOptions: TFieldOptions`
+- `MasterSource: TDataSource`
+- `MasterFields: string`
+- `DetailFields: string`
+- `DataTypeMap: TDAMapRules`
+- `Conditions: TDAConditions`
+- `BeforeExecute: TBeforeExecuteEvent`
+- `AfterExecute: TAfterExecuteEvent`
+- `BeforeUpdateExecute: TUpdateExecuteEvent`
+- `AfterUpdateExecute: TUpdateExecuteEvent`
+- `BeforeFetch: TBeforeFetchEvent`
+- `AfterFetch: TAfterFetchEvent`
+- `CheckMode: TCheckMode`
+- `Encryption: TUniEncryption`
+- `SmartFetch: TSmartFetchOptions`
+- `Transaction: TUniTransaction`
+- `UpdateTransaction: TUniTransaction`
+- `SpecificOptions: TSpecificOptionsList`
+- `UpdateObject: TUniUpdateSQL`
+- `LastInsertId: Int64` (salt okunur)
+- `Cursor: TCRCursor`
+- `DMLRefresh: Boolean`
+- `LockMode: TLockMode`
+- `UpdatingTable: string`
+- `Constraints: TCheckConstraints`
+- `Setting: TRadQuerySetting`
+- `UnitOfWork: TRadUnitOfWork`
+- `LastEvent: TRadDSEventKind` (salt okunur)
+- `LastFilter: Variant` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `ActiveBuffer(): Integer`
+- `Append()`
+- `AppendRecord(Values: TVarRec)`
+- `BookmarkValid(Bookmark: TArray<System.Byte>): Boolean`
+- `Cancel()`
+- `CheckBrowseMode()`
+- `ClearFields()`
+- `Close()`
+- `ControlsDisabled(): Boolean`
+- `CompareBookmarks(Bookmark1: TArray<System.Byte>; Bookmark2: TArray<System.Byte>): Integer`
+- `CreateBlobStream(Field: TField; Mode: TBlobStreamMode): TStream`
+- `CursorPosChanged()`
+- `Delete()`
+- `DisableControls()`
+- `Edit()`
+- `EnableControls()`
+- `FieldByName(FieldName: string): TField`
+- `FindField(FieldName: string): TField`
+- `FindFirst(): Boolean`
+- `FindLast(): Boolean`
+- `FindNext(): Boolean`
+- `FindPrior(): Boolean`
+- `First()`
+- `FreeBookmark(Bookmark: TArray<System.Byte>)`
+- `GetBookmark(): TArray<System.Byte>`
+- `GetClonedDataSet(WithSettings: Boolean): TDataSet`
+- `GetCurrentRecord(Buffer: PByte): Boolean`
+- `GetDetailDataSets(List: TList)`
+- `GetDetailLinkFields(MasterFields: TList<Data.DB.TField>; DetailFields: TList<Data.DB.TField>)`
+- `GetBlobFieldData(FieldNo: Integer; var Buffer: TArray<System.Byte>): Integer`
+- `GetFieldData(Field: TField; var Buffer: Pointer; NativeFormat: Boolean): Boolean`
+- `GetFieldList(List: TList; FieldNames: string)`
+- `GetFieldNames(List: TStrings)`
+- `GotoBookmark(Bookmark: TArray<System.Byte>)`
+- `Insert()`
+- `InsertRecord(Values: TVarRec)`
+- `IsEmpty(): Boolean`
+- `IsLinkedTo(DataSource: TDataSource): Boolean`
+- `IsSequenced(): Boolean`
+- `Last()`
+- `Locate(KeyFields: TField; KeyValues: Variant; Options: TLocateOptions): Boolean`
+- `Lookup(KeyFields: string; KeyValues: Variant; ResultFields: string): Variant`
+- `MoveBy(Distance: Integer): Integer`
+- `Next()`
+- `Open()`
+- `Post()`
+- `Prior()`
+- `Refresh()`
+- `Resync(Mode: TResyncMode)`
+- `SetFields(Values: TVarRec)`
+- `CopyFields(Source: TDataSet): Integer`
+- `Translate(Src: PAnsiChar; Dest: PAnsiChar; ToOem: Boolean): Integer`
+- `UpdateCursorPos()`
+- `UpdateRecord()`
+- `UpdateStatus(): TUpdateStatus`
+- `DefaultFields(): Boolean`
+- `Prepare()`
+- `UnPrepare()`
+- `CheckPrepared()`
+- `GetFieldDescNo(Field: TField): Integer`
+- `GetFieldDesc(FieldName: string; TableName: string): TFieldDesc`
+- `GetBlob(Field: TField): TBlob`
+- `CreateConstraints()`
+- `DeferredPost()`
+- `LocateEx(KeyFields: TField; KeyValues: Variant; Options: TLocateExOptions): Boolean`
+- `UpdateResult(): TUpdateAction`
+- `ApplyUpdates(UpdateRecKinds: TUpdateRecKinds)`
+- `CommitUpdates()`
+- `CancelUpdates()`
+- `RestoreUpdates()`
+- `RevertRecord()`
+- `SaveToXML(FileName: string; IndentFormat: TXmlIndentFormat)`
+- `SaveToJSON(FileName: string; Options: TJsonOptions)`
+- `SetRange(StartValues: TVarRec; EndValues: TVarRec; StartExlusive: Boolean; EndExclusive: Boolean)`
+- `ApplyRange()`
+- `CancelRange()`
+- `SetRangeStart()`
+- `SetRangeEnd()`
+- `EditRangeStart()`
+- `EditRangeEnd()`
+- `InCacheProcessing(): Boolean`
+- `CloneCursor(Source: TMemDataSet; Reset: Boolean; KeepSettings: Boolean)`
+- `Execute(Iters: Integer; Offset: Integer)`
+- `ExecSQL()`
+- `Executing(): Boolean`
+- `Fetching(): Boolean`
+- `FetchingAll(): Boolean`
+- `Fetched(): Boolean`
+- `BreakExec()`
+- `FindKey(KeyValues: TVarRec): Boolean`
+- `FindNearest(KeyValues: TVarRec)`
+- `GotoCurrent(DataSet: TCustomDADataSet)`
+- `RefreshRecord()`
+- `Lock()`
+- `UnLock()`
+- `FindParam(Value: string): TUniParam`
+- `ParamByName(Value: string): TUniParam`
+- `FindMacro(Value: string): TMacro`
+- `MacroByName(Value: string): TMacro`
+- `SaveSQL()`
+- `RestoreSQL()`
+- `SQLSaved(): Boolean`
+- `AddWhere(Condition: string)`
+- `GetWhere(): string`
+- `DeleteWhere()`
+- `SetOrderBy(Fields: string)`
+- `DeleteOrderBy()`
+- `GetOrderBy(): string`
+- `GetField(FieldDesc: TFieldDesc): TField`
+- `GetDataType(FieldName: string): Integer`
+- `GetFieldPrecision(FieldName: string): Integer`
+- `GetFieldScale(FieldName: string): Integer`
+- `GetFieldObject(FieldName: string): TSharedObject`
+- `GetKeyFieldNames(List: TStrings)`
+- `GetObject(FieldName: string): TDBObject`
+- `GetArray(FieldName: string): TDBObject`
+- `CreateProcCall(Name: string)`
+- `OpenNext(): Boolean`
+- `RefreshQuick(CheckDeleted: Boolean)`
+- `_BeginWork()`
+- `_CommitWork()`
+- `_RollbackWork()`
+- `_ExecuteSQLCommands()`
+- `_AddWorkAction(AAction: TRadWorkAction)`
+- `_Transaction(): TUniTransaction`
+- `_GenID(AScopeName: string): Variant`
+- `_LastInsertId(): Int64`
+- `_DetailSets(): TList<Data.DB.TDataSet>`
+- `_DetailsOpen()`
+- `_DetailsPost()`
+- `Text(ASQL: string): TRadQuery`
+- `Param(AName: string; AValue: Variant): TRadQuery`
+- `ParamNull(AName: string; AType: TFieldType): TRadQuery`
+- `BindDoc(ADoc: TDocVariantData): TRadQuery`
+- `CachedMode(AEnabled: Boolean): TRadQuery`
+- `FiltreApply(AValue: Variant)`
+- `FiltreClear()`
+- `Each(AProc: TProc)`
+- `ToDocList(): IDocList`
+- `_ToList(ALst: TStrings; AFields: TArray<System.string>; AFormat: string)`
+- `ScalarInt(ADefault: Integer): Integer`
+- `ScalarInt64(ADefault: Int64): Int64`
+- `ScalarStr(ADefault: string): string`
+- `ScalarFloat(ADefault: Double): Double`
+- `ScalarBool(ADefault: Boolean): Boolean`
+- `ScalarVar(): Variant`
+- `OpenSelf(): TRadQuery`
+- `OpenAsync(): TRadTask`
+- `ExecAsync(): TRadTask`
+- `AsCn(): TRadConnection`
+
+## TUniConnection
+Atası: TCustomDAConnection
+
+### Özellikler
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+- `Connected: Boolean`
+- `DataSetCount: Integer` (salt okunur)
+- `AfterConnect: TNotifyEvent`
+- `BeforeConnect: TNotifyEvent`
+- `AfterDisconnect: TNotifyEvent`
+- `BeforeDisconnect: TNotifyEvent`
+- `OnLogin: TDAConnectionLoginEvent`
+- `DataSets: ` (salt okunur)
+- `InTransaction: Boolean` (salt okunur)
+- `ConnectDialog: TCustomConnectDialog`
+- `OnError: TDAConnectionErrorEvent`
+- `OnConnectionLost: TConnectionLostEvent`
+- `ConvertEOL: Boolean`
+- `Debug: Boolean`
+- `PoolingOptions: TPoolingOptions`
+- `Pooling: Boolean`
+- `DataTypeMap: TDAMapRules`
+- `TransactionCount: Integer` (salt okunur)
+- `ServerVersion: string` (salt okunur)
+- `ServerVersionFull: string` (salt okunur)
+- `ClientVersion: string` (salt okunur)
+- `SQL: TUniSQL` (salt okunur)
+- `AutoCommit: Boolean`
+- `Macros: TUniMacros`
+- `DefaultTransaction: TUniTransaction`
+- `IOHandler: TCRIOHandler`
+- `Transactions: ` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `PerformConnect(Retry: Boolean)`
+- `AssignConnect(Source: TUniConnection)`
+- `Ping()`
+- `ParamByName(Name: string): TUniParam`
+- `ExecSQL(Text: string; Params: Variant): Variant`
+- `ExecSQLEx(Text: string; Params: Variant): Variant`
+- `ExecProc(Name: string; Params: Variant): Variant`
+- `ExecProcEx(Name: string; Params: Variant): Variant`
+- `GetTableNames(List: TStrings; AllTables: Boolean; OnlyTables: Boolean)`
+- `GetDatabaseNames(List: TStrings)`
+- `GetStoredProcNames(List: TStrings; AllProcs: Boolean)`
+- `GetFieldNames(TableName: string; List: TStrings)`
+- `GetKeyFieldNames(TableName: string; List: TStrings)`
+- `StartTransaction(IsolationLevel: TCRIsolationLevel; ReadOnly: Boolean)`
+- `Commit()`
+- `Rollback()`
+- `ApplyUpdates(DataSets: TCustomDADataSet)`
+- `CreateTransaction(): TDATransaction`
+- `CreateDataSet(AOwner: TComponent): TCustomDADataSet`
+- `CreateSQL(): TCustomDASQL`
+- `CreateMetaData(): TDAMetaData`
+- `EncryptTable(TableName: string; Encryptor: TUniEncryptor; Fields: string)`
+- `Pooled(): Boolean`
+- `RemoveFromPool()`
+- `MonitorMessage(Msg: string)`
+- `MacroByName(Name: string): TUniMacro`
+- `ActiveMacroValueByName(Name: string): Variant`
+- `CommitRetaining()`
+- `RollbackRetaining()`
+- `Savepoint(Name: string)`
+- `RollbackToSavepoint(Name: string)`
+- `ReleaseSavepoint(Name: string)`
+

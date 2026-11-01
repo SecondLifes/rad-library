@@ -117,6 +117,7 @@ type
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
     function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
+    function ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
     function AddPackage(const ACode: string; AOrder: Integer): TRadScriptPackage;
   end;
 
@@ -316,6 +317,25 @@ begin
             C.PackageId := P.Id;
             Result.Add(C);
           end;
+end;
+
+function TFakeStore.ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
+var
+  P: TRadScriptPackage;
+  LId: Integer;
+  Prm, C: TRadScriptParam;
+begin
+  Result := TObjectList<TRadScriptParam>.Create(True);
+  for LId in APackageIds do
+    for P in Packages do
+      if P.Id = LId then
+        for Prm in P.Params do
+        begin
+          C := TRadScriptParam.Create;
+          C.Name := Prm.Name;
+          C.Value := Prm.Value;
+          Result.Add(C);
+        end;
 end;
 
 const

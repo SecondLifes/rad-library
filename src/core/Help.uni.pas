@@ -313,6 +313,7 @@ type
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
     function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
+    function ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
   end;
 
 {$ENDREGION}
@@ -2379,6 +2380,41 @@ begin
         S := TRadScript.Create;
         Result.Add(S);
         ReadScript(LQ, S);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+function TRadUniScriptStore.ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
+var
+  LQ: TUniQuery;
+  LIds: string;
+  i: Integer;
+  P: TRadScriptParam;
+begin
+  Result := TObjectList<TRadScriptParam>.Create(True);
+  if Length(APackageIds) = 0 then Exit;
+  try
+    LIds := '';
+    for i := 0 to High(APackageIds) do
+      LIds := LIds + IfThen(i > 0, ',', '') + IntToStr(APackageIds[i]);
+    LQ := Q(Format('select * from %s where paket_id in (%s) order by paket_id, adi', [TRadScriptDdl.ParamTable, LIds]));
+    try
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        P := TRadScriptParam.Create;
+        Result.Add(P);
+        P.Id := LQ.FieldByName('id').AsInteger;
+        P.Name := LQ.FieldByName('adi').AsString;
+        P.Value := LQ.FieldByName('deger').AsString;
+        P.Description := LQ.FieldByName('aciklama').AsString;
         LQ.Next;
       end;
     finally

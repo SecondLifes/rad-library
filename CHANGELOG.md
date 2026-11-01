@@ -153,6 +153,22 @@ that break something else in the kit.
   `IRadScriptStore.LibrariesOf`. Öğrenilen: formun kendi sınıfı TMS'ye tanıtılmaz (kalıtım kopuyor).
   Testler `src/test/scratch/rad_script_hooks/` (`HooksTest` 34/34 Win32+Win64, `Probe`/`Probe2` sondaları);
   `ScriptLiveTest` 78/78 Win32 (S23 `LibrariesOf`).
+- `src/vendor/tms/rad.script.facade.pas`, `rad.script.commands.pas`, `rad.script.typedhooks.pas`, `rad.script.dev.pas`,
+  `rad.script.uni.pas` — **script sistemi 4. aşama (RAD-15):** `TRadScriptContext` + facade nesneleri (`Db.Sorgu(...)
+  .Param(...).Deger/Ac/Calistir`, `BaslaIslem/Onayla/GeriAl` kendi bayrağıyla, `Msg` + `HataMetni`, `Kullanici`,
+  `Sirket`, `Param`, `Log`, `Mail`), `komut` türü (`TRadScriptCommands.Attach`), var parametreli olay kancaları
+  (`TCloseQueryEvent`, `TcxEditValidateEvent`; DevExpress `Properties` olayları çözülür), UniDAC/DevExpress sınıf
+  listeleri (`TUniConnection` parola/bağlantı üyeleri gizli). Motor: `AddOwned`, `PackageIds`, `LastErrorText`,
+  `RegisterClassHidden`, `ExportReference`, TMS standart kütüphaneleri; **Create/Free/Destroy her sınıftan silindi**.
+  Kanca: `TRadHookBase` tabanı + `RegisterHookClass`, `LoadInto` ortak çekirdek. `rad.script`/`Help.uni`:
+  `IRadScriptStore.ParamsOf`. Paket `RadScriptTms` 8 birim. Testler `src/test/scratch/rad_script_facade/`
+  (`FacadeTest` 24/24 Win32+Win64 PG canlı, `FacadeVclTest` 7/7 Win32); HooksTest 34/34, ScriptLiveTest 78/78.
+- `.agents/skills/rad-script/SKILL.md` — script yazma skill'i (kanca adları, facade, yapılmazlar, 5 örnek, host sözleşmesi).
+- `docs/script-api.md` — `TRadScriptEngine.ExportReference` ile üretilen API referansı (FacadeTest her koşuda yeniler).
+- `docs/specs/rad.script.facade.md` — 4. aşama spec'i: `TRadScriptContext`, facade nesneleri (`Db.Sorgu(...).Param(...).Deger`,
+  `Msg`, `Kullanici`, `Sirket`, `Param`, `Log`, `Mail`), `komut` türü (`TRadScriptCommands.Attach`), `TCloseQueryEvent`/
+  `TcxEditValidateEvent` adaptörleri, UniDAC/DevExpress sınıf listeleri (parola üyeleri gizli), üretilen API referansı ve
+  `rad-script` skill'i; 12 EARS ölçütü; kod yazılmadı.
 - `docs/specs/rad.script.hooks.md` — 3. aşama spec'i: `TRadScriptEngine` (TMS sarmalayıcısı, sınıf kaydı, zaman aşımı),
   `TRadNotifyHook`/`TRadScriptBinder.Attach` (kanca adı kuralları, zincir, hata akışı), `TRadScriptJobs` (KP olay/zaman),
   15 EARS ölçütü; kod yazılmadı.

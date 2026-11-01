@@ -1,0 +1,125 @@
+---
+name: rad-script
+description: Writing ERP behaviour scripts for the rad-library script system (TMS Scripter, Pascal syntax) — form hooks (`<Comp>_Before/_After`), control-panel event/schedule scripts, module commands, the facade objects (Db, Msg, Kullanici, Sirket, Param, Log, Mail) and the generated API reference. Use whenever a user or an AI needs to add or change ERP behaviour without recompiling, or asks how a script should be written, bound or packaged.
+---
+
+# rad-script — ERP davranışını script ile değiştirme
+
+Bu kit'in script sistemi (`src/core/rad.script.pas`, `src/vendor/tms/rad.script.*.pas`) TMS Scripter 8.1
+üstünde Pascal sözdizimiyle çalışır. Script yazan kişi programı derlemez; paketi şirket DB'sine kaydeder,
+form açılınca ya da KP tetikleyince çalışır. Bu skill **ne yazılır, nereye bağlanır, hangi adlar**
+sorularını cevaplar; tasarım gerekçeleri `docs/specs/rad.script*.md`'de.
+
+## Kaynak sırası (önce oku)
+
+1. `docs/script-api.md` — **üretilen** API referansı (global nesneler, sınıf üyeleri, imzalar). Elle
+   yazılmış kopyası yoktur; `FacadeTest` her koşuda yeniler. Bir üye orada yoksa script'ten erişilemez.
+2. `docs/specs/rad.script.hooks.md` — kanca adı kuralları ve zincir semantiği.
+3. `docs/specs/rad.script.facade.md` — facade, `komut`, tipli olaylar.
+
+## Script türleri ve bağlanma anahtarı
+
+| tur | hedef | giriş noktası |
+|---|---|---|
+| `form` | form sınıf adı (`Tkasa_k`; atalar da eşleşir, ata önce çalışır) | `<Bileşen>_Before(Sender): Boolean`, `<Bileşen>_After(Sender)`, `<Bileşen>_<Olay>_Before/_After`, `Form_AfterCreate(Sender)` |
+| `olay` | `rad.eventbus` kanal adı (`efatura.gelen`) | `procedure Calistir(Olay: TRadScriptEvent)` — `Olay.Channel`, `Olay.Json` |
+| `zaman` | Quartz maskesi `sn dk saat gün ay haftagünü` (`0 0 8 * * ?`) | `procedure Calistir(Olay: TRadScriptEvent)` |
+| `komut` | modül sınıf adı (`Tkasa_modul`) | `procedure <Kod>_Execute(Sender: TObject)` — menüye komut olur |
+| `kutuphane` | boş | aynı paketin diğer script'leri `uses <Kod>;` ile kullanır |
+
+Kurallar:
+- Bileşen **adıyla** bulunur; adsız bileşen görünmez. `Form` sözcüğü formun kendisidir.
+- `_Before` yalnız **açık `False`** dönerse olayı iptal eder; `procedure` ya da `Null` geçer. İstisna da
+  iptal sayılır ve kullanıcıya gösterilir.
+- Aynı olaya birden çok paket bağlıysa sıra `paket.sira`: `B1, B2, orijinal, A2, A1`; herhangi bir
+  `Before` `False` derse kalan `Before`'lar ve tüm `After`'lar atlanır.
+- `_After` içindeki hata gösterilir, **kayıt geri alınmaz**; transaction isteyen iş `_Before`'a yazılır.
+- Dataset olayları (`qry_BeforePost_Before`) orijinal olay işleyicisini keser, `Post`'un kendisini
+  durdurmaz; kaydı durdurmak için `Before`'da hata fırlat.
+- Var parametreli olaylar yalnız kayıtlı tipler için: `Form_OnCloseQuery_Before(Sender; CanClose): Boolean`
+  (`False` → `CanClose := False`), `edt_OnValidate_Before(Sender; DisplayValue; ErrorText): Boolean`
+  (`False` → `Error := True`, `ErrorText := Msg.HataMetni(...)` ile konan metin). DevExpress editörlerinde
+  olay `Properties` altındadır; adlandırma yine `edt_OnValidate_...`.
+
+## Facade (her script'te hazır)
+
+```pascal
+Db.Sorgu('select ad from cari where id = :id').Param('id', 5).Deger     // tek değer
+Db.Sorgu('update ... where id = :id').Param('id', 5).Calistir
+D := Db.Sorgu('select ...').Ac;  while not D.Eof do begin ... D.Next; end;   // Kapat şart değil
+Db.Sayi('select count(*) from ...'); Db.Deger('select ...'); Db.Calistir('...');
+Db.BaslaIslem; ... Db.Onayla / Db.GeriAl;      // iç içe yok
+Msg.Bilgi / Uyari / Hata(metin); if Msg.Soru('Devam?') then ...   // KP'de Soru hep False
+Param.Deger('MailAdresi'); Param.DegerVarsayilan('Esik', '10')     // paketin script_parametre'si
+Kullanici.Id / Ad / Kod; Sirket.Kod / Ad
+Log.Yaz(metin); Log.Hata(metin); Mail.Gonder(kime, konu, govde)
+```
+
+Standart kütüphane: `IntToStr`, `FormatDateTime`, `Now`, `Pos`, `Copy`, `Trim`, `StrToIntDef`...
+(TMS `ap_SysUtils/StrUtils/DateUtils/Math/Variants`). `BoolToStr` **yok**; `if` kullan.
+
+## Yapılmaz
+
+- Overload ve varsayılan parametre tanımlama/çağırma yok (RTTI kaydında kayboluyor).
+- Nesne yaratma/yıkma yok: `Create`, `Free`, `Destroy` script'e kapalı; `Db.Sorgu` nesneleri motor
+  serbest bırakır.
+- `Halt`, `Sleep`-benzeri bekleme döngüsü, sonsuz döngü yok: KP script'leri süre sınırıyla kesilir
+  (`ERadScriptTimeout`), form script'inde UI donar.
+- Formun **kendi** metotları çağrılamaz (form `TForm` olarak görünür); bileşenler adlarıyla açık.
+- Bağlantı dizesi/parola/lisans bilgisi facade'da yoktur; `TUniConnection.Password` derleme hatasıdır.
+- UI (`Msg`, bileşen değiştirme) yalnız form script'inde; KP script'i `Log`/`Mail`/`Db` kullanır.
+
+## Örnekler
+
+```pascal
+// 1. Kaydetmeden önce kontrol (form: Tkasa_k)
+function btnKaydet_Before(Sender: TObject): Boolean;
+begin
+  Result := True;
+  if qry.FieldByName('ozel_1').AsString = '' then begin
+    Msg.Uyari('Şube kodu zorunlu.');
+    Result := False;
+  end;
+end;
+
+// 2. Kayıttan sonra log
+procedure btnKaydet_After(Sender: TObject);
+begin
+  Db.Sorgu('insert into kasa_log (kasa_id, kullanici) values (:id, :k)')
+    .Param('id', qry.FieldByName('id').AsString).Param('k', Kullanici.Kod).Calistir;
+end;
+
+// 3. Form açılırken
+procedure Form_AfterCreate(Sender: TObject);
+begin
+  Form.Caption := Form.Caption + ' [script]';
+  btnKaydet.Caption := 'Kaydet*';
+end;
+
+// 4. KP: her sabah 08:00 (tur=zaman, hedef='0 0 8 * * ?')
+procedure Calistir(Olay: TRadScriptEvent);
+begin
+  if Db.Sayi('select count(*) from fatura where durum = 0') > 0 then
+    Mail.Gonder(Param.Deger('MailAdresi'), 'Onay bekleyen fatura var', '');
+end;
+
+// 5. Modül komutu (tur=komut, kod=KurGuncelle, hedef='Tkasa_modul')
+procedure KurGuncelle_Execute(Sender: TObject);
+begin
+  Log.Yaz('kur güncellendi: ' + Kullanici.Kod);
+end;
+```
+
+## Paketleme
+
+Script'ler `script_paket` altında toplanır (`kod` = `firma.kasa-kontrol` biçimi), tek dosya
+`<kod>.radpaket` (JSON) ile taşınır; `script_parametre` kurulum ayarlarıdır (içe aktarmada mevcut
+değer korunur), `script_db` paketin kendi tablolarının migrasyon adımlarıdır (bir kez koşar).
+Ayrıntı: `docs/specs/rad.script.md`.
+
+## Host tarafı (script yazarı değil, ERP geliştiricisi için)
+
+`TRadScriptBinder.Store`, `TRadScriptFacade.Bind(Context)`, `RegisterUniClasses`,
+`RegisterDevExpressClasses`, form yaratılınca `TRadScriptBinder.Attach(Form)`, modül `Register`'ında
+`TRadScriptCommands.Attach`, KP'de `TRadScriptJobs` + `TRadScriptFacade.PrepareProc`. Kodla yaratılan
+düğmelere `Name` ver; adsız düğme kancalanamaz.

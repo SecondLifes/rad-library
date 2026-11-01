@@ -2,7 +2,8 @@
 
 (* Kanca katmanı: form sınıfına bağlı script'leri yükler, `<Bileşen>_Before/_After` alt programlarını
    RTTI ile olaylara sarar (Before False → orijinal çalışmaz), form ölünce çözer.
-   Wolvox kalıbı + iptal; TMS EventBroker iptal edemediği için kendi sarmalayıcımız (sonda V3). *)
+   Wolvox kalıbı + iptal; TMS EventBroker iptal edemediği için kendi sarmalayıcımız (sonda V3).
+   Var parametreli olaylar için tipli kanca sınıfları TypeInfo ile kaydedilir (rad.script.typedhooks). *)
 
 interface
 
@@ -12,8 +13,8 @@ uses
   rad.script, rad.script.engine;
 
 type
-  TRadNotifyHook = class;
-  TRadHookErrorEvent = reference to procedure(AHook: TRadNotifyHook; E: Exception);
+  TRadHookBase = class;
+  TRadHookErrorEvent = reference to procedure(AHook: TRadHookBase; E: Exception);
 
   /// Aynı olaya sarılan kancaların ortak durumu: içteki Before iptal edince dıştakiler After'ı atlar.
   TRadHookChain = class
@@ -24,8 +25,8 @@ type
     property Cancelled: Boolean read FCancelled write FCancelled;
   end;
 
-  /// Tek nesne parametreli olayı (TNotifyEvent, TDataSetNotifyEvent...) script alt programlarıyla sarar.
-  TRadNotifyHook = class
+  /// Olay sarmalayıcı tabanı: Before/After çağrıları, zincir ve hata raporu ortak; imza alt sınıfta.
+  TRadHookBase = class abstract
   private
     FInstance: TObject;
     FPropName: string;
@@ -38,15 +39,25 @@ type
     FAttached: Boolean;
     FChain: TRadHookChain;
     FOwnChain: Boolean;
-    procedure Handler(Sender: TObject);
+  protected
     procedure Report(E: Exception);
+    /// En dış kanca zinciri sıfırlar; her Handler başında.
+    procedure BeginChain;
+    procedure EndChain;
+    /// Before'u çağırır; açık False veya istisna → iptal (zincir işaretlenir), False döner.
+    function RunBefore(const AArgs: array of const): Boolean;
+    /// Zincir iptal edilmediyse After'ı çağırır; istisna raporlanır, yayılmaz.
+    procedure RunAfter(const AArgs: array of const);
+    /// Alt sınıfın kendi imzalı Handler metodu.
+    function HandlerMethod: TMethod; virtual; abstract;
+    property Original: TMethod read FOriginal;
+    property Engine: TRadScriptEngine read FEngine;
+    property Chain: TRadHookChain read FChain;
   public
     /// AChain nil ise kanca kendi zincirini kurar (tek kanca).
     constructor Create(AInstance: TObject; const APropName: string; AEngine: TRadScriptEngine;
-      const AScriptCode, ABefore, AAfter: string; AChain: TRadHookChain);
+      const AScriptCode, ABefore, AAfter: string; AChain: TRadHookChain); virtual;
     destructor Destroy; override;
-    /// Published olay, tek parametre, sınıf türünde, var/out değil, sonuç yok.
-    class function CanHook(AInstance: TObject; const APropName: string): Boolean;
     /// Orijinal olayı geri koyar; idempotent.
     procedure Detach;
     property Instance: TObject read FInstance;
@@ -56,12 +67,24 @@ type
     property After: string read FAfter;
     property OnError: TRadHookErrorEvent read FOnError write FOnError;
   end;
+  TRadHookBaseClass = class of TRadHookBase;
+
+  /// Tek nesne parametreli olaylar (TNotifyEvent, TDataSetNotifyEvent...).
+  TRadNotifyHook = class(TRadHookBase)
+  private
+    procedure Handler(Sender: TObject);
+  protected
+    function HandlerMethod: TMethod; override;
+  public
+    /// Published olay, tek parametre, sınıf türünde, var/out değil, sonuç yok.
+    class function CanHook(AInstance: TObject; const APropName: string): Boolean;
+  end;
 
   /// Forma bağlı script motoru + kancalar; Owner form olduğundan formla birlikte yıkılır.
   TRadScriptAttachment = class(TComponent)
   private
     FEngine: TRadScriptEngine;
-    FHooks: TObjectList<TRadNotifyHook>;
+    FHooks: TObjectList<TRadHookBase>;
     FChains: TObjectList<TRadHookChain>;
     FScripts: TRadScripts;
     FLibraries: TRadScripts;
@@ -70,44 +93,59 @@ type
     destructor Destroy; override;
     procedure Detach;
     property Engine: TRadScriptEngine read FEngine;
-    property Hooks: TObjectList<TRadNotifyHook> read FHooks;
-    /// Bağlanan form script'leri, ata sınıf önce.
+    property Hooks: TObjectList<TRadHookBase> read FHooks;
+    /// Bağlanan script'ler, ata sınıf önce.
     property Scripts: TRadScripts read FScripts;
     property Libraries: TRadScripts read FLibraries;
   end;
 
   TRadScriptErrorEvent = reference to procedure(AForm: TCustomForm; E: Exception);
   TRadScriptWarningEvent = reference to procedure(const AMessage: string);
+  TRadScriptFacadeInstaller = reference to procedure(AEngine: TRadScriptEngine);
 
   TRadScriptBinder = class
   private
     class var FStore: IRadScriptStore;
     class var FOnError: TRadScriptErrorEvent;
     class var FOnWarning: TRadScriptWarningEvent;
-    class function ClassChain(AForm: TCustomForm): TArray<string>;
+    class var FOnInstallFacade: TRadScriptFacadeInstaller;
+    class var FHookClasses: TDictionary<PTypeInfo, TRadHookBaseClass>;
+    class constructor Create;
+    class destructor Destroy;
     class function PrimaryEvent(AInstance: TObject): string;
-    class function ResolveTarget(AForm: TCustomForm; const ABase: string; out AInstance: TObject;
+    class function ResolveTarget(AOwner: TComponent; const ABase: string; out AInstance: TObject;
       out AProp: string): Boolean;
-    class procedure InstallHooks(AForm: TCustomForm; AAtt: TRadScriptAttachment);
+    class function HookClassFor(AInstance: TObject; const AProp: string): TRadHookBaseClass;
     class procedure Warn(const AMsg: string);
+    class procedure ReportError(AForm: TCustomForm; E: Exception);
   public
+    /// Script yükleme + derleme + facade; kanca yok. Attach ve rad.script.commands kullanır. Script yoksa nil.
+    class function LoadInto(AOwner: TComponent; AKind: TRadScriptKind; const AChain: TArray<string>): TRadScriptAttachment;
+    /// Sınıf zinciri ata önce (TForm/TComponent'e kadar).
+    class function ClassChain(AObject: TObject): TArray<string>;
+    /// Script'teki alt program adlarından kancaları kurar.
+    class procedure InstallHooks(AOwner: TComponent; AAtt: TRadScriptAttachment);
     /// Bir kez atanır; nil ise Attach hiçbir şey yapmaz.
     class property Store: IRadScriptStore read FStore write FStore;
-    /// Derleme ve çalışma hataları; nil → Application.ShowException.
+    /// Derleme ve çalışma hataları; nil → Application.ShowException. Form olmayan sahipte AForm nil.
     class property OnError: TRadScriptErrorEvent read FOnError write FOnError;
     /// Kurulamayan kanca, bulunamayan bileşen.
     class property OnWarning: TRadScriptWarningEvent read FOnWarning write FOnWarning;
+    /// Facade kurucusu (rad.script.facade atar); Compile'dan önce çağrılır.
+    class property OnInstallFacade: TRadScriptFacadeInstaller read FOnInstallFacade write FOnInstallFacade;
+    /// Var parametreli olay tipi için kanca sınıfı (rad.script.typedhooks kaydeder).
+    class procedure RegisterHookClass(ATypeInfo: PTypeInfo; AClass: TRadHookBaseClass);
     /// Form sınıfı ve ataları için script varsa yükler, derler, kancaları kurar, Form_AfterCreate'i çağırır.
     /// Script yoksa veya derleme hatasıysa (OnError) nil.
     class function Attach(AForm: TCustomForm): TRadScriptAttachment;
-    class function AttachmentOf(AForm: TCustomForm): TRadScriptAttachment;
+    class function AttachmentOf(AOwner: TComponent): TRadScriptAttachment;
   end;
 
 implementation
 
 resourcestring
   SWarnNoComponent = '%s: "%s" adlı bileşen/olay bulunamadı; "%s" kancası kurulmadı.';
-  SWarnCannotHook = '%s: "%s.%s" olayı sarılamaz (tek nesne parametreli olmalı); "%s" kancası kurulmadı.';
+  SWarnCannotHook = '%s: "%s.%s" olayı sarılamaz (tek nesne parametreli ya da kayıtlı tip olmalı); "%s" kancası kurulmadı.';
 
 const
   SUFFIX_BEFORE = '_before';
@@ -115,12 +153,10 @@ const
   FORM_ALIAS = 'form';
   FORM_AFTER_CREATE = 'Form_AfterCreate';
 
-{ TRadNotifyHook }
+{ TRadHookBase }
 
-constructor TRadNotifyHook.Create(AInstance: TObject; const APropName: string; AEngine: TRadScriptEngine;
+constructor TRadHookBase.Create(AInstance: TObject; const APropName: string; AEngine: TRadScriptEngine;
   const AScriptCode, ABefore, AAfter: string; AChain: TRadHookChain);
-var
-  M: TMethod;
 begin
   inherited Create;
   FChain := AChain;
@@ -133,17 +169,77 @@ begin
   FBefore := ABefore;
   FAfter := AAfter;
   FOriginal := GetMethodProp(AInstance, APropName);
-  M.Code := @TRadNotifyHook.Handler;
-  M.Data := Self;
-  SetMethodProp(AInstance, APropName, M);
+  SetMethodProp(AInstance, APropName, HandlerMethod);
   FAttached := True;
 end;
 
-destructor TRadNotifyHook.Destroy;
+destructor TRadHookBase.Destroy;
 begin
   Detach;
   if FOwnChain then FChain.Free;
   inherited;
+end;
+
+procedure TRadHookBase.Detach;
+begin
+  if not FAttached then Exit;
+  FAttached := False;
+  SetMethodProp(FInstance, FPropName, FOriginal);
+end;
+
+procedure TRadHookBase.Report(E: Exception);
+begin
+  if Assigned(FOnError) then FOnError(Self, E)
+  else raise E;
+end;
+
+procedure TRadHookBase.BeginChain;
+begin
+  if FChain.FDepth = 0 then FChain.FCancelled := False;   // en dış kanca zinciri sıfırlar
+  Inc(FChain.FDepth);
+end;
+
+procedure TRadHookBase.EndChain;
+begin
+  Dec(FChain.FDepth);
+end;
+
+function TRadHookBase.RunBefore(const AArgs: array of const): Boolean;
+var
+  V: Variant;
+begin
+  Result := True;
+  if FBefore = '' then Exit;
+  try
+    V := FEngine.Call(FScriptCode, FBefore, AArgs);
+    // Yalnız açık False iptal eder; procedure (Empty) ve Null geçer.
+    Result := not (VarIsType(V, varBoolean) and not Boolean(V));
+  except
+    on E: Exception do
+    begin
+      Result := False;   // emniyetli taraf: hata = iptal
+      Report(E);
+    end;
+  end;
+  if not Result then FChain.FCancelled := True;
+end;
+
+procedure TRadHookBase.RunAfter(const AArgs: array of const);
+begin
+  if FChain.FCancelled or (FAfter = '') then Exit;   // içteki Before iptal etti: After yok
+  try
+    FEngine.Call(FScriptCode, FAfter, AArgs);
+  except
+    on E: Exception do Report(E);   // kayıt yapıldı, geri alınmaz (kullanıcı kararı)
+  end;
+end;
+
+{ TRadNotifyHook }
+
+function TRadNotifyHook.HandlerMethod: TMethod;
+begin
+  Result.Code := @TRadNotifyHook.Handler;
+  Result.Data := Self;
 end;
 
 class function TRadNotifyHook.CanHook(AInstance: TObject; const APropName: string): Boolean;
@@ -164,56 +260,16 @@ begin
     (LParams[0].ParamType.TypeKind = tkClass) and (LParams[0].Flags * [pfVar, pfOut] = []);
 end;
 
-procedure TRadNotifyHook.Detach;
-begin
-  if not FAttached then Exit;
-  FAttached := False;
-  SetMethodProp(FInstance, FPropName, FOriginal);
-end;
-
-procedure TRadNotifyHook.Report(E: Exception);
-begin
-  if Assigned(FOnError) then FOnError(Self, E)
-  else raise E;
-end;
-
 procedure TRadNotifyHook.Handler(Sender: TObject);
-var
-  LGo: Boolean;
-  V: Variant;
 begin
-  if FChain.FDepth = 0 then FChain.FCancelled := False;   // en dış kanca zinciri sıfırlar
-  Inc(FChain.FDepth);
+  BeginChain;
   try
-    LGo := True;
-    if FBefore <> '' then
-      try
-        V := FEngine.Call(FScriptCode, FBefore, [Sender]);
-        // Yalnız açık False iptal eder; procedure (Empty) ve Null geçer.
-        LGo := not (VarIsType(V, varBoolean) and not Boolean(V));
-      except
-        on E: Exception do
-        begin
-          LGo := False;   // emniyetli taraf: hata = iptal
-          Report(E);
-        end;
-      end;
-    if not LGo then
-    begin
-      FChain.FCancelled := True;
-      Exit;
-    end;
-    if Assigned(FOriginal.Code) then
-      TNotifyEvent(FOriginal)(Sender);   // içteki kanca ya da gerçek olay
-    if FChain.FCancelled then Exit;      // içteki Before iptal etti: After yok
-    if FAfter <> '' then
-      try
-        FEngine.Call(FScriptCode, FAfter, [Sender]);
-      except
-        on E: Exception do Report(E);   // kayıt yapıldı, geri alınmaz (kullanıcı kararı)
-      end;
+    if not RunBefore([Sender]) then Exit;
+    if Assigned(Original.Code) then
+      TNotifyEvent(Original)(Sender);   // içteki kanca ya da gerçek olay
+    RunAfter([Sender]);
   finally
-    Dec(FChain.FDepth);
+    EndChain;
   end;
 end;
 
@@ -223,7 +279,7 @@ constructor TRadScriptAttachment.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FEngine := TRadScriptEngine.Create;
-  FHooks := TObjectList<TRadNotifyHook>.Create(True);
+  FHooks := TObjectList<TRadHookBase>.Create(True);
   FChains := TObjectList<TRadHookChain>.Create(True);
   FScripts := TRadScripts.Create(True);
   FLibraries := TRadScripts.Create(True);
@@ -250,20 +306,41 @@ end;
 
 { TRadScriptBinder }
 
+class constructor TRadScriptBinder.Create;
+begin
+  FHookClasses := TDictionary<PTypeInfo, TRadHookBaseClass>.Create;
+end;
+
+class destructor TRadScriptBinder.Destroy;
+begin
+  FHookClasses.Free;
+end;
+
+class procedure TRadScriptBinder.RegisterHookClass(ATypeInfo: PTypeInfo; AClass: TRadHookBaseClass);
+begin
+  FHookClasses.AddOrSetValue(ATypeInfo, AClass);
+end;
+
 class procedure TRadScriptBinder.Warn(const AMsg: string);
 begin
   if Assigned(FOnWarning) then FOnWarning(AMsg);
 end;
 
-class function TRadScriptBinder.ClassChain(AForm: TCustomForm): TArray<string>;
+class procedure TRadScriptBinder.ReportError(AForm: TCustomForm; E: Exception);
+begin
+  if Assigned(FOnError) then FOnError(AForm, E)
+  else Application.ShowException(E);
+end;
+
+class function TRadScriptBinder.ClassChain(AObject: TObject): TArray<string>;
 var
   C: TClass;
   L: TList<string>;
 begin
   L := TList<string>.Create;
   try
-    C := AForm.ClassType;
-    while (C <> nil) and (C <> TCustomForm) and (C <> TForm) do
+    C := AObject.ClassType;
+    while (C <> nil) and (C <> TCustomForm) and (C <> TForm) and (C <> TComponent) and (C <> TDataModule) do
     begin
       L.Insert(0, C.ClassName);   // ata önce
       C := C.ClassParent;
@@ -274,13 +351,13 @@ begin
   end;
 end;
 
-class function TRadScriptBinder.AttachmentOf(AForm: TCustomForm): TRadScriptAttachment;
+class function TRadScriptBinder.AttachmentOf(AOwner: TComponent): TRadScriptAttachment;
 var
   i: Integer;
 begin
-  for i := 0 to AForm.ComponentCount - 1 do
-    if AForm.Components[i] is TRadScriptAttachment then
-      Exit(TRadScriptAttachment(AForm.Components[i]));
+  for i := 0 to AOwner.ComponentCount - 1 do
+    if AOwner.Components[i] is TRadScriptAttachment then
+      Exit(TRadScriptAttachment(AOwner.Components[i]));
   Result := nil;
 end;
 
@@ -291,7 +368,7 @@ begin
   else Result := '';
 end;
 
-class function TRadScriptBinder.ResolveTarget(AForm: TCustomForm; const ABase: string; out AInstance: TObject;
+class function TRadScriptBinder.ResolveTarget(AOwner: TComponent; const ABase: string; out AInstance: TObject;
   out AProp: string): Boolean;
 var
   P: Integer;
@@ -299,7 +376,7 @@ var
   LComp: TComponent;
 begin
   // 1) "<Bileşen>" → ana olay
-  if SameText(ABase, FORM_ALIAS) then LComp := AForm else LComp := AForm.FindComponent(ABase);
+  if SameText(ABase, FORM_ALIAS) then LComp := AOwner else LComp := AOwner.FindComponent(ABase);
   if LComp <> nil then
   begin
     AInstance := LComp;
@@ -311,11 +388,29 @@ begin
   if P <= 0 then Exit(False);
   LCompName := ABase.Substring(0, P);
   LEvent := ABase.Substring(P + 1);
-  if SameText(LCompName, FORM_ALIAS) then LComp := AForm else LComp := AForm.FindComponent(LCompName);
-  if (LComp = nil) or not IsPublishedProp(LComp, LEvent) then Exit(False);
+  if SameText(LCompName, FORM_ALIAS) then LComp := AOwner else LComp := AOwner.FindComponent(LCompName);
+  if LComp = nil then Exit(False);
   AInstance := LComp;
   AProp := LEvent;
-  Result := True;
+  if IsPublishedProp(LComp, LEvent) then Exit(True);
+  // DevExpress editörleri olayları Properties alt nesnesinde tutar (edt.Properties.OnValidate).
+  if IsPublishedProp(LComp, 'Properties') then
+  begin
+    AInstance := GetObjectProp(LComp, 'Properties');
+    if (AInstance <> nil) and IsPublishedProp(AInstance, LEvent) then Exit(True);
+  end;
+  Result := False;
+end;
+
+class function TRadScriptBinder.HookClassFor(AInstance: TObject; const AProp: string): TRadHookBaseClass;
+var
+  LInfo: PPropInfo;
+begin
+  if TRadNotifyHook.CanHook(AInstance, AProp) then Exit(TRadNotifyHook);
+  LInfo := GetPropInfo(AInstance, AProp);
+  if (LInfo = nil) or (LInfo^.PropType^.Kind <> tkMethod) or
+     not FHookClasses.TryGetValue(LInfo^.PropType^, Result) then
+    Result := nil;
 end;
 
 type
@@ -324,9 +419,10 @@ type
     Prop: string;
     ScriptCode: string;
     Before, After: string;
+    HookClass: TRadHookBaseClass;
   end;
 
-class procedure TRadScriptBinder.InstallHooks(AForm: TCustomForm; AAtt: TRadScriptAttachment);
+class procedure TRadScriptBinder.InstallHooks(AOwner: TComponent; AAtt: TRadScriptAttachment);
 var
   LPending: TList<TPendingHook>;
   LByScript: TObjectList<TList<TPendingHook>>;
@@ -336,12 +432,15 @@ var
   LInst: TObject;
   i, j, k: Integer;
   H: TPendingHook;
-  LHook: TRadNotifyHook;
+  LHook: TRadHookBase;
   LChain: TRadHookChain;
-  LFormName: string;
+  LOwnerName: string;
   LScript: TRadScript;
+  LClass: TRadHookBaseClass;
+  LForm: TCustomForm;
 begin
-  LFormName := AForm.ClassName;
+  LOwnerName := AOwner.ClassName;
+  if AOwner is TCustomForm then LForm := TCustomForm(AOwner) else LForm := nil;
   LByScript := TObjectList<TList<TPendingHook>>.Create(True);
   try
    for LScript in AAtt.Scripts do
@@ -357,14 +456,15 @@ begin
       if not LIsBefore and not LLower.EndsWith(SUFFIX_AFTER) then Continue;
       if LIsBefore then LBase := LName.Substring(0, Length(LName) - Length(SUFFIX_BEFORE))
       else LBase := LName.Substring(0, Length(LName) - Length(SUFFIX_AFTER));
-      if not ResolveTarget(AForm, LBase, LInst, LProp) then
+      if not ResolveTarget(AOwner, LBase, LInst, LProp) then
       begin
-        Warn(Format(SWarnNoComponent, [LFormName, LBase, LName]));
+        Warn(Format(SWarnNoComponent, [LOwnerName, LBase, LName]));
         Continue;
       end;
-      if not TRadNotifyHook.CanHook(LInst, LProp) then
+      LClass := HookClassFor(LInst, LProp);
+      if LClass = nil then
       begin
-        Warn(Format(SWarnCannotHook, [LFormName, TComponent(LInst).Name, LProp, LName]));
+        Warn(Format(SWarnCannotHook, [LOwnerName, LBase, LProp, LName]));
         Continue;
       end;
       k := -1;
@@ -379,6 +479,7 @@ begin
         H.Instance := LInst;
         H.Prop := LProp;
         H.ScriptCode := LScript.Code;
+        H.HookClass := LClass;
         H.Before := '';
         H.After := '';
         LPending.Add(H);
@@ -407,11 +508,10 @@ begin
           LChain := TRadHookChain.Create;
           AAtt.FChains.Add(LChain);
         end;
-        LHook := TRadNotifyHook.Create(H.Instance, H.Prop, AAtt.Engine, H.ScriptCode, H.Before, H.After, LChain);
-        LHook.OnError := procedure(AHook: TRadNotifyHook; E: Exception)
+        LHook := H.HookClass.Create(H.Instance, H.Prop, AAtt.Engine, H.ScriptCode, H.Before, H.After, LChain);
+        LHook.OnError := procedure(AHook: TRadHookBase; E: Exception)
           begin
-            if Assigned(FOnError) then FOnError(AForm, E)
-            else Application.ShowException(E);
+            ReportError(LForm, E);
           end;
         AAtt.Hooks.Add(LHook);
       end;
@@ -420,26 +520,26 @@ begin
   end;
 end;
 
-class function TRadScriptBinder.Attach(AForm: TCustomForm): TRadScriptAttachment;
+class function TRadScriptBinder.LoadInto(AOwner: TComponent; AKind: TRadScriptKind;
+  const AChain: TArray<string>): TRadScriptAttachment;
 var
-  LChain: TArray<string>;
   LClass: string;
-  LScripts: TRadScripts;
+  LScripts, LLibs: TRadScripts;
   S, LCopy: TRadScript;
   LPkgIds: TList<Integer>;
-  LLibs: TRadScripts;
   i: Integer;
+  LForm: TCustomForm;
 begin
   Result := nil;
-  if (FStore = nil) or (AForm = nil) then Exit;
-  Result := TRadScriptAttachment.Create(AForm);
+  if (FStore = nil) or (AOwner = nil) then Exit;
+  if AOwner is TCustomForm then LForm := TCustomForm(AOwner) else LForm := nil;
+  Result := TRadScriptAttachment.Create(AOwner);
   try
-    LChain := ClassChain(AForm);
     LPkgIds := TList<Integer>.Create;
     try
-      for LClass in LChain do
+      for LClass in AChain do
       begin
-        LScripts := FStore.ScriptsFor(skForm, LClass);
+        LScripts := FStore.ScriptsFor(AKind, LClass);
         try
           for S in LScripts do
           begin
@@ -468,43 +568,50 @@ begin
       finally
         LLibs.Free;
       end;
+      Result.Engine.PackageIds := LPkgIds.ToArray;
     finally
       LPkgIds.Free;
     end;
     for S in Result.Libraries do Result.Engine.AddScript(S);
     for S in Result.Scripts do Result.Engine.AddScript(S);
-    // Formun kendi sınıfı TMS'ye TANITILMAZ: DefineClassByRTTI(TKasaK) yapılınca 'Form.Caption' bile görünmez
-    // (Probe P1/P1d; Ancestor ataması da işe yaramadı). Tanıtılmayınca TMS en yakın kayıtlı ata (TForm) ile bağlar
-    // (P1c). Bedeli: formun kendi public metotları script'ten çağrılamaz; bileşenler adlarıyla açık.
-    Result.Engine.Expose('Form', AForm);
-    for i := 0 to AForm.ComponentCount - 1 do
-      if (AForm.Components[i].Name <> '') and not (AForm.Components[i] is TRadScriptAttachment) then
-        Result.Engine.ExposeComponent(AForm.Components[i]);
+    // Sahibin kendi sınıfı TMS'ye TANITILMAZ: DefineClassByRTTI(TKasaK) yapılınca 'Form.Caption' bile görünmez
+    // (Probe P1/P1d). Tanıtılmayınca TMS en yakın kayıtlı ata (TForm) ile bağlar (P1c).
+    if LForm <> nil then Result.Engine.Expose('Form', LForm)
+    else Result.Engine.Expose('Modul', AOwner);
+    for i := 0 to AOwner.ComponentCount - 1 do
+      if (AOwner.Components[i].Name <> '') and not (AOwner.Components[i] is TRadScriptAttachment) then
+        Result.Engine.ExposeComponent(AOwner.Components[i]);
+    if Assigned(FOnInstallFacade) then FOnInstallFacade(Result.Engine);
     try
       Result.Engine.Compile;
     except
       on E: Exception do
       begin
         FreeAndNil(Result);
-        if Assigned(FOnError) then FOnError(AForm, E)
-        else Application.ShowException(E);
+        ReportError(LForm, E);
         Exit;
       end;
     end;
-    InstallHooks(AForm, Result);
-    for S in Result.Scripts do
-      if Result.Engine.HasRoutine(S.Code, FORM_AFTER_CREATE) then
-        try
-          Result.Engine.Call(S.Code, FORM_AFTER_CREATE, [AForm]);
-        except
-          on E: Exception do
-            if Assigned(FOnError) then FOnError(AForm, E)
-            else Application.ShowException(E);
-        end;
   except
     FreeAndNil(Result);
     raise;
   end;
+end;
+
+class function TRadScriptBinder.Attach(AForm: TCustomForm): TRadScriptAttachment;
+var
+  S: TRadScript;
+begin
+  Result := LoadInto(AForm, skForm, ClassChain(AForm));
+  if Result = nil then Exit;
+  InstallHooks(AForm, Result);
+  for S in Result.Scripts do
+    if Result.Engine.HasRoutine(S.Code, FORM_AFTER_CREATE) then
+      try
+        Result.Engine.Call(S.Code, FORM_AFTER_CREATE, [AForm]);
+      except
+        on E: Exception do ReportError(AForm, E);
+      end;
 end;
 
 end.

@@ -32,12 +32,22 @@ requires
   rtl,
   vcl,
   dbrtl,
+  dxCoreRS37,
+  cxLibraryRS37,
+  cxGridRS37,
+  dac370,
+  unidac370,
   RadKon,
   TMSScripter;
 
 contains
   rad.script.engine in '..\vendor\tms\rad.script.engine.pas',
   rad.script.hooks in '..\vendor\tms\rad.script.hooks.pas',
-  rad.script.jobs in '..\vendor\tms\rad.script.jobs.pas';
+  rad.script.jobs in '..\vendor\tms\rad.script.jobs.pas',
+  rad.script.facade in '..\vendor\tms\rad.script.facade.pas',
+  rad.script.commands in '..\vendor\tms\rad.script.commands.pas',
+  rad.script.typedhooks in '..\vendor\tms\rad.script.typedhooks.pas',
+  rad.script.dev in '..\vendor\tms\rad.script.dev.pas',
+  rad.script.uni in '..\vendor\tms\rad.script.uni.pas';
 
 end.

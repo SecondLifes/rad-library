@@ -145,6 +145,7 @@ begin
       for L in APkg.Scripts do
         if L.Active and (L.Kind = skLibrary) then LEngine.AddScript(L);
       LEngine.AddScript(AScript);
+      LEngine.PackageIds := [APkg.Id];
       LEngine.Expose('Olay', LEvent);
       if Assigned(FOnPrepare) then FOnPrepare(LEngine);
       try

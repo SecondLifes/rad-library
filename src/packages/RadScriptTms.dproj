@@ -161,11 +161,21 @@
         <DCCReference Include="rtl.dcp"/>
         <DCCReference Include="vcl.dcp"/>
         <DCCReference Include="dbrtl.dcp"/>
+        <DCCReference Include="dxCoreRS37.dcp"/>
+        <DCCReference Include="cxLibraryRS37.dcp"/>
+        <DCCReference Include="cxGridRS37.dcp"/>
+        <DCCReference Include="dac370.dcp"/>
+        <DCCReference Include="unidac370.dcp"/>
         <DCCReference Include="RadKon.dcp"/>
         <DCCReference Include="TMSScripter.dcp"/>
         <DCCReference Include="..\vendor\tms\rad.script.engine.pas"/>
         <DCCReference Include="..\vendor\tms\rad.script.hooks.pas"/>
         <DCCReference Include="..\vendor\tms\rad.script.jobs.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.script.facade.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.script.commands.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.script.typedhooks.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.script.dev.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.script.uni.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

@@ -26,6 +26,8 @@ that break something else in the kit.
 
 ### Added
 
+- `rad.searchexpr`: operatör (`>`, `>=`, `=`, `<>` ...), joker (`*`, `?`) ve `..` çevresindeki boşluklar yok sayılır (`> 1`, `0 555 *`, `10 .. 20`); tırnak içi korunur.
+- `src/core/rad.searchexpr.pas` — liste "genel arama" kutusunun ifade çözümleyicisi (veritabanından bağımsız): `RadSearchParse` metni terimlere ayırır (boşlukla ayrı terimler, `"tırnak"`, `=`, `>`, `>=`, `<`, `<=`, `<>`/`!=`, aralık `a..b`/`a..`/`..b`), `RadSearchValue` terimi alan türüne göre çevirir (tamsayı yalnız rakam, ondalık `1.234,56`/`1,234.56`/`12.5` ama `12e3` değil, tarih yerel ya da `yyyy-mm-dd`, evet/hayır), `RadSearchApply` koşulu `IRadSqlFilter`'a yazar (metin: içerir, `=` tam eşit; sayı/tarih: karşılaştırma; tarihte `rad.sqlfilter` WholeDay anlamı). Joker: `*` (her şey), `?` (tek karakter), `\*` `\?` `\` düz karakter; `kasa*` başlar, `*5595` biter, `a*b` ortada (PostgreSQL `ILIKE ... ESCAPE '!'`, `%`/`_` kaçırılır). `skDigits` rakam alanı türü (telefon): terimin rakam dışı karakterleri atılır, alan ifadesini geliştirici verir. Test: `src/test/scratch/rad_sqlfilter/SearchExprTest.dpr` (59/59; `build_and_run.bat Win32 SearchExprTest`).
 - **`rad.rtl`: `IRadGlobalKey`, `TRadDataSetPost`, `TRadDataSetCancel`, `RadGlobalKeyOf`.**
   Genel (form bağımsız) kısayol anahtarı artık `TRadAction`'a özel değil, arayüz: `TRadActionList`
   (`LoadFromJson/ToJson`) ve `Kisayol.Edit` `RadGlobalKeyOf(act)` ile her eylem türünden okur.

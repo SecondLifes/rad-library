@@ -127,6 +127,7 @@ var
   LEngine: TRadScriptEngine;
   LEvent: TRadScriptEvent;
   L: TRadScript;
+  LRes: TRadScriptResource;
 begin
   if not TryBegin(AScript) then
   begin
@@ -143,7 +144,15 @@ begin
       LEvent.FScriptCode := AScript.Code;
       LEvent.FPackageCode := APkg.Code;
       for L in APkg.Scripts do
-        if L.Active and (L.Kind = skLibrary) then LEngine.AddScript(L);
+        if L.Active and (L.Kind in [skLibrary, skWindow]) then
+        begin
+          LEngine.AddScript(L);
+          if L.Kind = skWindow then
+          begin
+            LRes := APkg.ResourceByName(L.DfmFileName);
+            if LRes <> nil then LEngine.SetFormResource(L.Code, TEncoding.UTF8.GetString(LRes.Content));
+          end;
+        end;
       LEngine.AddScript(AScript);
       LEngine.PackageIds := [APkg.Id];
       LEngine.Expose('Olay', LEvent);

@@ -12,6 +12,604 @@
 - `Log`: TRadScriptLog
 - `Mail`: TRadScriptMail
 
+## TComponent
+Atası: TPersistent
+
+### Özellikler
+- `Name: TComponentName`
+- `Tag: Integer`
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+
+## TControl
+Atası: TComponent
+
+### Özellikler
+- `AlignWithMargins: Boolean`
+- `Cursor: TCursor`
+- `CustomHint: TCustomHint`
+- `Height: Integer`
+- `HelpContext: THelpContext`
+- `HelpKeyword: string`
+- `HelpType: THelpType`
+- `Hint: string`
+- `Left: Integer`
+- `Margins: TMargins`
+- `Name: TComponentName`
+- `ParentCustomHint: Boolean`
+- `Tag: Integer`
+- `Top: Integer`
+- `Width: Integer`
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `Show()`
+- `Hide()`
+- `BringToFront()`
+- `Refresh()`
+
+## TWinControl
+Atası: TControl
+
+### Özellikler
+- `AlignWithMargins: Boolean`
+- `Cursor: TCursor`
+- `CustomHint: TCustomHint`
+- `Height: Integer`
+- `HelpContext: THelpContext`
+- `HelpKeyword: string`
+- `HelpType: THelpType`
+- `Hint: string`
+- `Left: Integer`
+- `Margins: TMargins`
+- `Name: TComponentName`
+- `ParentCustomHint: Boolean`
+- `Tag: Integer`
+- `Top: Integer`
+- `Width: Integer`
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `Show()`
+- `Hide()`
+- `BringToFront()`
+- `Refresh()`
+- `SetFocus()`
+
+## TScrollingWinControl
+Atası: TWinControl
+
+### Özellikler
+- `AlignWithMargins: Boolean`
+- `Cursor: TCursor`
+- `CustomHint: TCustomHint`
+- `Height: Integer`
+- `HelpContext: THelpContext`
+- `HelpKeyword: string`
+- `HelpType: THelpType`
+- `Hint: string`
+- `HorzScrollBar: TControlScrollBar`
+- `Left: Integer`
+- `Margins: TMargins`
+- `Name: TComponentName`
+- `OnAlignInsertBefore: TAlignInsertBeforeEvent`
+- `OnAlignPosition: TAlignPositionEvent`
+- `ParentCustomHint: Boolean`
+- `Tag: Integer`
+- `Top: Integer`
+- `VertScrollBar: TControlScrollBar`
+- `Width: Integer`
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `Show()`
+- `Hide()`
+- `BringToFront()`
+- `Refresh()`
+- `SetFocus()`
+
+## TCustomForm
+Atası: TScrollingWinControl
+
+### Özellikler
+- `AlignWithMargins: Boolean`
+- `Cursor: TCursor`
+- `CustomHint: TCustomHint`
+- `Height: Integer`
+- `HelpContext: THelpContext`
+- `HelpKeyword: string`
+- `HelpType: THelpType`
+- `Hint: string`
+- `HorzScrollBar: TControlScrollBar`
+- `Left: Integer`
+- `Margins: TMargins`
+- `Name: TComponentName`
+- `OnAlignInsertBefore: TAlignInsertBeforeEvent`
+- `OnAlignPosition: TAlignPositionEvent`
+- `ParentCustomHint: Boolean`
+- `Tag: Integer`
+- `Top: Integer`
+- `VertScrollBar: TControlScrollBar`
+- `Width: Integer`
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `Show()`
+- `Hide()`
+- `BringToFront()`
+- `Refresh()`
+- `SetFocus()`
+- `Close()`
+- `Release()`
+- `ShowModal(): Integer`
+
+## TForm
+Atası: TCustomForm
+
+### Özellikler
+- `Action: TBasicAction`
+- `ActiveControl: TWinControl`
+- `Align: TAlign`
+- `AlignWithMargins: Boolean`
+- `AlphaBlend: Boolean`
+- `AlphaBlendValue: Byte`
+- `Anchors: TAnchors`
+- `AutoScroll: Boolean`
+- `AutoSize: Boolean`
+- `BiDiMode: TBiDiMode`
+- `BorderIcons: TBorderIcons`
+- `BorderStyle: TFormBorderStyle`
+- `BorderWidth: TBorderWidth`
+- `Caption: TCaption`
+- `ClientHeight: Integer`
+- `ClientWidth: Integer`
+- `Color: TColor`
+- `Constraints: TSizeConstraints`
+- `Ctl3D: Boolean`
+- `Cursor: TCursor`
+- `CustomHint: TCustomHint`
+- `CustomTitleBar: TTitleBar`
+- `DefaultMonitor: TDefaultMonitor`
+- `DockSite: Boolean`
+- `DoubleBuffered: Boolean`
+- `DoubleBufferedMode: TDoubleBufferedMode`
+- `DragKind: TDragKind`
+- `DragMode: TDragMode`
+- `Enabled: Boolean`
+- `Font: TFont`
+- `FormStyle: TFormStyle`
+- `GlassFrame: TGlassFrame`
+- `Height: Integer`
+- `HelpContext: THelpContext`
+- `HelpFile: string`
+- `HelpKeyword: string`
+- `HelpType: THelpType`
+- `Hint: string`
+- `HorzScrollBar: TControlScrollBar`
+- `Icon: TIcon`
+- `KeyPreview: Boolean`
+- `Left: Integer`
+- `Margins: TMargins`
+- `Menu: TMainMenu`
+- `Name: TComponentName`
+- `ObjectMenuItem: TMenuItem`
+- `OnActivate: TNotifyEvent`
+- `OnAfterMonitorDpiChanged: TMonitorDpiChangedEvent`
+- `OnAlignInsertBefore: TAlignInsertBeforeEvent`
+- `OnAlignPosition: TAlignPositionEvent`
+- `OnBeforeMonitorDpiChanged: TMonitorDpiChangedEvent`
+- `OnCanResize: TCanResizeEvent`
+- `OnClick: TNotifyEvent`
+- `OnClose: TCloseEvent`
+- `OnCloseQuery: TCloseQueryEvent`
+- `OnConstrainedResize: TConstrainedResizeEvent`
+- `OnContextPopup: TContextPopupEvent`
+- `OnCreate: TNotifyEvent`
+- `OnDblClick: TNotifyEvent`
+- `OnDeactivate: TNotifyEvent`
+- `OnDestroy: TNotifyEvent`
+- `OnDockDrop: TDockDropEvent`
+- `OnDockOver: TDockOverEvent`
+- `OnDragDrop: TDragDropEvent`
+- `OnDragOver: TDragOverEvent`
+- `OnEndDock: TEndDragEvent`
+- `OnGesture: TGestureEvent`
+- `OnGetSiteInfo: TGetSiteInfoEvent`
+- `OnHelp: THelpEvent`
+- `OnHide: TNotifyEvent`
+- `OnKeyDown: TKeyEvent`
+- `OnKeyPress: TKeyPressEvent`
+- `OnKeyUp: TKeyEvent`
+- `OnMouseActivate: TMouseActivateEvent`
+- `OnMouseDown: TMouseEvent`
+- `OnMouseEnter: TNotifyEvent`
+- `OnMouseLeave: TNotifyEvent`
+- `OnMouseMove: TMouseMoveEvent`
+- `OnMouseUp: TMouseEvent`
+- `OnMouseWheel: TMouseWheelEvent`
+- `OnMouseWheelDown: TMouseWheelUpDownEvent`
+- `OnMouseWheelUp: TMouseWheelUpDownEvent`
+- `OnPaint: TNotifyEvent`
+- `OnResize: TNotifyEvent`
+- `OnShortCut: TShortCutEvent`
+- `OnShow: TNotifyEvent`
+- `OnStartDock: TStartDockEvent`
+- `OnUnDock: TUnDockEvent`
+- `Padding: TPadding`
+- `ParentBiDiMode: Boolean`
+- `ParentCustomHint: Boolean`
+- `ParentFont: Boolean`
+- `PopupMenu: TPopupMenu`
+- `PopupMode: TPopupMode`
+- `PopupParent: TCustomForm`
+- `Position: TPosition`
+- `PrintScale: TPrintScale`
+- `RoundedCorners: TRoundedCornerType`
+- `Scaled: Boolean`
+- `ScreenSnap: Boolean`
+- `ShowHint: Boolean`
+- `ShowInTaskBar: Boolean`
+- `SnapBuffer: Integer`
+- `StyleElements: TStyleElements`
+- `StyleName: string`
+- `Tag: Integer`
+- `TipMode: TTipMode`
+- `Top: Integer`
+- `Touch: TTouchManager`
+- `TransparentColor: Boolean`
+- `TransparentColorValue: TColor`
+- `UseDockManager: Boolean`
+- `VertScrollBar: TControlScrollBar`
+- `Visible: Boolean`
+- `Width: Integer`
+- `WindowMenu: TMenuItem`
+- `WindowState: TWindowState`
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `Show()`
+- `Hide()`
+- `BringToFront()`
+- `Refresh()`
+- `SetFocus()`
+- `Close()`
+- `Release()`
+- `ShowModal(): Integer`
+
+## TScriptForm
+Atası: TForm
+
+### Özellikler
+- `Action: TBasicAction`
+- `ActiveControl: TWinControl`
+- `Align: TAlign`
+- `AlignWithMargins: Boolean`
+- `AlphaBlend: Boolean`
+- `AlphaBlendValue: Byte`
+- `Anchors: TAnchors`
+- `AutoScroll: Boolean`
+- `AutoSize: Boolean`
+- `BiDiMode: TBiDiMode`
+- `BorderIcons: TBorderIcons`
+- `BorderStyle: TFormBorderStyle`
+- `BorderWidth: TBorderWidth`
+- `Caption: TCaption`
+- `ClientHeight: Integer`
+- `ClientWidth: Integer`
+- `Color: TColor`
+- `Constraints: TSizeConstraints`
+- `Ctl3D: Boolean`
+- `Cursor: TCursor`
+- `CustomHint: TCustomHint`
+- `CustomTitleBar: TTitleBar`
+- `DefaultMonitor: TDefaultMonitor`
+- `DockSite: Boolean`
+- `DoubleBuffered: Boolean`
+- `DoubleBufferedMode: TDoubleBufferedMode`
+- `DragKind: TDragKind`
+- `DragMode: TDragMode`
+- `Enabled: Boolean`
+- `Font: TFont`
+- `FormStyle: TFormStyle`
+- `GlassFrame: TGlassFrame`
+- `Height: Integer`
+- `HelpContext: THelpContext`
+- `HelpFile: string`
+- `HelpKeyword: string`
+- `HelpType: THelpType`
+- `Hint: string`
+- `HorzScrollBar: TControlScrollBar`
+- `Icon: TIcon`
+- `KeyPreview: Boolean`
+- `Left: Integer`
+- `Margins: TMargins`
+- `Menu: TMainMenu`
+- `Name: TComponentName`
+- `ObjectMenuItem: TMenuItem`
+- `OnActivate: TNotifyEvent`
+- `OnAfterMonitorDpiChanged: TMonitorDpiChangedEvent`
+- `OnAlignInsertBefore: TAlignInsertBeforeEvent`
+- `OnAlignPosition: TAlignPositionEvent`
+- `OnBeforeMonitorDpiChanged: TMonitorDpiChangedEvent`
+- `OnCanResize: TCanResizeEvent`
+- `OnClick: TNotifyEvent`
+- `OnClose: TCloseEvent`
+- `OnCloseQuery: TCloseQueryEvent`
+- `OnConstrainedResize: TConstrainedResizeEvent`
+- `OnContextPopup: TContextPopupEvent`
+- `OnCreate: TNotifyEvent`
+- `OnDblClick: TNotifyEvent`
+- `OnDeactivate: TNotifyEvent`
+- `OnDestroy: TNotifyEvent`
+- `OnDockDrop: TDockDropEvent`
+- `OnDockOver: TDockOverEvent`
+- `OnDragDrop: TDragDropEvent`
+- `OnDragOver: TDragOverEvent`
+- `OnEndDock: TEndDragEvent`
+- `OnGesture: TGestureEvent`
+- `OnGetSiteInfo: TGetSiteInfoEvent`
+- `OnHelp: THelpEvent`
+- `OnHide: TNotifyEvent`
+- `OnKeyDown: TKeyEvent`
+- `OnKeyPress: TKeyPressEvent`
+- `OnKeyUp: TKeyEvent`
+- `OnMouseActivate: TMouseActivateEvent`
+- `OnMouseDown: TMouseEvent`
+- `OnMouseEnter: TNotifyEvent`
+- `OnMouseLeave: TNotifyEvent`
+- `OnMouseMove: TMouseMoveEvent`
+- `OnMouseUp: TMouseEvent`
+- `OnMouseWheel: TMouseWheelEvent`
+- `OnMouseWheelDown: TMouseWheelUpDownEvent`
+- `OnMouseWheelUp: TMouseWheelUpDownEvent`
+- `OnPaint: TNotifyEvent`
+- `OnResize: TNotifyEvent`
+- `OnShortCut: TShortCutEvent`
+- `OnShow: TNotifyEvent`
+- `OnStartDock: TStartDockEvent`
+- `OnUnDock: TUnDockEvent`
+- `Padding: TPadding`
+- `ParentBiDiMode: Boolean`
+- `ParentCustomHint: Boolean`
+- `ParentFont: Boolean`
+- `PopupMenu: TPopupMenu`
+- `PopupMode: TPopupMode`
+- `PopupParent: TCustomForm`
+- `Position: TPosition`
+- `PrintScale: TPrintScale`
+- `RoundedCorners: TRoundedCornerType`
+- `SaveEvents: TStrings`
+- `SaveProps: TStrings`
+- `Scaled: Boolean`
+- `ScreenSnap: Boolean`
+- `ShowHint: Boolean`
+- `ShowInTaskBar: Boolean`
+- `SnapBuffer: Integer`
+- `StyleElements: TStyleElements`
+- `StyleName: string`
+- `Tag: Integer`
+- `TipMode: TTipMode`
+- `Top: Integer`
+- `Touch: TTouchManager`
+- `TransparentColor: Boolean`
+- `TransparentColorValue: TColor`
+- `UseDockManager: Boolean`
+- `VertScrollBar: TControlScrollBar`
+- `Visible: Boolean`
+- `Width: Integer`
+- `WindowMenu: TMenuItem`
+- `WindowState: TWindowState`
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Create(AOwner: TComponent)`
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `Show()`
+- `Hide()`
+- `BringToFront()`
+- `Refresh()`
+- `SetFocus()`
+- `Close()`
+- `Release()`
+- `ShowModal(): Integer`
+
+## TRadScriptForm
+Atası: TScriptForm
+
+### Özellikler
+- `Components: ` (salt okunur)
+- `ComponentCount: ` (salt okunur)
+- `ComponentIndex: `
+- `ComponentState: ` (salt okunur)
+- `ComponentStyle: ` (salt okunur)
+- `DesignInfo: `
+- `Owner: ` (salt okunur)
+
+### Metotlar
+- `Create(AOwner: TComponent)`
+- `Assign(Source: TPersistent)`
+- `GetNamePath()`
+- `BeforeDestruction()`
+- `DestroyComponents()`
+- `Destroying()`
+- `ExecuteAction(Action: TBasicAction)`
+- `FindComponent(AName: string)`
+- `FreeNotification(AComponent: TComponent)`
+- `RemoveFreeNotification(AComponent: TComponent)`
+- `FreeOnRelease()`
+- `GetEnumerator()`
+- `GetParentComponent()`
+- `HasParent()`
+- `InsertComponent(AComponent: TComponent)`
+- `RemoveComponent(AComponent: TComponent)`
+- `SetSubComponent(IsSubComponent: Boolean)`
+- `UpdateAction(Action: TBasicAction)`
+- `Show()`
+- `Hide()`
+- `BringToFront()`
+- `Refresh()`
+- `SetFocus()`
+- `Close()`
+- `Release()`
+- `ShowModal(): Integer`
+
 ## TRadScriptEvent
 Atası: TObject
 
@@ -164,18 +762,14 @@ Atası: TComponent
 - `Assign(Source: TPersistent)`
 - `GetNamePath()`
 - `BeforeDestruction()`
-- `DestroyComponents()`
 - `Destroying()`
 - `ExecuteAction(Action: TBasicAction)`
 - `FindComponent(AName: string)`
 - `FreeNotification(AComponent: TComponent)`
 - `RemoveFreeNotification(AComponent: TComponent)`
-- `FreeOnRelease()`
 - `GetEnumerator()`
 - `GetParentComponent()`
 - `HasParent()`
-- `InsertComponent(AComponent: TComponent)`
-- `RemoveComponent(AComponent: TComponent)`
 - `SetSubComponent(IsSubComponent: Boolean)`
 - `UpdateAction(Action: TBasicAction)`
 - `ActiveBuffer(): Integer`
@@ -323,18 +917,14 @@ Atası: TComponent
 - `Assign(Source: TPersistent)`
 - `GetNamePath()`
 - `BeforeDestruction()`
-- `DestroyComponents()`
 - `Destroying()`
 - `ExecuteAction(Action: TBasicAction)`
 - `FindComponent(AName: string)`
 - `FreeNotification(AComponent: TComponent)`
 - `RemoveFreeNotification(AComponent: TComponent)`
-- `FreeOnRelease()`
 - `GetEnumerator()`
 - `GetParentComponent(): TComponent`
 - `HasParent(): Boolean`
-- `InsertComponent(AComponent: TComponent)`
-- `RemoveComponent(AComponent: TComponent)`
 - `SetSubComponent(IsSubComponent: Boolean)`
 - `UpdateAction(Action: TBasicAction)`
 - `AssignValue(Value: TVarRec)`
@@ -491,18 +1081,14 @@ Atası: TCustomUniDataSet
 - `Assign(Source: TPersistent)`
 - `GetNamePath()`
 - `BeforeDestruction()`
-- `DestroyComponents()`
 - `Destroying()`
 - `ExecuteAction(Action: TBasicAction)`
 - `FindComponent(AName: string)`
 - `FreeNotification(AComponent: TComponent)`
 - `RemoveFreeNotification(AComponent: TComponent)`
-- `FreeOnRelease()`
 - `GetEnumerator()`
 - `GetParentComponent()`
 - `HasParent()`
-- `InsertComponent(AComponent: TComponent)`
-- `RemoveComponent(AComponent: TComponent)`
 - `SetSubComponent(IsSubComponent: Boolean)`
 - `UpdateAction(Action: TBasicAction)`
 - `ActiveBuffer(): Integer`
@@ -769,18 +1355,14 @@ Atası: TUniQuery
 - `Assign(Source: TPersistent)`
 - `GetNamePath()`
 - `BeforeDestruction()`
-- `DestroyComponents()`
 - `Destroying()`
 - `ExecuteAction(Action: TBasicAction)`
 - `FindComponent(AName: string)`
 - `FreeNotification(AComponent: TComponent)`
 - `RemoveFreeNotification(AComponent: TComponent)`
-- `FreeOnRelease()`
 - `GetEnumerator()`
 - `GetParentComponent()`
 - `HasParent()`
-- `InsertComponent(AComponent: TComponent)`
-- `RemoveComponent(AComponent: TComponent)`
 - `SetSubComponent(IsSubComponent: Boolean)`
 - `UpdateAction(Action: TBasicAction)`
 - `ActiveBuffer(): Integer`
@@ -977,18 +1559,14 @@ Atası: TCustomDAConnection
 - `Assign(Source: TPersistent)`
 - `GetNamePath()`
 - `BeforeDestruction()`
-- `DestroyComponents()`
 - `Destroying()`
 - `ExecuteAction(Action: TBasicAction)`
 - `FindComponent(AName: string)`
 - `FreeNotification(AComponent: TComponent)`
 - `RemoveFreeNotification(AComponent: TComponent)`
-- `FreeOnRelease()`
 - `GetEnumerator()`
 - `GetParentComponent()`
 - `HasParent()`
-- `InsertComponent(AComponent: TComponent)`
-- `RemoveComponent(AComponent: TComponent)`
 - `SetSubComponent(IsSubComponent: Boolean)`
 - `UpdateAction(Action: TBasicAction)`
 - `PerformConnect(Retry: Boolean)`

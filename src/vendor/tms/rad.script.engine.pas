@@ -10,10 +10,15 @@ interface
 uses
   System.SysUtils, System.Classes, System.Generics.Collections, System.Variants, System.Diagnostics, System.SyncObjs,
   atScript, atPascal, ap_Classes, ap_System, ap_SysUtils, ap_StrUtils, ap_DateUtils, ap_Math, ap_Variants,
-  Vcl.ScripterInit,
+  Vcl.Controls, Vcl.Forms, Vcl.ScripterInit, Vcl.ScriptForm,
   rad.script;
 
 type
+  /// `pencere` script'inin ({$FORM TAdForm, ad.dfm}) Delphi sınıfı; script içinde Self. Kurucusu TMS'nin
+  /// form kurucusudur (DefineFormClass), TObject.Create değil; Free yok, kapatma Release ya da sahibin ölümü.
+  TRadScriptForm = class(TScriptForm)
+  end;
+
   TRadScriptEngine = class
   private
     class var FClasses: TList<TClass>;
@@ -43,6 +48,16 @@ type
     function RoutineOf(AScript: TatScript; const AName: string): TatRoutineInfo;
     procedure DefineAndHide(AClass: TClass);
     procedure HideObjectLifetime;
+    procedure RelinkAncestors;
+    procedure DefineVclMethods;
+    procedure ControlShowProc(AMachine: TatVirtualMachine);
+    procedure ControlHideProc(AMachine: TatVirtualMachine);
+    procedure ControlBringToFrontProc(AMachine: TatVirtualMachine);
+    procedure ControlRefreshProc(AMachine: TatVirtualMachine);
+    procedure WinControlSetFocusProc(AMachine: TatVirtualMachine);
+    procedure FormCloseProc(AMachine: TatVirtualMachine);
+    procedure FormReleaseProc(AMachine: TatVirtualMachine);
+    procedure FormShowModalProc(AMachine: TatVirtualMachine);
     function TranslateRuntime(const AScript: TatScript; E: Exception): Exception;
   public
     constructor Create;
@@ -54,6 +69,8 @@ type
     class procedure RegisterClassHidden(AClass: TClass; const AHiddenMembers: array of string);
     /// Script kaynağını ekler; UnitName = Code (diğer script'ler `uses` ile görür).
     procedure AddScript(AScript: TRadScript);
+    /// `pencere` script'inin DFM metni (TMS dosya yerine bunu kullanır: DesignFormResource). AddScript'ten sonra.
+    procedure SetFormResource(const AScriptCode, ADfmText: string);
     /// Paket kaynaklarını %LOCALAPPDATA%\rad\script\<paket>\ altına yazar, SearchPath'e ekler ({$FORM} için).
     procedure AddResources(APackageId: Integer; const AStore: IRadScriptStore; const ANames: array of string);
     /// Script'e global nesne (AddObject). Sınıfı DefineClass/RegisterClass ile açık olmalı.
@@ -104,6 +121,10 @@ begin
   FClasses := TList<TClass>.Create;
   FHidden := TDictionary<TClass, TArray<string>>.Create;
   FLock := TCriticalSection.Create;
+  // Form zinciri ata önce: TMS yalnız kayıtlı ata adını bağlar (AddClassByRTTI → Inherits); TCustomForm kayıtsızsa
+  // Show/ShowModal/Close görünmez (ölçüldü: pencere script'inde 'Unknown member Show'). TScriptForm da zincirde olmalı.
+  RegisterClassHidden(TComponent, ['DestroyComponents', 'DestroyComponent', 'RemoveComponent', 'InsertComponent', 'FreeOnRelease']);
+  RegisterClasses([TControl, TWinControl, TScrollingWinControl, TCustomForm, TForm, TScriptForm, TRadScriptForm]);
 end;
 
 class destructor TRadScriptEngine.Destroy;
@@ -146,6 +167,8 @@ begin
   FScripter := TatPascalScripter.Create(nil);
   FScripter.AddLibrary(TatClassesLibrary);
   FScripter.OnCompileError := CompileErrorHook;
+  FScripter.ScriptFormClass := TRadScriptForm;
+  FScripter.LoadFormEvents := True;   // DFM'deki OnClick = btnTamamClick → script rutini
   HideObjectLifetime;
   FScripts := TList<TatScript>.Create;
   FCodes := TDictionary<TatScript, string>.Create;
@@ -158,9 +181,93 @@ begin
   try
     for C in FClasses do
       DefineAndHide(C);
+    RelinkAncestors;
+    DefineVclMethods;
   finally
     FLock.Leave;
   end;
+end;
+
+procedure TRadScriptEngine.RelinkAncestors;
+var
+  C: TClass;
+  LDef, LAnc: TatClass;
+begin
+  // TMS, TScriptForm'u scripter kurulurken kaydeder; o anda TForm kayıtlı olmadığından atası boş kalır ve
+  // sonradan DefineClassByRTTI mevcut sınıfa yeniden bağlamaz (ölçüldü: 'Unknown member Show'). Boş ataları bağla.
+  for C in FDefined do
+  begin
+    LDef := FScripter.Classes.ClassByName(C.ClassName);
+    if (LDef = nil) or (LDef.Ancestor <> nil) or (C.ClassParent = nil) then Continue;
+    LAnc := FScripter.Classes.ClassByName(C.ClassParent.ClassName);
+    if LAnc = nil then Continue;
+    LDef.AncestorName := LAnc.Name;
+    LDef.Ancestor := LAnc;
+  end;
+end;
+
+procedure TRadScriptEngine.DefineVclMethods;
+var
+  LDef: TatClass;
+begin
+  // VCL birimleri metot RTTI'si üretmez (ölçüldü: TCustomForm methods=17, Show yok); temel pencere metotları elle.
+  LDef := FScripter.Classes.ClassByName('TControl');
+  if LDef <> nil then
+  begin
+    LDef.DefineMethod('Show', 0, atScript.tkNone, nil, ControlShowProc);
+    LDef.DefineMethod('Hide', 0, atScript.tkNone, nil, ControlHideProc);
+    LDef.DefineMethod('BringToFront', 0, atScript.tkNone, nil, ControlBringToFrontProc);
+    LDef.DefineMethod('Refresh', 0, atScript.tkNone, nil, ControlRefreshProc);
+  end;
+  LDef := FScripter.Classes.ClassByName('TWinControl');
+  if LDef <> nil then LDef.DefineMethod('SetFocus', 0, atScript.tkNone, nil, WinControlSetFocusProc);
+  LDef := FScripter.Classes.ClassByName('TCustomForm');
+  if LDef <> nil then
+  begin
+    LDef.DefineMethod('Close', 0, atScript.tkNone, nil, FormCloseProc);
+    LDef.DefineMethod('Release', 0, atScript.tkNone, nil, FormReleaseProc);
+    LDef.DefineMethod('ShowModal', 0, atScript.tkInteger, nil, FormShowModalProc);
+  end;
+end;
+
+procedure TRadScriptEngine.ControlShowProc(AMachine: TatVirtualMachine);
+begin
+  TControl(AMachine.CurrentObject).Show;
+end;
+
+procedure TRadScriptEngine.ControlHideProc(AMachine: TatVirtualMachine);
+begin
+  TControl(AMachine.CurrentObject).Hide;
+end;
+
+procedure TRadScriptEngine.ControlBringToFrontProc(AMachine: TatVirtualMachine);
+begin
+  TControl(AMachine.CurrentObject).BringToFront;
+end;
+
+procedure TRadScriptEngine.ControlRefreshProc(AMachine: TatVirtualMachine);
+begin
+  TControl(AMachine.CurrentObject).Refresh;
+end;
+
+procedure TRadScriptEngine.WinControlSetFocusProc(AMachine: TatVirtualMachine);
+begin
+  TWinControl(AMachine.CurrentObject).SetFocus;
+end;
+
+procedure TRadScriptEngine.FormCloseProc(AMachine: TatVirtualMachine);
+begin
+  TCustomForm(AMachine.CurrentObject).Close;
+end;
+
+procedure TRadScriptEngine.FormReleaseProc(AMachine: TatVirtualMachine);
+begin
+  TCustomForm(AMachine.CurrentObject).Release;
+end;
+
+procedure TRadScriptEngine.FormShowModalProc(AMachine: TatVirtualMachine);
+begin
+  AMachine.ReturnOutputArg(TCustomForm(AMachine.CurrentObject).ShowModal);
 end;
 
 destructor TRadScriptEngine.Destroy;
@@ -204,8 +311,10 @@ begin
   if not FDefined.Contains(AClass) then FDefined.Add(AClass);
   if LDef = nil then Exit;
   // RTTI kaydı TObject'in Create/Free'sini her sınıfa kopyalar: script nesne yaratmaz/yıkmaz, hepsinden sil.
+  // Tek istisna: TScriptForm zincirinin Create'i TMS'nin form kurucusudur (ScriptFormCreateProc); pencere onu kullanır.
   for LName in LIFETIME_MEMBERS do
   begin
+    if AClass.InheritsFrom(TScriptForm) and (LName = 'Create') then Continue;
     LMeth := LDef.Methods.MethodByName(LName);
     if LMeth <> nil then LMeth.Free;
   end;
@@ -229,6 +338,11 @@ begin
   FScripts.Add(S);
   FCodes.Add(S, AScript.Code);
   FByCode.AddOrSetValue(LowerCase(AScript.Code), S);
+end;
+
+procedure TRadScriptEngine.SetFormResource(const AScriptCode, ADfmText: string);
+begin
+  ScriptOf(AScriptCode).DesignFormResource := ADfmText;
 end;
 
 procedure TRadScriptEngine.AddResources(APackageId: Integer; const AStore: IRadScriptStore;

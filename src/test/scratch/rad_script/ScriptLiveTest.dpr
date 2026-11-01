@@ -10,7 +10,7 @@
 {$APPTYPE CONSOLE}
 
 uses
-  System.SysUtils, System.StrUtils, System.Classes, System.Variants, System.IOUtils, System.DateUtils, System.Diagnostics, Data.DB,
+  System.SysUtils, System.StrUtils, System.Classes, System.Variants, System.IOUtils, System.DateUtils, System.Diagnostics, System.Generics.Collections, Data.DB,
   Uni, UniProvider, PostgreSQLUniProvider, SQLServerUniProvider, InterBaseUniProvider,
   mormot.core.base, mormot.core.unicode,
   rad.sqlfilter, rad.script, Help.uni;
@@ -144,6 +144,7 @@ var
   LOk: Boolean;
   i: Integer;
   LKaynak: string;
+  LRes: TObjectList<TRadScriptResource>;
 begin
   Writeln('--- ', AAd);
   Temizle(ACon);
@@ -314,6 +315,32 @@ begin
     finally
       S.Free;
     end;
+    // 5. asama: pencere script'i kutuphane gibi doner; ResourcesNamed yalniz aktif paket
+    P.AddScript('Ozet', skWindow, '', '{$FORM TOzetForm, Ozet.dfm}'#13#10'begin end.');
+    P.AddResource('Ozet.dfm', TEncoding.UTF8.GetBytes('object OzetForm: TOzetForm'#13#10'end'));
+    LStore.SavePackage(P);
+    S := LStore.LibrariesOf([P.Id]);
+    try
+      Kontrol(AAd + ' S24 LibrariesOf kutuphane + pencere', (S.Count = 2) and (S[1].Code = 'Ozet') and (S[1].Kind = skWindow), IntToStr(S.Count));
+    finally
+      S.Free;
+    end;
+    LRes := LStore.ResourcesNamed('kur.dfm');
+    try
+      Kontrol(AAd + ' S25 ResourcesNamed', (LRes.Count = 1) and (LRes[0].PackageId = P.Id) and (Length(LRes[0].Content) = 2000) and (LRes[0].Id > 0), IntToStr(LRes.Count));
+    finally
+      LRes.Free;
+    end;
+    P.Active := False;
+    LStore.SavePackage(P);
+    LRes := LStore.ResourcesNamed('kur.dfm');
+    try
+      Kontrol(AAd + ' S25b ResourcesNamed pasif paket donmez', LRes.Count = 0, IntToStr(LRes.Count));
+    finally
+      LRes.Free;
+    end;
+    P.Active := True;
+    LStore.SavePackage(P);
 
     // kaynak akisi
     LBayt := TBytesStream.Create;

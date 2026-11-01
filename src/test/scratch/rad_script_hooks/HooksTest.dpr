@@ -116,6 +116,7 @@ type
     function ScriptsFor(AKind: TRadScriptKind; const ATarget: string): TRadScripts;
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
+    function ResourcesNamed(const AFileName: string): TObjectList<TRadScriptResource>;
     function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
     function ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
     function AddPackage(const ACode: string; AOrder: Integer): TRadScriptPackage;
@@ -310,13 +311,38 @@ begin
     for P in Packages do
       if P.Id = LId then
         for S in P.Scripts do
-          if S.Active and (S.Kind = skLibrary) then
+          if S.Active and (S.Kind in [skLibrary, skWindow]) then
           begin
             C := TRadScript.Create;
             C.Assign(S);
             C.PackageId := P.Id;
             Result.Add(C);
           end;
+end;
+
+function TFakeStore.ResourcesNamed(const AFileName: string): TObjectList<TRadScriptResource>;
+var
+  LSorted: TList<TRadScriptPackage>;
+  P: TRadScriptPackage;
+  R, C: TRadScriptResource;
+begin
+  Result := TObjectList<TRadScriptResource>.Create(True);
+  LSorted := TList<TRadScriptPackage>.Create;
+  try
+    for P in Packages do if P.Active then LSorted.Add(P);
+    LSorted.Sort(TComparer<TRadScriptPackage>.Construct(
+      function(const A, B: TRadScriptPackage): Integer begin Result := PaketSira(A, B); end));
+    for P in LSorted do
+      for R in P.Resources do
+        if SameText(R.FileName, AFileName) then
+        begin
+          C := TRadScriptResource.Create;
+          C.Id := R.Id; C.PackageId := P.Id; C.FileName := R.FileName; C.Content := R.Content;
+          Result.Add(C);
+        end;
+  finally
+    LSorted.Free;
+  end;
 end;
 
 function TFakeStore.ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;

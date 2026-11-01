@@ -167,6 +167,23 @@ that break something else in the kit.
   (`FacadeTest` 24/24 Win32+Win64 PG canlı, `FacadeVclTest` 7/7 Win32); HooksTest 34/34, ScriptLiveTest 78/78.
 - `.agents/skills/rad-script/SKILL.md` — script yazma skill'i (kanca adları, facade, yapılmazlar, 5 örnek, host sözleşmesi).
 - `docs/script-api.md` — `TRadScriptEngine.ExportReference` ile üretilen API referansı (FacadeTest her koşuda yeniler).
+- `src/core/rad.script.override.pas`, `src/vendor/tms/rad.script.design.pas`, `rad.script.design.bar.pas/.dfm`,
+  `rad.script.design.tools.pas/.dfm`, `src/packages/RadScriptTmsDesign.dpk/.dproj/.res` — **script sistemi 5. aşama
+  (RAD-15): tasarımcı.** `TRadPropSnapshot` (adlı bileşenlerin yayımlanmış özellikleri, fark, `duzen.json`, uygulama;
+  VCL'siz), `TRadScriptDesigner.Start/StartWindow` (TMS `TIDEFormDesigner` + `TIDEInspector` + palet; mevcut formda
+  seçim var, taşıma/silme yok; Kaydet = fark + `TdxLayoutControl` akışı → paket; Vazgeç; pencere kipinde DFM → `<kod>.dfm`,
+  bilinmeyen olay rutini uyarısı, derleme denemesi). Model: `tur = pencere` (`skWindow`, `{$FORM}` + DFM kaynağı zorunlu),
+  `TRadScriptResource.PackageId`, `IRadScriptStore.ResourcesNamed`, `LibrariesOf` pencere dahil. Motor: `TRadScriptForm`,
+  `ScriptFormClass`/`LoadFormEvents`, `SetFormResource`, form ata zinciri kayıtlı + `RelinkAncestors`, VCL metotları
+  (`Show/Hide/Close/ShowModal/Release/SetFocus/BringToFront/Refresh`) elle tanımlı, `TComponent` yıkım üyeleri gizli.
+  Binder: `Attach` önce düzen/yerleşim uygular (script yokken de), `RegisterLayoutClass` (`rad.script.dev` TdxLayoutControl
+  kaydeder). `RadScriptTms` requires `TMSScripter_VCL`. Testler `src/test/scratch/rad_script_design/` (OverrideTest 21/21
+  Win32+Win64, DesignVclTest 35/35 Win32); ScriptModelTest 43, ScriptLiveTest 87 (PG/MS/FB), HooksTest 34, FacadeTest 24,
+  FacadeVclTest 7 yeşil. `docs/script-api.md` yeniden üretildi (TComponent…TRadScriptForm zinciri eklendi).
+- `docs/specs/rad.script.designer.md` — 5. aşama spec'i (onaylandı ve uygulandı; sapma/ölçüm bölümü eklendi): mevcut formu özelleştirme
+  (`<Sınıf>.duzen.json` özellik farkı + `.layout` kaynağı, `Attach`'te uygulanır), `pencere` türü (script'in
+  kendi DFM'li formu, TMS `$FORM` + `DesignFormResource`), TMS tasarımcı/inspector/palet ile DFM'de yazılmış
+  tasarım pencereleri, ayrı `RadScriptTmsDesign` paketi, `IRadScriptStore.ResourcesNamed`.
 - `docs/specs/rad.script.facade.md` — 4. aşama spec'i: `TRadScriptContext`, facade nesneleri (`Db.Sorgu(...).Param(...).Deger`,
   `Msg`, `Kullanici`, `Sirket`, `Param`, `Log`, `Mail`), `komut` türü (`TRadScriptCommands.Attach`), `TCloseQueryEvent`/
   `TcxEditValidateEvent` adaptörleri, UniDAC/DevExpress sınıf listeleri (parola üyeleri gizli), üretilen API referansı ve

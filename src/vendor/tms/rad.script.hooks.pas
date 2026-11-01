@@ -10,7 +10,8 @@ interface
 uses
   System.SysUtils, System.Classes, System.TypInfo, System.Rtti, System.Generics.Collections, System.Variants,
   Vcl.Forms,
-  rad.script, rad.script.engine;
+  mormot.core.base,
+  rad.script, rad.script.engine, rad.script.override;
 
 type
   TRadHookBase = class;
@@ -103,6 +104,13 @@ type
   TRadScriptWarningEvent = reference to procedure(const AMessage: string);
   TRadScriptFacadeInstaller = reference to procedure(AEngine: TRadScriptEngine);
 
+  /// Yerleşim denetimi (TdxLayoutControl) için akış/özelleştirme işlemleri; rad.script.dev kaydeder.
+  TRadLayoutHandler = record
+    Load: TProc<TComponent, TStream>;
+    Save: TProc<TComponent, TStream>;
+    Customize: TProc<TComponent, Boolean>;
+  end;
+
   TRadScriptBinder = class
   private
     class var FStore: IRadScriptStore;
@@ -110,6 +118,7 @@ type
     class var FOnWarning: TRadScriptWarningEvent;
     class var FOnInstallFacade: TRadScriptFacadeInstaller;
     class var FHookClasses: TDictionary<PTypeInfo, TRadHookBaseClass>;
+    class var FLayoutClasses: TDictionary<TClass, TRadLayoutHandler>;
     class constructor Create;
     class destructor Destroy;
     class function PrimaryEvent(AInstance: TObject): string;
@@ -135,8 +144,16 @@ type
     class property OnInstallFacade: TRadScriptFacadeInstaller read FOnInstallFacade write FOnInstallFacade;
     /// Var parametreli olay tipi için kanca sınıfı (rad.script.typedhooks kaydeder).
     class procedure RegisterHookClass(ATypeInfo: PTypeInfo; AClass: TRadHookBaseClass);
-    /// Form sınıfı ve ataları için script varsa yükler, derler, kancaları kurar, Form_AfterCreate'i çağırır.
-    /// Script yoksa veya derleme hatasıysa (OnError) nil.
+    /// Yerleşim denetimi sınıfı (atalar da eşleşir).
+    class procedure RegisterLayoutClass(AClass: TClass; const AHandler: TRadLayoutHandler);
+    class function LayoutHandlerOf(AComponent: TComponent; out AHandler: TRadLayoutHandler): Boolean;
+    /// `<Sınıf>.duzen.json` ve `<Sınıf>.<Yerleşim>.layout` kaynak adları (tasarımcı da üretir).
+    class function OverrideFileName(const AClassName: string): string;
+    class function LayoutFileName(const AClassName, ALayoutName: string): string;
+    /// Aktif paketlerin düzenlerini (paket sırasıyla, sonraki kazanır) ve yerleşim akışlarını forma uygular. Attach çağırır.
+    class procedure ApplyOverrides(AForm: TCustomForm; const AChain: TArray<string>);
+    /// Önce düzen/yerleşim (script olmasa da), sonra form sınıfı ve ataları için script varsa yükler, derler,
+    /// kancaları kurar, Form_AfterCreate'i çağırır. Script yoksa veya derleme hatasıysa (OnError) nil.
     class function Attach(AForm: TCustomForm): TRadScriptAttachment;
     class function AttachmentOf(AOwner: TComponent): TRadScriptAttachment;
   end;
@@ -152,6 +169,14 @@ const
   SUFFIX_AFTER = '_after';
   FORM_ALIAS = 'form';
   FORM_AFTER_CREATE = 'Form_AfterCreate';
+  OVERRIDE_SUFFIX = '.duzen.json';
+  LAYOUT_SUFFIX = '.layout';
+
+resourcestring
+  SWarnOverride = 'Düzen (paket %d, %s): %s — %s';
+  SWarnOverrideFile = 'Düzen dosyası (paket %d, %s) okunamadı: %s';
+  SWarnLayoutFile = 'Yerleşim (paket %d, %s) uygulanamadı: %s';
+  SWarnNoDfm = '%s: pencere script''inin "%s" kaynağı pakette yok.';
 
 { TRadHookBase }
 
@@ -309,10 +334,12 @@ end;
 class constructor TRadScriptBinder.Create;
 begin
   FHookClasses := TDictionary<PTypeInfo, TRadHookBaseClass>.Create;
+  FLayoutClasses := TDictionary<TClass, TRadLayoutHandler>.Create;
 end;
 
 class destructor TRadScriptBinder.Destroy;
 begin
+  FLayoutClasses.Free;
   FHookClasses.Free;
 end;
 
@@ -529,6 +556,7 @@ var
   LPkgIds: TList<Integer>;
   i: Integer;
   LForm: TCustomForm;
+  LMem: TBytesStream;
 begin
   Result := nil;
   if (FStore = nil) or (AOwner = nil) then Exit;
@@ -572,7 +600,21 @@ begin
     finally
       LPkgIds.Free;
     end;
-    for S in Result.Libraries do Result.Engine.AddScript(S);
+    for S in Result.Libraries do
+    begin
+      Result.Engine.AddScript(S);
+      if S.Kind = skWindow then
+      begin
+        LMem := TBytesStream.Create;
+        try
+          if FStore.LoadResource(S.PackageId, S.DfmFileName, LMem) then
+            Result.Engine.SetFormResource(S.Code, TEncoding.UTF8.GetString(LMem.Bytes, 0, LMem.Size))
+          else Warn(Format(SWarnNoDfm, [S.Code, S.DfmFileName]));
+        finally
+          LMem.Free;
+        end;
+      end;
+    end;
     for S in Result.Scripts do Result.Engine.AddScript(S);
     // Sahibin kendi sınıfı TMS'ye TANITILMAZ: DefineClassByRTTI(TKasaK) yapılınca 'Form.Caption' bile görünmez
     // (Probe P1/P1d). Tanıtılmayınca TMS en yakın kayıtlı ata (TForm) ile bağlar (P1c).
@@ -598,11 +640,108 @@ begin
   end;
 end;
 
+class procedure TRadScriptBinder.RegisterLayoutClass(AClass: TClass; const AHandler: TRadLayoutHandler);
+begin
+  FLayoutClasses.AddOrSetValue(AClass, AHandler);
+end;
+
+class function TRadScriptBinder.LayoutHandlerOf(AComponent: TComponent; out AHandler: TRadLayoutHandler): Boolean;
+var
+  C: TClass;
+begin
+  C := AComponent.ClassType;
+  while C <> nil do
+  begin
+    if FLayoutClasses.TryGetValue(C, AHandler) then Exit(True);
+    C := C.ClassParent;
+  end;
+  Result := False;
+end;
+
+class function TRadScriptBinder.OverrideFileName(const AClassName: string): string;
+begin
+  Result := AClassName + OVERRIDE_SUFFIX;
+end;
+
+class function TRadScriptBinder.LayoutFileName(const AClassName, ALayoutName: string): string;
+begin
+  Result := AClassName + '.' + ALayoutName + LAYOUT_SUFFIX;
+end;
+
+class procedure TRadScriptBinder.ApplyOverrides(AForm: TCustomForm; const AChain: TArray<string>);
+var
+  LClass, LCls: string;
+  LRes: TObjectList<TRadScriptResource>;
+  R: TRadScriptResource;
+  LSnap: TRadPropSnapshot;
+  LPkg, i: Integer;
+  C: TComponent;
+  LHandler: TRadLayoutHandler;
+  LMem: TMemoryStream;
+begin
+  if (FStore = nil) or (AForm = nil) then Exit;
+  for LClass in AChain do
+  begin
+    LRes := FStore.ResourcesNamed(OverrideFileName(LClass));
+    try
+      for R in LRes do
+      begin
+        LPkg := R.PackageId;
+        try
+          LSnap := TRadPropSnapshot.FromJsonBytes(R.Content, LCls);
+          try
+            LSnap.Apply(AForm, procedure(const AKey, AMsg: string) begin Warn(Format(SWarnOverride, [LPkg, LClass, AKey, AMsg])); end);
+          finally
+            LSnap.Free;
+          end;
+        except
+          on E: Exception do Warn(Format(SWarnOverrideFile, [LPkg, LClass, E.Message]));
+        end;
+      end;
+    finally
+      LRes.Free;
+    end;
+  end;
+  for i := 0 to AForm.ComponentCount - 1 do
+  begin
+    C := AForm.Components[i];
+    if (C.Name = '') or not LayoutHandlerOf(C, LHandler) then Continue;
+    for LClass in AChain do
+    begin
+      LRes := FStore.ResourcesNamed(LayoutFileName(LClass, C.Name));
+      try
+        for R in LRes do
+        begin
+          LMem := TMemoryStream.Create;
+          try
+            LMem.WriteBuffer(R.Content, Length(R.Content));
+            LMem.Position := 0;
+            try
+              LHandler.Load(C, LMem);
+            except
+              on E: Exception do Warn(Format(SWarnLayoutFile, [R.PackageId, C.Name, E.Message]));
+            end;
+          finally
+            LMem.Free;
+          end;
+        end;
+      finally
+        LRes.Free;
+      end;
+    end;
+  end;
+end;
+
 class function TRadScriptBinder.Attach(AForm: TCustomForm): TRadScriptAttachment;
 var
   S: TRadScript;
+  LChain: TArray<string>;
 begin
-  Result := LoadInto(AForm, skForm, ClassChain(AForm));
+  Result := nil;
+  if (FStore = nil) or (AForm = nil) then Exit;
+  LChain := ClassChain(AForm);
+  ApplyOverrides(AForm, LChain);   // script'ten önce: Form_AfterCreate düzenin üstüne yazabilir
+  Result := LoadInto(AForm, skForm, LChain);
   if Result = nil then Exit;
   InstallHooks(AForm, Result);
   for S in Result.Scripts do

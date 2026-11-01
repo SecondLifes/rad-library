@@ -38,7 +38,8 @@ requires
   dac370,
   unidac370,
   RadKon,
-  TMSScripter;
+  TMSScripter,
+  TMSScripter_VCL;
 
 contains
   rad.script.engine in '..\vendor\tms\rad.script.engine.pas',

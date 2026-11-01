@@ -26,6 +26,7 @@ sorularını cevaplar; tasarım gerekçeleri `docs/specs/rad.script*.md`'de.
 | `zaman` | Quartz maskesi `sn dk saat gün ay haftagünü` (`0 0 8 * * ?`) | `procedure Calistir(Olay: TRadScriptEvent)` |
 | `komut` | modül sınıf adı (`Tkasa_modul`) | `procedure <Kod>_Execute(Sender: TObject)` — menüye komut olur |
 | `kutuphane` | boş | aynı paketin diğer script'leri `uses <Kod>;` ile kullanır |
+| `pencere` | boş | script'in kendi formu: kaynak `{$FORM T<Kod>Form, <kod>.dfm}` ile başlar, DFM pakette `<kod>.dfm` kaynağı; başka script `uses <Kod>;` + `T<Kod>Form.Create(Form)`, `ShowModal`, `Release`; olaylar DFM'de (`OnClick = btnTamamClick` ya da `SaveEvents`) ve script'te `procedure btnTamamClick(Sender: TObject)` |
 
 Kurallar:
 - Bileşen **adıyla** bulunur; adsız bileşen görünmez. `Form` sözcüğü formun kendisidir.
@@ -65,7 +66,10 @@ Standart kütüphane: `IntToStr`, `FormatDateTime`, `Now`, `Pos`, `Copy`, `Trim`
   serbest bırakır.
 - `Halt`, `Sleep`-benzeri bekleme döngüsü, sonsuz döngü yok: KP script'leri süre sınırıyla kesilir
   (`ERadScriptTimeout`), form script'inde UI donar.
-- Formun **kendi** metotları çağrılamaz (form `TForm` olarak görünür); bileşenler adlarıyla açık.
+- Formun **kendi** metotları çağrılamaz (form `TForm` olarak görünür); bileşenler adlarıyla açık. VCL metotlarından
+  yalnız `Show/Hide/BringToFront/Refresh` (kontrol), `SetFocus`, `Close/Release/ShowModal` (form) vardır; `Click`,
+  `SetBounds` gibi diğerleri yok (VCL metot RTTI'si üretmez).
+- Pencere script'inde `Form` ERP formu değildir; pencerenin kendisi `Self`. Pencere kancalanmaz (`_Before/_After` yok).
 - Bağlantı dizesi/parola/lisans bilgisi facade'da yoktur; `TUniConnection.Password` derleme hatasıdır.
 - UI (`Msg`, bileşen değiştirme) yalnız form script'inde; KP script'i `Log`/`Mail`/`Db` kullanır.
 
@@ -108,7 +112,34 @@ procedure KurGuncelle_Execute(Sender: TObject);
 begin
   Log.Yaz('kur güncellendi: ' + Kullanici.Kod);
 end;
+
+// 6. Pencere (tur=pencere, kod=CariOzet; pakette CariOzet.dfm) ve onu açan form script'i
+{$FORM TCariOzetForm, CariOzet.dfm}
+procedure btnTamamClick(Sender: TObject);
+begin
+  Close;
+end;
+// --- Tkasa_k script'inde:
+uses CariOzet;
+procedure btnOzet_After(Sender: TObject);
+var F: TCariOzetForm;
+begin
+  F := TCariOzetForm.Create(Form);
+  F.edtKod.Text := qry.FieldByName('kod').AsString;
+  F.ShowModal;
+  F.Release;
+end;
 ```
+
+## Düzen (kod yazmadan özelleştirme)
+
+Tasarım kipi (`TRadScriptDesigner.Start(Form, PaketKodu)`) adlı bileşenlerin özelliklerini değiştirir ve farkı pakete
+`<FormSınıfı>.duzen.json` (`{"format":1,"form":"Tkasa_k","props":{"btnKaydet.Caption":"Kaydet*",
+"edt.Properties.ReadOnly":"True","lytItemNot.Visible":"False"}}`) ve `<FormSınıfı>.<Yerleşim>.layout` kaynağı olarak
+yazar; `Attach` bunları **script'ten önce** uygular (`Form_AfterCreate` üstüne yazabilir), paket sırasında sonraki
+kazanır. Elle de yazılabilir: anahtar `Bileşen.Özellik[.Alt]`, kök `Form.`, değer DFM metni (`True`, `clRed`,
+`[fsBold]`, bileşen başvurusu = adı). Bulunamayan anahtar uyarı verir, kalan uygulanır. Pencere tasarımı:
+`TRadScriptDesigner.StartWindow(Paket, Kod)`.
 
 ## Paketleme
 
@@ -122,4 +153,5 @@ Ayrıntı: `docs/specs/rad.script.md`.
 `TRadScriptBinder.Store`, `TRadScriptFacade.Bind(Context)`, `RegisterUniClasses`,
 `RegisterDevExpressClasses`, form yaratılınca `TRadScriptBinder.Attach(Form)`, modül `Register`'ında
 `TRadScriptCommands.Attach`, KP'de `TRadScriptJobs` + `TRadScriptFacade.PrepareProc`. Kodla yaratılan
-düğmelere `Name` ver; adsız düğme kancalanamaz.
+düğmelere `Name` ver; adsız düğme kancalanamaz ve tasarımcıda görünmez. Tasarım kipi için `RadScriptTmsDesign.bpl`
+(yalnız ERP, KP'ye değil) ve yetkiyi host'un verdiği bir menü/kısayolla `TRadScriptDesigner.Start`.

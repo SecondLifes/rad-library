@@ -31,8 +31,8 @@ type
   ERadScriptRuntime = class(ERadScriptExec);
   ERadScriptTimeout = class(ERadScriptExec);
 
-  /// tur kodu: form, olay, zaman, komut, kutuphane
-  TRadScriptKind = (skForm, skEvent, skSchedule, skCommand, skLibrary);
+  /// tur kodu: form, olay, zaman, komut, kutuphane, pencere
+  TRadScriptKind = (skForm, skEvent, skSchedule, skCommand, skLibrary, skWindow);
 
   TRadScript = class
   private
@@ -53,6 +53,8 @@ type
     /// Pascal tanımlayıcısı: harf/_ ile başlar, harf/rakam/_ devam eder, en çok 50.
     class function IsValidIdentifier(const AText: string): Boolean; static;
     function KindCode: string;
+    /// pencere script'inin DFM kaynağının adı: <kod>.dfm
+    function DfmFileName: string;
     /// '' = geçerli; aksi halde ilk hata.
     function Validate: string;
     procedure Assign(ASource: TRadScript);
@@ -61,7 +63,7 @@ type
     property Code: string read FCode write FCode;
     property Name: string read FName write FName;
     property Kind: TRadScriptKind read FKind write FKind;
-    /// form/komut: sınıf adı; olay: kanal adı; zaman: TDtSchedule maskesi; kutuphane: boş.
+    /// form/komut: sınıf adı; olay: kanal adı; zaman: TDtSchedule maskesi; kutuphane/pencere: boş.
     property Target: string read FTarget write FTarget;
     property Order: Integer read FOrder write FOrder;
     property Active: Boolean read FActive write FActive;
@@ -103,10 +105,13 @@ type
   TRadScriptResource = class
   private
     FId: Integer;
+    FPackageId: Integer;
     FFileName: string;
     FContent: TBytes;
   public
     property Id: Integer read FId write FId;
+    /// ResourcesNamed doldurur; paket içinden okunanda 0 kalabilir.
+    property PackageId: Integer read FPackageId write FPackageId;
     property FileName: string read FFileName write FFileName;
     property Content: TBytes read FContent write FContent;
   end;
@@ -182,7 +187,9 @@ type
     /// Uygulanmamış adımlar sırayla; hata olursa durur ve yükseltir, uygulananlar işaretli kalır.
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
-    /// Verilen paketlerin aktif `kutuphane` script'leri (paket, sıra). Boş liste → boş.
+    /// Aktif paketlerin bu addaki kaynakları, paket.sira sırasıyla; PackageId dolu. Sahiplik çağırana.
+    function ResourcesNamed(const AFileName: string): TObjectList<TRadScriptResource>;
+    /// Verilen paketlerin aktif `kutuphane` ve `pencere` script'leri (paket, sıra). Boş liste → boş.
     function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
     /// Verilen paketlerin parametreleri (facade Param için). Sahiplik çağırana.
     function ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
@@ -221,7 +228,8 @@ uses
   System.Character, System.Variants, mormot.core.unicode;
 
 const
-  KIND_CODES: array[TRadScriptKind] of string = ('form', 'olay', 'zaman', 'komut', 'kutuphane');
+  KIND_CODES: array[TRadScriptKind] of string = ('form', 'olay', 'zaman', 'komut', 'kutuphane', 'pencere');
+  WINDOW_DIRECTIVE = '{$FORM';   // TMS: {$FORM TAdForm, ad.dfm}
   MAX_CODE_LEN = 50;
   MAX_NAME_LEN = 100;
   MAX_FILE_LEN = 100;
@@ -234,6 +242,9 @@ resourcestring
   SErrTargetEvent = 'Olay adı boş olamaz.';
   SErrTargetSchedule = 'Zaman maskesi geçersiz: "%s".';
   SErrTargetLibrary = 'Kütüphane script''inin hedefi boş olmalı.';
+  SErrTargetWindow = 'Pencere script''inin hedefi boş olmalı.';
+  SErrWindowDirective = 'Pencere script''i {$FORM TAdForm, %s} yönergesi içermeli: "%s".';
+  SErrWindowDfm = 'Pencere script''i "%s" için pakette "%s" kaynağı yok.';
   SErrPackageCode = 'Paket kodu geçersiz: "%s".';
   SErrPackageName = 'Paket adı boş olamaz.';
   SErrPackageVersion = 'Paket sürümü boş olamaz.';
@@ -323,8 +334,18 @@ begin
       end;
     skLibrary:
       if System.SysUtils.Trim(FTarget) <> '' then Exit(SErrTargetLibrary);
+    skWindow:
+      begin
+        if System.SysUtils.Trim(FTarget) <> '' then Exit(SErrTargetWindow);
+        if System.Pos(WINDOW_DIRECTIVE, System.SysUtils.UpperCase(FSource)) = 0 then Exit(Format(SErrWindowDirective, [DfmFileName, FCode]));
+      end;
   end;
   Result := '';
+end;
+
+function TRadScript.DfmFileName: string;
+begin
+  Result := FCode + '.dfm';
 end;
 
 procedure TRadScript.Assign(ASource: TRadScript);
@@ -390,6 +411,8 @@ begin
   begin
     LErr := FScripts[i].Validate;
     if LErr <> '' then Exit(LErr);
+    if (FScripts[i].Kind = skWindow) and (ResourceByName(FScripts[i].DfmFileName) = nil) then
+      Exit(Format(SErrWindowDfm, [FScripts[i].Code, FScripts[i].DfmFileName]));
     for j := 0 to i - 1 do
       if SameText(FScripts[j].Code, FScripts[i].Code) then Exit(Format(SErrDupScript, [FScripts[i].Code]));
   end;

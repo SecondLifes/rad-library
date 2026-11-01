@@ -96,6 +96,13 @@ begin
     Kontrol('M11 kutuphane gecerli', S.Validate = '');
     S.Kind := skEvent;
     Kontrol('M12 olay bos hedef gecersiz', S.Validate <> '');
+    S.Kind := skWindow; S.Target := ''; S.Source := 'begin end.';
+    Kontrol('M12b pencere $FORM yok gecersiz', Pos('FORM', S.Validate) > 0, S.Validate);
+    S.Source := '{$form TXForm, x.dfm}'#13#10'begin end.';
+    Kontrol('M12c pencere gecerli (yonerge kucuk harf de olur)', S.Validate = '', S.Validate);
+    S.Target := 'x';
+    Kontrol('M12d pencere hedef dolu gecersiz', S.Validate <> '');
+    Kontrol('M12e DfmFileName', (S.DfmFileName = S.Code + '.dfm') and (TRadScript.KindCodeOf(skWindow) = 'pencere'));
   finally
     S.Free;
   end;
@@ -104,6 +111,10 @@ begin
     Kontrol('M13 ornek paket gecerli', P.Validate = '', P.Validate);
     Kontrol('M14 ScriptByCode/ParamValue', (P.ScriptByCode('sabah') <> nil) and (P.ParamValue('mailadresi', '-') = 'muhasebe@firma.com') and
       (P.ParamValue('yok', '-') = '-') and (P.ResourceByName('KUR.DFM') <> nil));
+    P.AddScript('Ozet', skWindow, '', '{$FORM TOzetForm, Ozet.dfm}'#13#10'begin end.');
+    Kontrol('M14b pencere dfm kaynagi yok', Pos('Ozet.dfm', P.Validate) > 0, P.Validate);
+    P.AddResource('ozet.dfm', TEncoding.UTF8.GetBytes('object OzetForm: TOzetForm'#13#10'end'));
+    Kontrol('M14c pencere dfm kaynagi var (ad buyuk/kucuk duyarsiz)', P.Validate = '', P.Validate);
     P.AddScript('kasakontrol', skLibrary, '', 'x');
     Kontrol('M15 tekrar script kodu', Pos('tekrar', P.Validate) > 0, P.Validate);
     P.Scripts.Delete(P.Scripts.Count - 1);

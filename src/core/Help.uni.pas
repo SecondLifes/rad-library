@@ -312,6 +312,7 @@ type
     function ScriptsFor(AKind: TRadScriptKind; const ATarget: string): TRadScripts;
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
+    function ResourcesNamed(const AFileName: string): TObjectList<TRadScriptResource>;
     function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
     function ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
   end;
@@ -2369,10 +2370,11 @@ begin
     LIds := '';
     for i := 0 to High(APackageIds) do   // tamsayı: IN listesi güvenli
       LIds := LIds + IfThen(i > 0, ',', '') + IntToStr(APackageIds[i]);
-    LQ := Q(Format('select * from %s where tur = :t and aktif_mi = :a and paket_id in (%s) order by paket_id, sira, id',
+    LQ := Q(Format('select * from %s where tur in (:t, :w) and aktif_mi = :a and paket_id in (%s) order by paket_id, sira, id',
       [TRadScriptDdl.ScriptTable, LIds]));
     try
       LQ.ParamByName('t').AsString := TRadScript.KindCodeOf(skLibrary);
+      LQ.ParamByName('w').AsString := TRadScript.KindCodeOf(skWindow);
       LQ.ParamByName('a').AsBoolean := True;
       LQ.Open;
       while not LQ.Eof do
@@ -2380,6 +2382,38 @@ begin
         S := TRadScript.Create;
         Result.Add(S);
         ReadScript(LQ, S);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+function TRadUniScriptStore.ResourcesNamed(const AFileName: string): TObjectList<TRadScriptResource>;
+var
+  LQ: TUniQuery;
+  R: TRadScriptResource;
+begin
+  Result := TObjectList<TRadScriptResource>.Create(True);
+  try
+    LQ := Q(Format('select k.id, k.paket_id, k.dosya_adi, k.icerik from %s k join %s p on p.id = k.paket_id ' +
+      'where k.dosya_adi = :n and p.aktif_mi = :a order by p.sira, p.id', [TRadScriptDdl.ResourceTable, TRadScriptDdl.PackageTable]));
+    try
+      LQ.ParamByName('n').AsString := AFileName;
+      LQ.ParamByName('a').AsBoolean := True;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        R := TRadScriptResource.Create;
+        Result.Add(R);
+        R.Id := LQ.FieldByName('id').AsInteger;
+        R.PackageId := LQ.FieldByName('paket_id').AsInteger;
+        R.FileName := LQ.FieldByName('dosya_adi').AsString;
+        R.Content := LQ.FieldByName('icerik').AsBytes;
         LQ.Next;
       end;
     finally

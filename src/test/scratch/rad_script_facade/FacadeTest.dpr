@@ -307,6 +307,7 @@ type
     function ScriptsFor(AKind: TRadScriptKind; const ATarget: string): TRadScripts;
     procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
     function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
+    function ResourcesNamed(const AFileName: string): TObjectList<TRadScriptResource>;
     function LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts;
     function ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>;
   end;
@@ -320,6 +321,7 @@ procedure TFakeStore.ImportPackage(APkg: TRadScriptPackage); begin end;
 procedure TFakeStore.DeletePackage(const ACode: string); begin end;
 procedure TFakeStore.ApplyPendingDbSteps(APkg: TRadScriptPackage); begin end;
 function TFakeStore.LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean; begin Result := False; end;
+function TFakeStore.ResourcesNamed(const AFileName: string): TObjectList<TRadScriptResource>; begin Result := TObjectList<TRadScriptResource>.Create(True); end;
 function TFakeStore.LibrariesOf(const APackageIds: TArray<Integer>): TRadScripts; begin Result := TRadScripts.Create(True); end;
 function TFakeStore.ParamsOf(const APackageIds: TArray<Integer>): TObjectList<TRadScriptParam>; begin Result := TObjectList<TRadScriptParam>.Create(True); end;
 

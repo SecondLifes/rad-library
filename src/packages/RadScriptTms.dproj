@@ -168,6 +168,7 @@
         <DCCReference Include="unidac370.dcp"/>
         <DCCReference Include="RadKon.dcp"/>
         <DCCReference Include="TMSScripter.dcp"/>
+        <DCCReference Include="TMSScripter_VCL.dcp"/>
         <DCCReference Include="..\vendor\tms\rad.script.engine.pas"/>
         <DCCReference Include="..\vendor\tms\rad.script.hooks.pas"/>
         <DCCReference Include="..\vendor\tms\rad.script.jobs.pas"/>

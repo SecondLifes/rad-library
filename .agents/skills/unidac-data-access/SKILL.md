@@ -93,6 +93,21 @@ query on the same table was open (J). PostgreSQL and SQL Server roll DDL back
 fine through the plain connection transaction; MySQL never does.
 Implementation: `Help.uni.TRadUniCustomFieldStore.InTransaction`.
 
+## Firebird: text blobs need ftWideMemo on write and a byte path on read (measured)
+
+A `blob sub_type text` column on a `Charset=UTF8`/`UseUnicode=True` connection, UniDAC 13,
+Firebird 5 (ScriptLiveTest S06, 2026-11-01):
+
+- **Write:** a parameter set with `DataType := ftMemo` then `AsString` is sent as ANSI bytes and
+  Firebird rejects Turkish text with `SQL error code = -303 Malformed string`. Use `ftWideMemo`.
+- **Read:** the field arrives as `TMemoField` (not wide) and `AsString` decodes the UTF-8 bytes as
+  ANSI: `'ş'` becomes two characters, 100 chars become 105. Read `TBlobField(F).AsBytes` and decode
+  with `TEncoding.UTF8`.
+- **But only for Firebird.** On PostgreSQL the same `text` column also arrives as `TMemoField`, yet
+  `AsString` is already correct and the `AsBytes` path converts the Unicode string to ANSI, raising
+  `EEncodingError: No mapping for the Unicode character` on `İ`. The choice must be keyed on the
+  dialect, not on the field class. `Help.uni.pas` `TRadUniStoreBase.MemoText` is the shared fix.
+
 ## When to prefer UniDAC over FireDAC
 
 - ✅ Project already licensed and built on UniDAC (consistency wins).

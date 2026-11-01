@@ -2,7 +2,7 @@
 
 interface
 
-uses System.Classes, System.SysUtils,Data.DB,System.JSON, Uni, MemDS, VirtualTable,
+uses System.Classes, System.SysUtils, System.Generics.Collections, Data.DB,System.JSON, Uni, MemDS, VirtualTable,
 SqlTimSt,Help.DB,System.Rtti,DBAccess
 ,rad.core,rad.thread   // TRadTask - _ConnectTestAsync imzasinda gectigi icin ARAYUZDE
               // olmali. Dongu riski yok: rad.thread yalnizca System/Winapi/
@@ -11,6 +11,7 @@ SqlTimSt,Help.DB,System.Rtti,DBAccess
 ,DAScript, UniScript,Variants
 ,rad.sqlfilter
 ,rad.customfield
+,rad.script
 
   {$IFDEF MSWINDOWS}
    ,UniDacVcl
@@ -150,6 +151,8 @@ type
     function _NewFilter(AMode: TRadFilterMode = rfmSkipEmpty): IRadSqlFilter;
     /// <summary>Bu bağlantı üstünde özel alan tanım deposu (TRadUniCustomFieldStore).</summary>
     function _CustomFields: IRadCustomFieldStore;
+    /// <summary>Bu bağlantı üstünde script paket deposu (TRadUniScriptStore).</summary>
+    function _Scripts: IRadScriptStore;
     /// <summary>Aktif özel alan kolonları: ', a.ozel_1, a.ozel_2' (baş virgüllü); yoksa ''.
     /// Açık kolon listeli sorguda &amp;makro yerine gider.</summary>
     function _CustomFieldColumns(const ATable: string; const AAlias: string = ''): string;
@@ -242,8 +245,9 @@ type
 
   /// <summary>IRadCustomFieldStore'un UniDAC uygulaması. Tanım tabloları: ozel_alan_grup,
   /// ozel_alan, ozel_alan_duzen (rad.customfield.TRadCustomFieldDdl). Bağlantıya sahip değildir.</summary>
-  TRadUniCustomFieldStore = class(TInterfacedObject, IRadCustomFieldStore)
-  private
+  /// <summary>Tanım deposu tabanı: sorgu/DDL yardımcıları ve lehçeye göre transaction.</summary>
+  TRadUniStoreBase = class(TInterfacedObject)
+  protected
     FCon: TUniConnection;
     FDialect: TRadSqlDialect;
     FTx: TUniTransaction;   // yalnız Firebird: DDL + insert için ayrı transaction (bkz. InTransaction)
@@ -252,15 +256,22 @@ type
     function CountOf(const ASql: string; const ANames: array of string; const AValues: array of Variant): Integer;
     function TableExists(const ATable: string): Boolean;
     function ColumnExists(const ATable, AColumn: string): Boolean;
+    procedure InTransaction(AProc: TProc);
+    /// <summary>Uzun metin alanı; Firebird blob metnini UTF-8 olarak çözer.</summary>
+    function MemoText(AField: TField): string;
+  public
+    constructor Create(ACon: TUniConnection);
+    function Dialect: TRadSqlDialect;
+  end;
+
+  TRadUniCustomFieldStore = class(TRadUniStoreBase, IRadCustomFieldStore)
+  private
     function ExistingColumnNames(const ATable: string): TArray<string>;
     procedure ReadGroup(AQ: TUniQuery; AGroup: TRadCustomFieldGroupDef);
     procedure ReadField(AQ: TUniQuery; ADef: TRadCustomFieldDef);
     procedure WriteFieldParams(AQ: TUniQuery; ADef: TRadCustomFieldDef);
-    procedure InTransaction(AProc: TProc);
   public
-    constructor Create(ACon: TUniConnection);
     class function New(ACon: TUniConnection): IRadCustomFieldStore;
-    function Dialect: TRadSqlDialect;
     procedure EnsureDefinitionTables;
     function LoadGroups(const ATable: string; AIncludeInactive: Boolean = False): TRadCustomFieldGroups;
     procedure AddGroup(AGroup: TRadCustomFieldGroupDef);
@@ -272,6 +283,35 @@ type
     function LoadLayout(const ATable: string; AUserId: Integer; AStream: TStream): Boolean;
     procedure SaveLayout(const ATable: string; AUserId: Integer; AStream: TStream);
     procedure DeleteLayout(const ATable: string; AUserId: Integer);
+  end;
+
+  /// <summary>IRadScriptStore'un UniDAC uygulaması. Tablolar: script_paket, script, script_parametre,
+  /// script_db, script_kaynak (rad.script.TRadScriptDdl). Bağlantıya sahip değildir.</summary>
+  TRadUniScriptStore = class(TRadUniStoreBase, IRadScriptStore)
+  private
+    procedure ReadPackage(AQ: TUniQuery; APkg: TRadScriptPackage);
+    procedure ReadScript(AQ: TUniQuery; AScript: TRadScript);
+    procedure LoadChildren(APkg: TRadScriptPackage);
+    function FindPackageId(const ACode: string): Integer;
+    function FetchChildId(const ATable, AKeyCol: string; APackageId: Integer; const AKey: Variant): Integer;
+    function ExistingChildIds(const ATable, AKeyCol: string; APackageId: Integer): TDictionary<string, Integer>;
+    procedure DeleteRemaining(const ATable: string; AIds: TDictionary<string, Integer>);
+    procedure WritePackageRow(APkg: TRadScriptPackage);
+    procedure SyncScripts(APkg: TRadScriptPackage);
+    procedure SyncParams(APkg: TRadScriptPackage);
+    procedure SyncDbSteps(APkg: TRadScriptPackage);
+    procedure SyncResources(APkg: TRadScriptPackage);
+  public
+    class function New(ACon: TUniConnection): IRadScriptStore;
+    procedure EnsureDefinitionTables;
+    function LoadPackages(AIncludeInactive: Boolean): TRadScriptPackages;
+    function LoadPackage(const ACode: string): TRadScriptPackage;
+    procedure SavePackage(APkg: TRadScriptPackage);
+    procedure ImportPackage(APkg: TRadScriptPackage);
+    procedure DeletePackage(const ACode: string);
+    function ScriptsFor(AKind: TRadScriptKind; const ATarget: string): TRadScripts;
+    procedure ApplyPendingDbSteps(APkg: TRadScriptPackage);
+    function LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
   end;
 
 {$ENDREGION}
@@ -307,7 +347,7 @@ implementation
   { rad.thread BURADAN KALDIRILDI - artik ARAYUZ uses'inda (bkz. birim basi).
     Ayni birimi iki uses cumlesinde birden bildirmek E2004 'Identifier
     redeclared' verir. }
-  System.StrUtils,System.DateUtils,System.NetEncoding,System.TypInfo,System.Character,System.Generics.Collections
+  System.StrUtils,System.DateUtils,System.NetEncoding,System.TypInfo,System.Character
 
   //,Help.SQL.MSSQL
 
@@ -457,6 +497,11 @@ end;
 function TUniConnectionHelper._CustomFields: IRadCustomFieldStore;
 begin
   Result := TRadUniCustomFieldStore.New(Self);
+end;
+
+function TUniConnectionHelper._Scripts: IRadScriptStore;
+begin
+  Result := TRadUniScriptStore.New(Self);
 end;
 
 function TUniConnectionHelper._CustomFieldColumns(const ATable, AAlias: string): string;
@@ -1241,6 +1286,16 @@ end;
 
 { TRadUniCustomFieldStore }
 
+function TRadUniStoreBase.MemoText(AField: TField): string;
+begin
+  // Firebird 'blob sub_type text' TMemoField gelir ve AsString ANSI çözer ('ş' iki karakter olur; ScriptLiveTest S06).
+  // PG'de ise AsString doğru, AsBytes ANSI'ye çevirip İ'de EEncodingError verir: yalnız Firebird'de bayt yolu.
+  if (FDialect = sdFirebird) and (AField is TBlobField) and not (AField is TWideMemoField) then
+    Result := TEncoding.UTF8.GetString(TBlobField(AField).AsBytes)
+  else
+    Result := AField.AsString;
+end;
+
 function FieldBool(AField: TField): Boolean;
 begin
   // MySQL tinyint(1) sayı gelir; diğerleri TBooleanField.
@@ -1248,11 +1303,13 @@ begin
   else Result := AField.AsInteger <> 0;
 end;
 
-constructor TRadUniCustomFieldStore.Create(ACon: TUniConnection);
+{ TRadUniStoreBase }
+
+constructor TRadUniStoreBase.Create(ACon: TUniConnection);
 begin
   inherited Create;
   if ACon = nil then
-    raise ERadCustomField.Create('TRadUniCustomFieldStore: bağlantı nil.');
+    raise EArgumentNilException.Create(ClassName + ': bağlantı nil.');
   FCon := ACon;
   FDialect := ACon._SqlDialect;
 end;
@@ -1262,12 +1319,12 @@ begin
   Result := TRadUniCustomFieldStore.Create(ACon);
 end;
 
-function TRadUniCustomFieldStore.Dialect: TRadSqlDialect;
+function TRadUniStoreBase.Dialect: TRadSqlDialect;
 begin
   Result := FDialect;
 end;
 
-function TRadUniCustomFieldStore.Q(const ASql: string): TUniQuery;
+function TRadUniStoreBase.Q(const ASql: string): TUniQuery;
 begin
   Result := TUniQuery.Create(nil);
   Result.Connection := FCon;
@@ -1279,7 +1336,7 @@ begin
   Result.SQL.Text := ASql;
 end;
 
-procedure TRadUniCustomFieldStore.Exec(const ASql: string);
+procedure TRadUniStoreBase.Exec(const ASql: string);
 var
   LQ: TUniQuery;
 begin
@@ -1291,7 +1348,7 @@ begin
   end;
 end;
 
-function TRadUniCustomFieldStore.CountOf(const ASql: string; const ANames: array of string;
+function TRadUniStoreBase.CountOf(const ASql: string; const ANames: array of string;
   const AValues: array of Variant): Integer;
 var
   LQ: TUniQuery;
@@ -1308,19 +1365,19 @@ begin
   end;
 end;
 
-function TRadUniCustomFieldStore.TableExists(const ATable: string): Boolean;
+function TRadUniStoreBase.TableExists(const ATable: string): Boolean;
 begin
   Result := CountOf(TRadCustomFieldDdl.TableExistsSql(FDialect), ['t'],
     [TRadCustomFieldDdl.CatalogName(FDialect, ATable)]) > 0;
 end;
 
-function TRadUniCustomFieldStore.ColumnExists(const ATable, AColumn: string): Boolean;
+function TRadUniStoreBase.ColumnExists(const ATable, AColumn: string): Boolean;
 begin
   Result := CountOf(TRadCustomFieldDdl.ColumnExistsSql(FDialect), ['t', 'c'],
     [TRadCustomFieldDdl.CatalogName(FDialect, ATable), TRadCustomFieldDdl.CatalogName(FDialect, AColumn)]) > 0;
 end;
 
-procedure TRadUniCustomFieldStore.InTransaction(AProc: TProc);
+procedure TRadUniStoreBase.InTransaction(AProc: TProc);
 begin
   (* Firebird (UniDAC InterBase sağlayıcısı): bağlantının AutoCommit'i her
      değişiklikten sonra CommitRetaining yapar, DDL de dahil - bağlantı
@@ -1397,7 +1454,7 @@ begin
   ADef.Decimals := AQ.FieldByName('ondalik').AsInteger;
   ADef.Required := FieldBool(AQ.FieldByName('zorunlu_mu'));
   ADef.DefaultValue := AQ.FieldByName('varsayilan').AsString;
-  ADef.SetOptionsText(AQ.FieldByName('secenekler').AsString);
+  ADef.SetOptionsText(MemoText(AQ.FieldByName('secenekler')));
   ADef.Filterable := FieldBool(AQ.FieldByName('filtrele_mi'));
   ADef.Order := AQ.FieldByName('sira').AsInteger;
   ADef.Active := FieldBool(AQ.FieldByName('aktif_mi'));
@@ -1692,6 +1749,623 @@ begin
     LQ.ParamByName('t').AsString := ATable;
     LQ.ParamByName('u').AsInteger := AUserId;
     LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
+end;
+
+
+{ TRadUniScriptStore }
+
+class function TRadUniScriptStore.New(ACon: TUniConnection): IRadScriptStore;
+begin
+  Result := TRadUniScriptStore.Create(ACon);
+end;
+
+procedure TRadUniScriptStore.EnsureDefinitionTables;
+var
+  LSql, LNames: TArray<string>;
+  i: Integer;
+begin
+  LSql := TRadScriptDdl.CreateDefinitionTables(FDialect);
+  LNames := TRadScriptDdl.TableNames;
+  for i := 0 to High(LNames) do
+    if not TableExists(LNames[i]) then
+      Exec(LSql[i]);
+end;
+
+procedure TRadUniScriptStore.ReadPackage(AQ: TUniQuery; APkg: TRadScriptPackage);
+begin
+  APkg.Id := AQ.FieldByName('id').AsInteger;
+  APkg.Code := AQ.FieldByName('kod').AsString;
+  APkg.Name := AQ.FieldByName('adi').AsString;
+  APkg.Description := AQ.FieldByName('aciklama').AsString;
+  APkg.Version := AQ.FieldByName('surum').AsString;
+  APkg.Author := AQ.FieldByName('yazar').AsString;
+  APkg.Active := FieldBool(AQ.FieldByName('aktif_mi'));
+  APkg.IsProtected := FieldBool(AQ.FieldByName('korumali_mi'));
+  APkg.Order := AQ.FieldByName('sira').AsInteger;
+  APkg.Created := AQ.FieldByName('olusturma_zamani').AsDateTime;
+  APkg.Modified := AQ.FieldByName('degisim_zamani').AsDateTime;
+end;
+
+procedure TRadUniScriptStore.ReadScript(AQ: TUniQuery; AScript: TRadScript);
+var
+  LKind: TRadScriptKind;
+begin
+  AScript.Id := AQ.FieldByName('id').AsInteger;
+  AScript.PackageId := AQ.FieldByName('paket_id').AsInteger;
+  AScript.Code := AQ.FieldByName('kod').AsString;
+  AScript.Name := AQ.FieldByName('adi').AsString;
+  if not TRadScript.KindOfCode(AQ.FieldByName('tur').AsString, LKind) then
+    raise ERadScript.CreateFmt('Bilinmeyen script türü: "%s" (id %d).', [AQ.FieldByName('tur').AsString, AScript.Id]);
+  AScript.Kind := LKind;
+  AScript.Target := AQ.FieldByName('hedef').AsString;
+  AScript.Order := AQ.FieldByName('sira').AsInteger;
+  AScript.Active := FieldBool(AQ.FieldByName('aktif_mi'));
+  AScript.Source := MemoText(AQ.FieldByName('kaynak'));
+  AScript.Modified := AQ.FieldByName('degisim_zamani').AsDateTime;
+end;
+
+procedure TRadUniScriptStore.LoadChildren(APkg: TRadScriptPackage);
+var
+  LQ: TUniQuery;
+  S: TRadScript;
+  P: TRadScriptParam;
+  D: TRadScriptDbStep;
+  R: TRadScriptResource;
+begin
+  LQ := Q(Format('select * from %s where paket_id = :p order by sira, id', [TRadScriptDdl.ScriptTable]));
+  try
+    LQ.ParamByName('p').AsInteger := APkg.Id;
+    LQ.Open;
+    while not LQ.Eof do
+    begin
+      S := TRadScript.Create;
+      APkg.Scripts.Add(S);
+      ReadScript(LQ, S);
+      LQ.Next;
+    end;
+    LQ.Close;
+    LQ.SQL.Text := Format('select * from %s where paket_id = :p order by adi', [TRadScriptDdl.ParamTable]);
+    LQ.ParamByName('p').AsInteger := APkg.Id;
+    LQ.Open;
+    while not LQ.Eof do
+    begin
+      P := APkg.AddParam(LQ.FieldByName('adi').AsString, LQ.FieldByName('deger').AsString);
+      P.Id := LQ.FieldByName('id').AsInteger;
+      P.Description := LQ.FieldByName('aciklama').AsString;
+      LQ.Next;
+    end;
+    LQ.Close;
+    LQ.SQL.Text := Format('select * from %s where paket_id = :p order by sira', [TRadScriptDdl.DbTable]);
+    LQ.ParamByName('p').AsInteger := APkg.Id;
+    LQ.Open;
+    while not LQ.Eof do
+    begin
+      D := APkg.AddDbStep(LQ.FieldByName('sira').AsInteger, MemoText(LQ.FieldByName('sql_metni')));
+      D.Id := LQ.FieldByName('id').AsInteger;
+      D.Description := LQ.FieldByName('aciklama').AsString;
+      D.Applied := FieldBool(LQ.FieldByName('uygulandi_mi'));
+      D.AppliedAt := LQ.FieldByName('uygulama_zamani').AsDateTime;
+      LQ.Next;
+    end;
+    LQ.Close;
+    LQ.SQL.Text := Format('select * from %s where paket_id = :p order by dosya_adi', [TRadScriptDdl.ResourceTable]);
+    LQ.ParamByName('p').AsInteger := APkg.Id;
+    LQ.Open;
+    while not LQ.Eof do
+    begin
+      R := APkg.AddResource(LQ.FieldByName('dosya_adi').AsString, LQ.FieldByName('icerik').AsBytes);
+      R.Id := LQ.FieldByName('id').AsInteger;
+      LQ.Next;
+    end;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniScriptStore.LoadPackages(AIncludeInactive: Boolean): TRadScriptPackages;
+var
+  LQ: TUniQuery;
+  LWhere: string;
+  LPkg: TRadScriptPackage;
+begin
+  Result := TRadScriptPackages.Create(True);
+  try
+    if AIncludeInactive then LWhere := '' else LWhere := ' where aktif_mi = :a';
+    LQ := Q(Format('select * from %s%s order by sira, id', [TRadScriptDdl.PackageTable, LWhere]));
+    try
+      if not AIncludeInactive then LQ.ParamByName('a').AsBoolean := True;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        LPkg := TRadScriptPackage.Create;
+        Result.Add(LPkg);
+        ReadPackage(LQ, LPkg);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+    for LPkg in Result do
+      LoadChildren(LPkg);
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+function TRadUniScriptStore.LoadPackage(const ACode: string): TRadScriptPackage;
+var
+  LQ: TUniQuery;
+begin
+  Result := nil;
+  LQ := Q(Format('select * from %s where kod = :k', [TRadScriptDdl.PackageTable]));
+  try
+    LQ.ParamByName('k').AsString := ACode;
+    LQ.Open;
+    if LQ.Eof then Exit;
+    Result := TRadScriptPackage.Create;
+    try
+      ReadPackage(LQ, Result);
+      LoadChildren(Result);
+    except
+      FreeAndNil(Result);
+      raise;
+    end;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniScriptStore.FindPackageId(const ACode: string): Integer;
+var
+  LQ: TUniQuery;
+begin
+  LQ := Q(Format('select id from %s where kod = :k', [TRadScriptDdl.PackageTable]));
+  try
+    LQ.ParamByName('k').AsString := ACode;
+    LQ.Open;
+    if LQ.Eof then Result := 0 else Result := LQ.Fields[0].AsInteger;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniScriptStore.FetchChildId(const ATable, AKeyCol: string; APackageId: Integer;
+  const AKey: Variant): Integer;
+var
+  LQ: TUniQuery;
+begin
+  LQ := Q(Format('select id from %s where paket_id = :p and %s = :k', [ATable, AKeyCol]));
+  try
+    LQ.ParamByName('p').AsInteger := APackageId;
+    LQ.ParamByName('k').Value := AKey;
+    LQ.Open;
+    Result := LQ.Fields[0].AsInteger;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniScriptStore.ExistingChildIds(const ATable, AKeyCol: string;
+  APackageId: Integer): TDictionary<string, Integer>;
+var
+  LQ: TUniQuery;
+begin
+  Result := TDictionary<string, Integer>.Create;
+  try
+    LQ := Q(Format('select id, %s from %s where paket_id = :p', [AKeyCol, ATable]));
+    try
+      LQ.ParamByName('p').AsInteger := APackageId;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        Result.AddOrSetValue(LowerCase(LQ.Fields[1].AsString), LQ.Fields[0].AsInteger);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+procedure TRadUniScriptStore.DeleteRemaining(const ATable: string; AIds: TDictionary<string, Integer>);
+var
+  LQ: TUniQuery;
+  LId: Integer;
+begin
+  if AIds.Count = 0 then Exit;
+  LQ := Q(Format('delete from %s where id = :id', [ATable]));
+  try
+    for LId in AIds.Values do
+    begin
+      LQ.ParamByName('id').AsInteger := LId;
+      LQ.ExecSQL;
+    end;
+  finally
+    LQ.Free;
+  end;
+end;
+
+procedure TRadUniScriptStore.WritePackageRow(APkg: TRadScriptPackage);
+var
+  LQ: TUniQuery;
+  LNow: TDateTime;
+begin
+  LNow := Now;
+  APkg.Id := FindPackageId(APkg.Code);
+  if APkg.Id = 0 then
+  begin
+    APkg.Created := LNow;
+    LQ := Q(Format('insert into %s (kod, adi, aciklama, surum, yazar, aktif_mi, korumali_mi, sira, ' +
+      'olusturma_zamani, degisim_zamani) values (:k, :n, :d, :v, :y, :a, :p, :s, :c, :m)', [TRadScriptDdl.PackageTable]));
+  end
+  else
+    LQ := Q(Format('update %s set adi = :n, aciklama = :d, surum = :v, yazar = :y, aktif_mi = :a, ' +
+      'korumali_mi = :p, sira = :s, degisim_zamani = :m where kod = :k', [TRadScriptDdl.PackageTable]));
+  try
+    LQ.ParamByName('k').AsString := APkg.Code;
+    LQ.ParamByName('n').AsString := APkg.Name;
+    LQ.ParamByName('d').AsString := APkg.Description;
+    LQ.ParamByName('v').AsString := APkg.Version;
+    LQ.ParamByName('y').AsString := APkg.Author;
+    LQ.ParamByName('a').AsBoolean := APkg.Active;
+    LQ.ParamByName('p').AsBoolean := APkg.IsProtected;
+    LQ.ParamByName('s').AsInteger := APkg.Order;
+    if APkg.Id = 0 then LQ.ParamByName('c').AsDateTime := LNow;
+    LQ.ParamByName('m').AsDateTime := LNow;
+    LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
+  APkg.Modified := LNow;
+  if APkg.Id = 0 then
+    APkg.Id := FindPackageId(APkg.Code);
+end;
+
+procedure TRadUniScriptStore.SyncScripts(APkg: TRadScriptPackage);
+var
+  LIds: TDictionary<string, Integer>;
+  S: TRadScript;
+  LQ: TUniQuery;
+  LId: Integer;
+  LNow: TDateTime;
+begin
+  LNow := Now;
+  LIds := ExistingChildIds(TRadScriptDdl.ScriptTable, 'kod', APkg.Id);
+  try
+    for S in APkg.Scripts do
+    begin
+      if LIds.TryGetValue(LowerCase(S.Code), LId) then
+      begin
+        LIds.Remove(LowerCase(S.Code));
+        LQ := Q(Format('update %s set kod = :k, adi = :n, tur = :t, hedef = :h, sira = :s, aktif_mi = :a, ' +
+          'kaynak = :src, degisim_zamani = :m where id = :id', [TRadScriptDdl.ScriptTable]));
+      end
+      else
+      begin
+        LId := 0;
+        LQ := Q(Format('insert into %s (paket_id, kod, adi, tur, hedef, sira, aktif_mi, kaynak, degisim_zamani) ' +
+          'values (:p, :k, :n, :t, :h, :s, :a, :src, :m)', [TRadScriptDdl.ScriptTable]));
+      end;
+      try
+        if LId = 0 then LQ.ParamByName('p').AsInteger := APkg.Id
+        else LQ.ParamByName('id').AsInteger := LId;
+        LQ.ParamByName('k').AsString := S.Code;
+        LQ.ParamByName('n').AsString := S.Name;
+        LQ.ParamByName('t').AsString := S.KindCode;
+        LQ.ParamByName('h').AsString := S.Target;
+        LQ.ParamByName('s').AsInteger := S.Order;
+        LQ.ParamByName('a').AsBoolean := S.Active;
+        LQ.ParamByName('src').DataType := ftWideMemo;
+        LQ.ParamByName('src').AsString := S.Source;
+        LQ.ParamByName('m').AsDateTime := LNow;
+        LQ.ExecSQL;
+      finally
+        LQ.Free;
+      end;
+      if LId = 0 then LId := FetchChildId(TRadScriptDdl.ScriptTable, 'kod', APkg.Id, S.Code);
+      S.Id := LId;
+      S.PackageId := APkg.Id;
+      S.Modified := LNow;
+    end;
+    DeleteRemaining(TRadScriptDdl.ScriptTable, LIds);
+  finally
+    LIds.Free;
+  end;
+end;
+
+procedure TRadUniScriptStore.SyncParams(APkg: TRadScriptPackage);
+var
+  LIds: TDictionary<string, Integer>;
+  P: TRadScriptParam;
+  LQ: TUniQuery;
+  LId: Integer;
+begin
+  LIds := ExistingChildIds(TRadScriptDdl.ParamTable, 'adi', APkg.Id);
+  try
+    for P in APkg.Params do
+    begin
+      if LIds.TryGetValue(LowerCase(P.Name), LId) then
+      begin
+        LIds.Remove(LowerCase(P.Name));
+        LQ := Q(Format('update %s set adi = :n, deger = :v, aciklama = :d where id = :id', [TRadScriptDdl.ParamTable]));
+      end
+      else
+      begin
+        LId := 0;
+        LQ := Q(Format('insert into %s (paket_id, adi, deger, aciklama) values (:p, :n, :v, :d)', [TRadScriptDdl.ParamTable]));
+      end;
+      try
+        if LId = 0 then LQ.ParamByName('p').AsInteger := APkg.Id
+        else LQ.ParamByName('id').AsInteger := LId;
+        LQ.ParamByName('n').AsString := P.Name;
+        LQ.ParamByName('v').AsString := P.Value;
+        LQ.ParamByName('d').AsString := P.Description;
+        LQ.ExecSQL;
+      finally
+        LQ.Free;
+      end;
+      if LId = 0 then LId := FetchChildId(TRadScriptDdl.ParamTable, 'adi', APkg.Id, P.Name);
+      P.Id := LId;
+    end;
+    DeleteRemaining(TRadScriptDdl.ParamTable, LIds);
+  finally
+    LIds.Free;
+  end;
+end;
+
+procedure TRadUniScriptStore.SyncDbSteps(APkg: TRadScriptPackage);
+var
+  LIds: TDictionary<string, Integer>;
+  D: TRadScriptDbStep;
+  LQ: TUniQuery;
+  LId: Integer;
+  LKey: string;
+begin
+  LIds := ExistingChildIds(TRadScriptDdl.DbTable, 'sira', APkg.Id);
+  try
+    for D in APkg.DbSteps do
+    begin
+      LKey := IntToStr(D.Order);
+      if LIds.TryGetValue(LKey, LId) then
+      begin
+        LIds.Remove(LKey);
+        // uygulandi_mi/uygulama_zamani'na dokunulmaz: uygulanmış adım yeniden koşmaz.
+        LQ := Q(Format('update %s set aciklama = :d, sql_metni = :q where id = :id', [TRadScriptDdl.DbTable]));
+      end
+      else
+      begin
+        LId := 0;
+        LQ := Q(Format('insert into %s (paket_id, sira, aciklama, sql_metni, uygulandi_mi) values (:p, :s, :d, :q, :u)',
+          [TRadScriptDdl.DbTable]));
+      end;
+      try
+        if LId = 0 then
+        begin
+          LQ.ParamByName('p').AsInteger := APkg.Id;
+          LQ.ParamByName('s').AsInteger := D.Order;
+          LQ.ParamByName('u').AsBoolean := False;
+        end
+        else
+          LQ.ParamByName('id').AsInteger := LId;
+        LQ.ParamByName('d').AsString := D.Description;
+        LQ.ParamByName('q').DataType := ftWideMemo;
+        LQ.ParamByName('q').AsString := D.Sql;
+        LQ.ExecSQL;
+      finally
+        LQ.Free;
+      end;
+      if LId = 0 then LId := FetchChildId(TRadScriptDdl.DbTable, 'sira', APkg.Id, D.Order);
+      D.Id := LId;
+    end;
+    DeleteRemaining(TRadScriptDdl.DbTable, LIds);
+  finally
+    LIds.Free;
+  end;
+end;
+
+procedure TRadUniScriptStore.SyncResources(APkg: TRadScriptPackage);
+var
+  LIds: TDictionary<string, Integer>;
+  R: TRadScriptResource;
+  LQ: TUniQuery;
+  LId: Integer;
+  LStream: TBytesStream;
+begin
+  LIds := ExistingChildIds(TRadScriptDdl.ResourceTable, 'dosya_adi', APkg.Id);
+  try
+    for R in APkg.Resources do
+    begin
+      if LIds.TryGetValue(LowerCase(R.FileName), LId) then
+      begin
+        LIds.Remove(LowerCase(R.FileName));
+        LQ := Q(Format('update %s set dosya_adi = :n, icerik = :i where id = :id', [TRadScriptDdl.ResourceTable]));
+      end
+      else
+      begin
+        LId := 0;
+        LQ := Q(Format('insert into %s (paket_id, dosya_adi, icerik) values (:p, :n, :i)', [TRadScriptDdl.ResourceTable]));
+      end;
+      LStream := TBytesStream.Create(R.Content);
+      try
+        if LId = 0 then LQ.ParamByName('p').AsInteger := APkg.Id
+        else LQ.ParamByName('id').AsInteger := LId;
+        LQ.ParamByName('n').AsString := R.FileName;
+        LStream.Position := 0;
+        LQ.ParamByName('i').LoadFromStream(LStream, ftBlob);
+        LQ.ExecSQL;
+      finally
+        LStream.Free;
+        LQ.Free;
+      end;
+      if LId = 0 then LId := FetchChildId(TRadScriptDdl.ResourceTable, 'dosya_adi', APkg.Id, R.FileName);
+      R.Id := LId;
+    end;
+    DeleteRemaining(TRadScriptDdl.ResourceTable, LIds);
+  finally
+    LIds.Free;
+  end;
+end;
+
+procedure TRadUniScriptStore.SavePackage(APkg: TRadScriptPackage);
+var
+  LErr: string;
+begin
+  LErr := APkg.Validate;
+  if LErr <> '' then
+    raise ERadScript.Create(LErr);
+  InTransaction(
+    procedure
+    begin
+      WritePackageRow(APkg);
+      SyncScripts(APkg);
+      SyncParams(APkg);
+      SyncDbSteps(APkg);
+      SyncResources(APkg);
+    end);
+end;
+
+procedure TRadUniScriptStore.ImportPackage(APkg: TRadScriptPackage);
+var
+  LExisting: TRadScriptPackage;
+  P, E: TRadScriptParam;
+begin
+  LExisting := LoadPackage(APkg.Code);
+  try
+    if LExisting <> nil then
+      for P in APkg.Params do
+      begin
+        E := LExisting.ParamByName(P.Name);
+        if E <> nil then P.Value := E.Value;   // kurulum ayarı dosyadakini ezer
+      end;
+    SavePackage(APkg);
+  finally
+    LExisting.Free;
+  end;
+end;
+
+procedure TRadUniScriptStore.DeletePackage(const ACode: string);
+var
+  LQ: TUniQuery;
+begin
+  LQ := Q(Format('delete from %s where kod = :k', [TRadScriptDdl.PackageTable]));
+  try
+    LQ.ParamByName('k').AsString := ACode;
+    LQ.ExecSQL;
+  finally
+    LQ.Free;
+  end;
+end;
+
+function TRadUniScriptStore.ScriptsFor(AKind: TRadScriptKind; const ATarget: string): TRadScripts;
+var
+  LQ: TUniQuery;
+  S: TRadScript;
+begin
+  Result := TRadScripts.Create(True);
+  try
+    LQ := Q(Format('select s.* from %s s join %s p on p.id = s.paket_id ' +
+      'where s.tur = :t and upper(s.hedef) = upper(:h) and s.aktif_mi = :a and p.aktif_mi = :b ' +
+      'order by p.sira, s.sira, s.id', [TRadScriptDdl.ScriptTable, TRadScriptDdl.PackageTable]));
+    try
+      LQ.ParamByName('t').AsString := TRadScript.KindCodeOf(AKind);
+      LQ.ParamByName('h').AsString := ATarget;
+      LQ.ParamByName('a').AsBoolean := True;
+      LQ.ParamByName('b').AsBoolean := True;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        S := TRadScript.Create;
+        Result.Add(S);
+        ReadScript(LQ, S);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+  except
+    Result.Free;
+    raise;
+  end;
+end;
+
+procedure TRadUniScriptStore.ApplyPendingDbSteps(APkg: TRadScriptPackage);
+type
+  TStep = record Id, Order: Integer; Sql: string; end;
+var
+  LQ: TUniQuery;
+  LSteps: TList<TStep>;
+  LStep: TStep;
+  D: TRadScriptDbStep;
+  LNow: TDateTime;
+begin
+  LSteps := TList<TStep>.Create;
+  try
+    LQ := Q(Format('select id, sira, sql_metni from %s where paket_id = :p and uygulandi_mi = :u order by sira',
+      [TRadScriptDdl.DbTable]));
+    try
+      LQ.ParamByName('p').AsInteger := APkg.Id;
+      LQ.ParamByName('u').AsBoolean := False;
+      LQ.Open;
+      while not LQ.Eof do
+      begin
+        LStep.Id := LQ.Fields[0].AsInteger;
+        LStep.Order := LQ.Fields[1].AsInteger;
+        LStep.Sql := MemoText(LQ.Fields[2]);
+        LSteps.Add(LStep);
+        LQ.Next;
+      end;
+    finally
+      LQ.Free;
+    end;
+    for LStep in LSteps do
+    begin
+      try
+        Exec(LStep.Sql);
+      except
+        on E: Exception do
+          raise ERadScript.CreateFmt('"%s" paketi DB adımı %d: %s', [APkg.Code, LStep.Order, E.Message]);
+      end;
+      LNow := Now;
+      LQ := Q(Format('update %s set uygulandi_mi = :u, uygulama_zamani = :z where id = :id', [TRadScriptDdl.DbTable]));
+      try
+        LQ.ParamByName('u').AsBoolean := True;
+        LQ.ParamByName('z').AsDateTime := LNow;
+        LQ.ParamByName('id').AsInteger := LStep.Id;
+        LQ.ExecSQL;
+      finally
+        LQ.Free;
+      end;
+      for D in APkg.DbSteps do
+        if D.Order = LStep.Order then
+        begin
+          D.Applied := True;
+          D.AppliedAt := LNow;
+        end;
+    end;
+  finally
+    LSteps.Free;
+  end;
+end;
+
+function TRadUniScriptStore.LoadResource(APackageId: Integer; const AFileName: string; AStream: TStream): Boolean;
+var
+  LQ: TUniQuery;
+begin
+  LQ := Q(Format('select icerik from %s where paket_id = :p and dosya_adi = :n', [TRadScriptDdl.ResourceTable]));
+  try
+    LQ.ParamByName('p').AsInteger := APackageId;
+    LQ.ParamByName('n').AsString := AFileName;
+    LQ.Open;
+    Result := not LQ.Eof;
+    if Result and not LQ.Fields[0].IsNull then
+      TBlobField(LQ.Fields[0]).SaveToStream(AStream);
   finally
     LQ.Free;
   end;

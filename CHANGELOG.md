@@ -115,6 +115,21 @@ that break something else in the kit.
   `rad.dev.customfields` eklendi. MSBuild Win32 Debug geçici klasöre derlendi/linklendi; kurulu
   `RadKon.bpl` IDE açık olduğu için yazılamadı (F2039) — IDE'den yeniden derlenmeli.
 - `docs/specs/rad.customfield.md` — spec (EARS ölçütleri + ölçümler).
+- `src/core/rad.script.pas` — **script sistemi 2. aşama (RAD-15):** paket/script/parametre/DB adımı/kaynak
+  modeli ve doğrulaması, `IRadScriptStore`, `TRadScriptDdl` (5 tablo, 4 lehçe), `TRadScriptPackageFile`
+  (`.radpaket` JSON, kaynaklar base64, eksik anahtar varsayılan alır). Cron yazılmadı: `zaman` hedefi
+  `rad.date.TDtSchedule` maskesi. `Help.uni.pas`: ortak `TRadUniStoreBase` (Q/Exec/CountOf/TableExists/
+  InTransaction/MemoText) çıkarıldı, `TRadUniCustomFieldStore` ona bağlandı, yeni `TRadUniScriptStore`
+  (SavePackage tek transaction + alt kayıt senkronu, ImportPackage parametre koruması, ScriptsFor harf
+  duyarsız, ApplyPendingDbSteps kaldığı yerden), `TUniConnection._Scripts`. Firebird: blob metin
+  parametresi `ftWideMemo`, okuma `MemoText` (UTF-8 bayt yolu yalnız Firebird; PG'de `AsBytes`
+  `EEncodingError` verir) — aynı düzeltme özel alan `secenekler` okumasına da uygulandı. Testler
+  `src/test/scratch/rad_script/`: `ScriptModelTest` 37/37 Win32+Win64, `ScriptLiveTest` PG/MSSQL/FB
+  72/72 Win32, PG+MSSQL 48/48 Win64; `CustomFieldLiveTest` 146/146 regresyon temiz. Paket `RadKon`'a eklendi.
+- `.agents/rules/component-patterns.md` — kullanıcı kuralı: görsel tasarım DFM'de, kod yalnız veri güdümlü parçaları kurar.
+- `docs/specs/rad.script.md` — script sisteminin 2. aşama spec'i (paket/script tabloları, `IRadScriptStore`,
+  `.radpaket` dışa/içe aktarma, cron, EARS ölçütleri); onaylı kullanım kararları: İngilizce `_Before/_After`
+  kancaları, `_After` hatası geri alınmaz. Kod yazılmadı.
 - `docs/specs/rad.script-spike.md` + `src/test/scratch/rad_script_spike/` (`SpikeCore`, `SpikeVcl`,
   `spikeform.dfm`) — **script/eklenti sistemi 1. aşama: motor sondası.** Karar TMS Scripter 8.1
   (Delphi 13 Win32+Win64). Ölçüldü: 501 satır 9 ms derleme, 10.000 alt program çağrısı 101 ms,

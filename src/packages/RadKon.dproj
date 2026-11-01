@@ -211,6 +211,7 @@
         <DCCReference Include="..\core\rad.config.pas"/>
         <DCCReference Include="..\core\rad.sqlfilter.pas"/>
         <DCCReference Include="..\core\rad.customfield.pas"/>
+        <DCCReference Include="..\core\rad.script.pas"/>
         <DCCReference Include="..\component\rad.dev.customfields.pas">
             <Form>RadCustomFieldsFrame</Form>
             <DesignClass>TFrame</DesignClass>

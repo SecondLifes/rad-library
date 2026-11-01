@@ -22,3 +22,4 @@ alwaysApply: true
 - Compile-check applicable runtime/design-time package pairs for Win32 and
   Win64. Treat framework-specific code as separate from the core (which
   depends on the RTL and mORMot2, and nothing else).
+- Visual design lives in the DFM (user rule 2026-11-01): forms, frames, dialogs and their static layout/controls are authored in `.dfm`; code creates only data-driven parts (one editor per runtime definition). Code-built UI hit `csLoading`/nil-root traps twice in this kit and cannot be opened in the IDE designer.

@@ -10,7 +10,7 @@ src/
 ├── core/        reusable library code (RTL + mORMot2 only) — help.*.pas units
 │                (help.date, help.rtti, help.str, Help.DB, Help.uni, Help.vcl)
 │                plus rad.*.pas core units (rad.cache, rad.cmd, rad.eventbus,
-│                rad.permission, rad.sqlfilter, rad.customfield, rad.thread, rad.utils,
+│                rad.permission, rad.sqlfilter, rad.customfield, rad.script, rad.thread, rad.utils,
 │                rad.worker, ...)
 ├── component/   VCL components and their editors (Permission.Edit,
 │                rad.db, rad.rtl, rad.vcl, rad.dev, rad.dev.customfields —

@@ -78,6 +78,7 @@ contains
   rad.config in '..\core\rad.config.pas',
   rad.sqlfilter in '..\core\rad.sqlfilter.pas',
   rad.customfield in '..\core\rad.customfield.pas',
+  rad.script in '..\core\rad.script.pas',
   rad.dev.customfields in '..\component\rad.dev.customfields.pas' {RadCustomFieldsFrame: TFrame},
   rad.dev.customfielddesigner in '..\component\rad.dev.customfielddesigner.pas' {RadCustomFieldDesigner};
 

@@ -508,7 +508,7 @@ begin
   V := EditValueOf(EditorOf(ADef.ColumnName));
   case ADef.FieldType of
     cfText, cfMemo:
-      if not VarIsNull(V) then AFilter.Contains(AField, VarToStr(V));
+      if not VarIsNull(V) then AFilter.Contains(AField, VarToStr(V), rcInsensitive);
     cfBoolean, cfSingleChoice:
       if not VarIsNull(V) and (VarToStr(V) <> '') then AFilter.Equal(AField, V);
     cfMultiChoice:

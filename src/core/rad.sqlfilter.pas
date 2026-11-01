@@ -69,6 +69,8 @@ type
     function GetConditions: string;
     /// <summary>'ORDER BY a DESC, b ASC' ya da boş.</summary>
     function GetOrderBy: string;
+    /// <summary>'a DESC, b ASC' (başında ORDER BY yok); UniDAC SetOrderBy bu biçimi bekler.</summary>
+    function GetOrderByFields: string;
     function GetSql: string;
     /// <summary>Yalnız log/hata ayıklama: değerler metne gömülü. Çalıştırmak için değil.</summary>
     function GetDebugSql: string;
@@ -159,6 +161,7 @@ type
     function GetWhere: string;
     function GetConditions: string;
     function GetOrderBy: string;
+    function GetOrderByFields: string;
     function GetSql: string;
     function GetDebugSql: string;
     function Params: TArray<TRadSqlParam>;
@@ -736,12 +739,17 @@ begin
     Result := 'WHERE ' + Result;
 end;
 
+function TRadSqlFilter.GetOrderByFields: string;
+begin
+  Result := string.Join(', ', FOrder.ToArray);
+end;
+
 function TRadSqlFilter.GetOrderBy: string;
 begin
   if FOrder.Count = 0 then
     Result := ''
   else
-    Result := 'ORDER BY ' + string.Join(', ', FOrder.ToArray);
+    Result := 'ORDER BY ' + GetOrderByFields;
 end;
 
 function TRadSqlFilter.GetSql: string;

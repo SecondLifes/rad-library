@@ -7,6 +7,8 @@ uses
   System.Classes,
   System.Actions,
   Vcl.ActnList,
+  Data.DB,
+  Vcl.DBActns,
   mormot.core.base,
   mormot.core.unicode,
   mormot.core.json,
@@ -18,12 +20,45 @@ type
   TRadOnLoadEvent = procedure(const AList: TRadActionList);
   TRadOnSaveEvent = procedure(const AList: TRadActionList);
 
-  TRadAction = class(TAction)
+  /// <summary>Kısayolu form bağımsız (genel) saklanan eylemlerin arayüzü. Aynı GlobalKey'e
+  /// sahip eylemler bütün formlarda aynı kısayolu paylaşır (TRadActionList JSON'u bu anahtarla yazar/okur).</summary>
+  IRadGlobalKey = interface
+    ['{5C1F0E62-8A3D-4B7E-9F21-6D4A8E3B7C15}']
+    function GetGlobalKey: string;
+  end;
+
+  TRadAction = class(TAction, IRadGlobalKey)
   private
     FGlobalKey: string;
+    function GetGlobalKey: string;
   published
     property GlobalKey: string read FGlobalKey write FGlobalKey;
   end;
+
+  /// <summary>Kaydet: veri kümesi Edit/Insert durumundaysa Post eder. DataSource boşsa VCL odaktaki
+  /// veri-bağlı denetimin DataSource'unu kullanır. Post'tan önce RadCommitEditors (genel kanca)
+  /// çalışır: açık satır içi düzenleyicinin değeri veri kümesine yazılsın diye.</summary>
+  TRadDataSetPost = class(TDataSetPost, IRadGlobalKey)
+  private
+    FGlobalKey: string;
+    function GetGlobalKey: string;
+  public
+    procedure ExecuteTarget(Target: TObject); override;
+  published
+    property GlobalKey: string read FGlobalKey write FGlobalKey;
+  end;
+
+  /// <summary>İptal: veri kümesi Edit/Insert durumundaysa Cancel eder; önce RadCancelEditors.</summary>
+  TRadDataSetCancel = class(TDataSetCancel, IRadGlobalKey)
+  private
+    FGlobalKey: string;
+    function GetGlobalKey: string;
+  public
+    procedure ExecuteTarget(Target: TObject); override;
+  published
+    property GlobalKey: string read FGlobalKey write FGlobalKey;
+  end;
+
 
   TRadActionList = class(TActionList)
   private
@@ -59,8 +94,63 @@ type
     property CommandList: TStrings read FCmdList write SetCmdList;
   end;
 
+var
+  /// <summary>Kaydet'ten önce çağrılır. Satır içi düzenleyicileri (cxGrid, cx editörleri) bilen birim
+  /// (rad.dev) atar; rad.rtl DevExpress'e bağımlı olmasın diye kanca.</summary>
+  RadCommitEditors: TProc = nil;
+  /// <summary>İptal'den önce çağrılır (açık düzenleyiciyi iptal eder).</summary>
+  RadCancelEditors: TProc = nil;
+
+/// <summary>Eylemin GlobalKey'i; arayüzü desteklemiyorsa ya da boşsa ''.</summary>
+function RadGlobalKeyOf(AAction: TObject): string;
+
 implementation
  uses Math;
+function RadGlobalKeyOf(AAction: TObject): string;
+var
+  LKey: IRadGlobalKey;
+begin
+  if Supports(AAction, IRadGlobalKey, LKey) then
+    Result := LKey.GetGlobalKey
+  else
+    Result := '';
+end;
+
+{ TRadAction }
+
+function TRadAction.GetGlobalKey: string;
+begin
+  Result := FGlobalKey;
+end;
+
+{ TRadDataSetPost }
+
+function TRadDataSetPost.GetGlobalKey: string;
+begin
+  Result := FGlobalKey;
+end;
+
+procedure TRadDataSetPost.ExecuteTarget(Target: TObject);
+begin
+  if Assigned(RadCommitEditors) then
+    RadCommitEditors();
+  inherited ExecuteTarget(Target);
+end;
+
+{ TRadDataSetCancel }
+
+function TRadDataSetCancel.GetGlobalKey: string;
+begin
+  Result := FGlobalKey;
+end;
+
+procedure TRadDataSetCancel.ExecuteTarget(Target: TObject);
+begin
+  if Assigned(RadCancelEditors) then
+    RadCancelEditors();
+  inherited ExecuteTarget(Target);
+end;
+
 { TRadActionList }
 
 function TRadActionList.GetActions: TArray<TContainedAction>;
@@ -121,8 +211,8 @@ begin
     if not (act is TCustomAction) then Continue;
 
     // GlobalKey varsa onu ara, yoksa action adını ara
-    if (act is TRadAction) and (TRadAction(act).GlobalKey <> '') then
-      name := StringToUtf8(TRadAction(act).GlobalKey)
+    if RadGlobalKeyOf(act) <> '' then
+      name := StringToUtf8(RadGlobalKeyOf(act))
     else
       name := StringToUtf8(act.Name);
 
@@ -151,8 +241,8 @@ begin
       act := Actions[i];
       if not (act is TCustomAction) then Continue;
 
-      if (act is TRadAction) and (TRadAction(act).GlobalKey <> '') then
-        key := TRadAction(act).GlobalKey
+      if RadGlobalKeyOf(act) <> '' then
+        key := RadGlobalKeyOf(act)
       else
         key := act.Name;
 

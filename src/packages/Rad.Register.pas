@@ -62,7 +62,7 @@ implementation
   }
   ]); //TUSersForm,TUserManager TSecurityManager,TSecurityForms
 
-  RegisterActions('RadKon', [TRadAction], nil);
+  RegisterActions('RadKon', [TRadAction, TRadDataSetPost, TRadDataSetCancel], nil);
 
   //RegisterComponents('SDK DB', [TsDBMsSql, TsDBCreator]);
   end;

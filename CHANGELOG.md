@@ -24,6 +24,21 @@ that break something else in the kit.
 
 ## [Unreleased]
 
+### Added
+
+- **`rad.rtl`: `IRadGlobalKey`, `TRadDataSetPost`, `TRadDataSetCancel`, `RadGlobalKeyOf`.**
+  Genel (form bağımsız) kısayol anahtarı artık `TRadAction`'a özel değil, arayüz: `TRadActionList`
+  (`LoadFromJson/ToJson`) ve `Kisayol.Edit` `RadGlobalKeyOf(act)` ile her eylem türünden okur.
+  `TRadDataSetPost/Cancel` standart `TDataSetPost/Cancel`'dir (veri kümesi Edit/Insert durumundaysa
+  etkin; `DataSource` boşsa odaktaki veri-bağlı denetimin kaynağı) ve `GlobalKey` taşır; Post/Cancel'dan
+  önce `RadCommitEditors`/`RadCancelEditors` kancaları (satır içi düzenleyiciyi kapatmak için, `rad.dev`
+  atayacak) çalışır. `Rad.Register` yeni eylemleri `RadKon` paletine ekler. Paket `RadKon` yeniden
+  derlenip IDE'ye kurulmalı (çalışan IDE `RadKon.bpl`'yi kilitlediği için komut satırı çıktısı yazamadı;
+  kaynaklar hatasız derlendi).
+- **`rad.sqlfilter`: `GetOrderByFields`** — `ORDER BY` öneksiz sıralama listesi (`k.ad DESC, b.doviz ASC`), UniDAC
+  `SetOrderBy` bu biçimi bekler; `GetOrderBy` artık bunun üstüne kurulur (SqlFilterTest T15g–T15i).
+  `rad.dev.customfields`: metin/not alanlarının süzgeci `rcInsensitive` `Contains` (varsayılan mod `rcDatabase` olduğu için).
+
 ### Changed
 
 - **`rad.dev`: `TRadValueList.Wrap` + `TRadCheckComboBoxProperties.AValueWrap`** (published,

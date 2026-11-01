@@ -177,6 +177,10 @@ begin
     Esit('T15b1 varsayilan LIKE (ILIKE degil)', 'WHERE (a LIKE :p1 ESCAPE ''!'') AND (b LIKE :p2 ESCAPE ''!'')', F.GetWhere);
     F := TRadSqlFilter.New.CaseMode(rcDefault).Equal('ad', 'ali');
     Esit('T15b2 CaseMode(rcDefault) = rcDatabase', 'WHERE (ad = :p1)', F.GetWhere);
+    F := TRadSqlFilter.New.AddOrderBy('k.ad', True).AddOrderBy('b.doviz');
+    Esit('T15g GetOrderByFields oneksiz', 'k.ad DESC, b.doviz ASC', F.GetOrderByFields);
+    Esit('T15h GetOrderBy onekli', 'ORDER BY k.ad DESC, b.doviz ASC', F.GetOrderBy);
+    Esit('T15i bos siralama', '', TRadSqlFilter.New.GetOrderByFields);
     F := TRadSqlFilter.New.Equal('ad', 'ali', rcSensitive).NotEqual('b', 'x', rcSensitive);
     Esit('T15c PG Eq rcSensitive', 'WHERE (ad = :p1) AND (b <> :p2)', F.GetWhere);
     F := TRadSqlFilter.New.CaseSensitive(True).Equal('ad', 'ali').Like('b', 'x').Contains('c', 'y', rcInsensitive);

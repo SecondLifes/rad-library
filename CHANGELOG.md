@@ -26,6 +26,13 @@ that break something else in the kit.
 
 ### Added
 
+- `Help.Dev`: `_EditGetValue`/`_EditSetValue` — editör değerini dilden bağımsız saklar ve geri yazar (`TcxCheckComboBox` JSON dizisi, tarih ISO metni).
+- `Help.Dev`: `_EditToFilter(F, alan, editör)` — editör değerini türüne göre `IRadSqlFilter` koşuluna çevirir (metin `Contains`, `TcxCheckComboBox` `InList`, diğerleri `Equal`).
+- `src/test/scratch/rad_sqlfilter/FilterEditTest.dpr` — `_EditToFilter` testi.
+- `Help.Dev`: `_ActiveEdit` — odaktaki DevExpress editörü (odak editörün iç denetimindedir, `ActiveControl is TcxCustomEdit` her zaman False'tur).
+- `Help.uni`: `_UseFilter(F)` ve `_OpenFilter(F)` — filtrenin bütün akışı tek çağrıda, her UniDAC dataset'inde (`TUniQuery`, `TRadQuery`, `TUniTable`). Geliştiricinin `WHERE`, `ORDER BY` ve parametrelerini korur (`SaveSQL`/`RestoreSQL`); `_ApplyFilter` yalnız parametre yazan alt düzey çağrı olarak kalır.
+- `rad.sqlfilter`: `RadSqlHasSetOperator(ASql)` — üst düzey `UNION`/`INTERSECT`/`EXCEPT` tespiti; `_UseFilter` böyle bir sorguya koşul yazmayı reddeder (`AddWhere` yalnız ilk kola uygulanırdı).
+- `src/test/scratch/rad_sqlfilter/FilterFlowLiveTest.dpr` — `_UseFilter`/`_OpenFilter` canlı testi (oturuma özel geçici tablo).
 - `rad.searchexpr`: operatör (`>`, `>=`, `=`, `<>` ...), joker (`*`, `?`) ve `..` çevresindeki boşluklar yok sayılır (`> 1`, `0 555 *`, `10 .. 20`); tırnak içi korunur.
 - `src/core/rad.searchexpr.pas` — liste "genel arama" kutusunun ifade çözümleyicisi (veritabanından bağımsız): `RadSearchParse` metni terimlere ayırır (boşlukla ayrı terimler, `"tırnak"`, `=`, `>`, `>=`, `<`, `<=`, `<>`/`!=`, aralık `a..b`/`a..`/`..b`), `RadSearchValue` terimi alan türüne göre çevirir (tamsayı yalnız rakam, ondalık `1.234,56`/`1,234.56`/`12.5` ama `12e3` değil, tarih yerel ya da `yyyy-mm-dd`, evet/hayır), `RadSearchApply` koşulu `IRadSqlFilter`'a yazar (metin: içerir, `=` tam eşit; sayı/tarih: karşılaştırma; tarihte `rad.sqlfilter` WholeDay anlamı). Joker: `*` (her şey), `?` (tek karakter), `\*` `\?` `\` düz karakter; `kasa*` başlar, `*5595` biter, `a*b` ortada (PostgreSQL `ILIKE ... ESCAPE '!'`, `%`/`_` kaçırılır). `skDigits` rakam alanı türü (telefon): terimin rakam dışı karakterleri atılır, alan ifadesini geliştirici verir. Test: `src/test/scratch/rad_sqlfilter/SearchExprTest.dpr` (59/59; `build_and_run.bat Win32 SearchExprTest`).
 - **`rad.rtl`: `IRadGlobalKey`, `TRadDataSetPost`, `TRadDataSetCancel`, `RadGlobalKeyOf`.**

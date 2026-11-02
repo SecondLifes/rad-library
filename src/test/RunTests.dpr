@@ -54,7 +54,11 @@ uses
   rad.eventbus.Benchmark in 'unit\rad.eventbus.Benchmark.pas',
   rad.eventbus.Tests in 'unit\rad.eventbus.Tests.pas',
   rad.thread.Tests in 'unit\rad.thread.Tests.pas',
-  rad.utils.Tests in 'unit\rad.utils.Tests.pas';
+  rad.utils.Tests in 'unit\rad.utils.Tests.pas',
+  rad.reports in '..\share\rad.reports.pas' {RadReportsDM: TDataModule},
+  rad.reports.manage in '..\share\rad.reports.manage.pas' {RadReportManageForm: TdxRibbonForm},
+  rad.reports.Tests in 'unit\rad.reports.Tests.pas',
+  rad.reports.db.Tests in 'unit\rad.reports.db.Tests.pas';
 
 { keep comment here to protect the following conditional from being removed by the IDE when adding a unit }
 {$IFNDEF TESTINSIGHT}

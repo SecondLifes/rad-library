@@ -20,9 +20,6 @@ cxTL,cxDBTL,
 cxGrid, cxVGrid, cxGridTableView, cxGridCustomView, cxGridCustomTableView, cxGridDBTableView,
 
 cxGridDBDataDefinitions,cxGridLayoutView,cxGridDetachedEditForm,cxGridInplaceEditForm
-
-
-
 ;
 
 type

@@ -176,6 +176,17 @@
         <DCCReference Include="unit\rad.eventbus.Tests.pas"/>
         <DCCReference Include="unit\rad.thread.Tests.pas"/>
         <DCCReference Include="unit\rad.utils.Tests.pas"/>
+        <DCCReference Include="..\share\rad.reports.pas">
+            <Form>RadReportsDM</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TDataModule</DesignClass>
+        </DCCReference>
+        <DCCReference Include="..\share\rad.reports.manage.pas">
+            <Form>RadReportManageForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="unit\rad.reports.Tests.pas"/>
+        <DCCReference Include="unit\rad.reports.db.Tests.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

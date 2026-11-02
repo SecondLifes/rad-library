@@ -96,6 +96,7 @@ var
   C: TcxCurrencyEdit;
   T: TcxTextEdit;
   LK, LG: TKayitlar;
+  V: Variant;
   K: TcxCheckComboBox;
   LItem: TcxImageComboBoxItem;
 begin
@@ -223,6 +224,36 @@ begin
       T.Clear;
       _EditSetValue(T, LG.Kayitlar[0].Degerler[4].Ilk);
       Esit('K10 metin geri', 'Ali & Veli', T.Text);
+
+      Writeln('=== Varsayilana donus (Temizle) ===');
+      I.EditValue := True;
+      V := _EditGetValue(I);
+      I.EditValue := False;
+      _EditSetValue(I, V);
+      Esit('V01 varsayilan True geri', 'Aktif', I.Text);
+      K.Clear;
+      K.States[2] := cbsChecked;
+      V := _EditGetValue(K);
+      K.States[2] := cbsUnchecked;
+      K.States[0] := cbsChecked;
+      _EditSetValue(K, V);
+      Esit('V02 check combo varsayilani geri', 'cbsUnchecked cbsUnchecked cbsChecked',
+        Format('%s %s %s', [Durum(K.States[0]), Durum(K.States[1]), Durum(K.States[2])]));
+      K.Clear;
+      V := _EditGetValue(K);
+      K.States[1] := cbsChecked;
+      _EditSetValue(K, V);
+      Esit('V03 bos check combo varsayilani', '', Sonuc(K));
+      D.Clear;
+      V := _EditGetValue(D);
+      D.Date := EncodeDate(2026, 1, 1);
+      _EditSetValue(D, V);
+      Esit('V04 bos tarih varsayilani', '', Sonuc(D));
+      D.Date := EncodeDate(2026, 1, 1);
+      V := _EditGetValue(D);
+      D.Date := EncodeDate(2026, 2, 2);
+      _EditSetValue(D, V);
+      Esit('V05 tarih varsayilani', DateToStr(EncodeDate(2026, 1, 1)), DateToStr(D.Date));
     except
       on Ex: Exception do
       begin

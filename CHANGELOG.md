@@ -33,6 +33,11 @@ that break something else in the kit.
 - `Help.uni`: `_UseFilter(F)` ve `_OpenFilter(F)` — filtrenin bütün akışı tek çağrıda, her UniDAC dataset'inde (`TUniQuery`, `TRadQuery`, `TUniTable`). Geliştiricinin `WHERE`, `ORDER BY` ve parametrelerini korur (`SaveSQL`/`RestoreSQL`); `_ApplyFilter` yalnız parametre yazan alt düzey çağrı olarak kalır.
 - `rad.sqlfilter`: `RadSqlHasSetOperator(ASql)` — üst düzey `UNION`/`INTERSECT`/`EXCEPT` tespiti; `_UseFilter` böyle bir sorguya koşul yazmayı reddeder (`AddWhere` yalnız ilk kola uygulanırdı).
 - `src/test/scratch/rad_sqlfilter/FilterFlowLiveTest.dpr` — `_UseFilter`/`_OpenFilter` canlı testi (oturuma özel geçici tablo).
+- `src/share/rad.reports.pas`, `src/share/rad.reports.dfm` — **RadReports**: FastReport VCL tabanlı rapor sistemi, bir bileşen gibi kullanılır. TEK çekirdek birim: `IRadReports` servis (`TRadReports.New(bağlantı, kullanıcı)`) + `IRadReport` iş nesnesi (`Report(key).Data(qry, 'ad').Run`), tipler, dosya adı şablonu, yerel eşitleme, depo, FastReport bileşenleri. Yetki/sahiplik/paylaşım/tür yok (sahibin kararı); bir anahtarın birden çok tasarımı, varsayılan tasarım, SHA ile çakışma kontrolü, silme öncesi yerel yedek, `AddToMenu`/`Actions`, `LoadDefaults` (yalnız eksik). Her iş nesnesinin kendi `TfrxReport` motoru vardır. (Aynı gün içindeki `rapor.dm`/`rapor.yonetim` taslakları bununla değiştirildi.)
+- `src/share/rad.reports.manage.pas`, `src/share/rad.reports.manage.dfm` — DevExpress Ribbon yönetim formu (`TRadReportManageForm : TdxRibbonForm`); `IRadReport.Manage` açar.
+- `src/share/rad.reports.md` — RadReports notları (kullanım, sözleşme, dersler, testler).
+- `src/test/unit/rad.reports.Tests.pas` — veritabanı gerektirmeyen DUnitX testleri (dosya adı, yerel eşitleme, sabitler).
+- `src/test/unit/rad.reports.db.Tests.pas` — depo, servis/iş API'si ve yönetim formu testleri (iki iş nesnesinin karışmaması dâhil). Atılabilir bir PostgreSQL veritabanı yaratıp siler; `RAPOR_TEST_PGPWD` yoksa "atlandı" diye geçer. `src/test/RunTests.dpr/.dproj` bunlara bağlandı.
 - `rad.searchexpr`: operatör (`>`, `>=`, `=`, `<>` ...), joker (`*`, `?`) ve `..` çevresindeki boşluklar yok sayılır (`> 1`, `0 555 *`, `10 .. 20`); tırnak içi korunur.
 - `src/core/rad.searchexpr.pas` — liste "genel arama" kutusunun ifade çözümleyicisi (veritabanından bağımsız): `RadSearchParse` metni terimlere ayırır (boşlukla ayrı terimler, `"tırnak"`, `=`, `>`, `>=`, `<`, `<=`, `<>`/`!=`, aralık `a..b`/`a..`/`..b`), `RadSearchValue` terimi alan türüne göre çevirir (tamsayı yalnız rakam, ondalık `1.234,56`/`1,234.56`/`12.5` ama `12e3` değil, tarih yerel ya da `yyyy-mm-dd`, evet/hayır), `RadSearchApply` koşulu `IRadSqlFilter`'a yazar (metin: içerir, `=` tam eşit; sayı/tarih: karşılaştırma; tarihte `rad.sqlfilter` WholeDay anlamı). Joker: `*` (her şey), `?` (tek karakter), `\*` `\?` `\` düz karakter; `kasa*` başlar, `*5595` biter, `a*b` ortada (PostgreSQL `ILIKE ... ESCAPE '!'`, `%`/`_` kaçırılır). `skDigits` rakam alanı türü (telefon): terimin rakam dışı karakterleri atılır, alan ifadesini geliştirici verir. Test: `src/test/scratch/rad_sqlfilter/SearchExprTest.dpr` (59/59; `build_and_run.bat Win32 SearchExprTest`).
 - **`rad.rtl`: `IRadGlobalKey`, `TRadDataSetPost`, `TRadDataSetCancel`, `RadGlobalKeyOf`.**
@@ -50,6 +55,21 @@ that break something else in the kit.
 
 ### Changed
 
+- `src/share/rad.reports.pas`: `AddToMenu` alt menüsü açılmıyor, SQL sürekli çalışıyor, ekran titriyordu. Açılır menüde öğenin `OnClick`'ine
+  artık bağlanılmaz (liste `OnPopup`'ta yenilenir); `FillMenu` `Clear` yerine önce ekleyip sonra siler, öğe sayısı sıfıra düşmez. Testler:
+  `rad.reports.db.Tests` `AddToMenu_SubmenuOpen_DoesNotRebuild`, `AddToMenu_MainMenu_RefreshesOnClick`.
+- `src/share/rad.reports.pas`: raporlar veri satırı basmıyordu, tasarımcıda bant veri kümesi boş görünüyordu. Köprüler şablon yüklendikten
+  sonra kuruluyordu ve FastReport adı yükleme anında çözüyor. Artık köprüler yüklemeden önce kurulur (`CreateBridges`). Rapor gerçekten
+  satır dolaştığı için liste imleci korunur: denetimler kapatılır, hazırlık sonrası ve iş bitince seçili satıra dönülür. Testler:
+  `rad.reports.db.Tests` `Export_RendersDataRows_EveryRun`, `Design_LoadedTemplate_BandKeepsDataSet`, `Export_KeepsCursorAndControls`.
+- `src/share/rad.reports.pas`: **`IRadReport.Design` özelliği `DesignName` oldu** (getter `GetDesignName`). Aynı adlı `procedure Design`'ı
+  gizliyordu; yönetim formunun Tasarla ve Yeni tasarım düğmeleri tasarımcıyı açmadan sessizce dönüyordu. Ayrıca `SaveFromDesigner`
+  adlı yeni tasarımı `out` parametresi yüzünden boş anahtarla yazıyordu; düzeltildi. Testler: `rad.reports.db.Tests`
+  `ManageForm_DesignButton_OpensDesigner`, `NewNamedDesign_SavedUnderItsKey` (ikisi de düzeltmeden önce kırmızı doğrulandı).
+- `src/share/rad.reports.pas`: tasarımcıdan Kaydet, servis yeniden kurulduktan sonra (şirket değişimi) FastReport'un dosya
+  diyaloğuna düşüyor ve tasarım veritabanına yazılmıyordu — `TfrxDesigner.Destroy` global `frxDesignerComp`'u koşulsuz `nil`
+  yapıyor. Artık her tasarım açılışında ve servis kapanışında global yaşayan servisin bileşenine bağlanır; yeni tasarım boş bir
+  sayfayla açılır. Test: `rad.reports.db.Tests` `TwoServices_DesignerHookSurvivesRelease` (düzeltme kapalıyken kırmızı doğrulandı).
 - **`rad.dev`: `TRadValueList.Wrap` + `TRadCheckComboBoxProperties.AValueWrap`** (published,
   varsayılan `False`): açıkken `EditValue` baş/son ayraçlı yazılır (`|a|b|`), okuma zaten boş
   parçaları attığı için simetrik. `rad.customfield`'ın çoklu seçim biçimi için. `DoAssign` artık

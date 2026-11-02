@@ -202,8 +202,16 @@ type
      //procedure _FastFiltre(const AValue:TValue;const AField:TArray<string>);
 
      function _Macro(const AMacroName,Avalue:string):TCustomDADataSet;
-     /// <summary>Filtrenin parametre değerlerini yazar; SQL metni (GetWhere/GetSql) önce atanmış olmalı.</summary>
+     /// <summary>Yalnız filtrenin parametre değerlerini yazar; SQL metni (GetWhere/GetSql) önce atanmış olmalı.
+     /// Hazır bir sorguya filtre uygulamak için _UseFilter.</summary>
      function _ApplyFilter(const AFilter: IRadSqlFilter): TCustomDADataSet;
+     /// <summary>Kapatır, geliştiricinin SQL'ine döner (WHERE, ORDER BY ve parametreleri korunur), filtrenin
+     /// koşul, sıralama ve parametrelerini yazar; açmaz. Tekrar çağrılabilir. Etkin filtre varken SQL.Text elle
+     /// değiştirilirse sonraki çağrı eski metne döner. UNION'lı sorguda ya da filtre parametresi sorgudaki bir
+     /// parametreyle aynı adı taşıyorsa ERadSqlFilter.</summary>
+     function _UseFilter(const AFilter: IRadSqlFilter): TCustomDADataSet;
+     /// <summary>_UseFilter + Open.</summary>
+     function _OpenFilter(const AFilter: IRadSqlFilter): TCustomDADataSet;
      /// <summary>SQL'deki &amp;AMacro yerine tablonun özel alan kolonlarını yazar
      /// ('select c.id, c.kod &amp;ozel from cari c'). Makro yoksa UniDAC hata verir.</summary>
      function _ApplyCustomFieldMacro(const AMacro, ATable: string; const AAlias: string = ''): TCustomDADataSet;
@@ -1074,6 +1082,35 @@ begin
   for P in AFilter.Params do
     ParamByName(P.Name).Value := P.Value;
   Result := Self;
+end;
+
+function TDADataSetyHelper._UseFilter(const AFilter: IRadSqlFilter): TCustomDADataSet;
+var
+  P: TRadSqlParam;
+begin
+  Result := Self;
+  Close;
+  if SQLSaved then
+    RestoreSQL;
+  SaveSQL;
+  if AFilter.GetConditions <> '' then
+  begin
+    if RadSqlHasSetOperator(SQL.Text) then
+      raise ERadSqlFilter.Create('Filtre UNION/INTERSECT/EXCEPT içeren sorguya uygulanamaz (yalnız ilk kola yazılırdı).');
+    for P in AFilter.Params do
+      if FindParam(P.Name) <> nil then
+        raise ERadSqlFilter.CreateFmt('Filtre parametresi :%s sorgudaki parametreyle çakışıyor (ParamPrefix değiştirin).', [P.Name]);
+    AddWhere(AFilter.GetConditions);
+  end;
+  if AFilter.GetOrderByFields <> '' then
+    SetOrderBy(AFilter.GetOrderByFields);
+  _ApplyFilter(AFilter);
+end;
+
+function TDADataSetyHelper._OpenFilter(const AFilter: IRadSqlFilter): TCustomDADataSet;
+begin
+  Result := _UseFilter(AFilter);
+  Open;
 end;
 
 function TDADataSetyHelper._ApplyCustomFieldMacro(const AMacro, ATable, AAlias: string): TCustomDADataSet;

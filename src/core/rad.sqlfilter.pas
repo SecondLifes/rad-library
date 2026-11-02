@@ -172,10 +172,14 @@ type
     function ClearOrderBy: IRadSqlFilter;
   end;
 
+/// <summary>SQL üst düzeyde UNION/INTERSECT/EXCEPT içeriyor mu (parantez, metin ve yorum içi sayılmaz).
+/// Böyle bir sorguda AddWhere yalnız ilk kola uygulanır.</summary>
+function RadSqlHasSetOperator(const ASql: string): Boolean;
+
 implementation
 
 uses
-  System.DateUtils, System.StrUtils;
+  System.DateUtils, System.StrUtils, System.Character;
 
 const
   ESCAPE_CHAR = '!';
@@ -192,6 +196,59 @@ resourcestring
   SRawEmpty = 'Raw SQL boş';
   SRawCount = 'Raw: ? sayısı (%d) değer sayısına (%d) eşit değil';
   SWildcards = 'Joker karakterler boş ya da aynı olamaz';
+
+// i'deki metin, tırnaklı ad ya da yorumu atlar; atlandıysa True.
+// shortcut: PostgreSQL $$ dizgisi atlanmaz, SELECT'te gerekirse buraya eklenir.
+function SkipSqlLiteral(const S: string; var i: Integer): Boolean;
+var
+  LEnd: Integer;
+begin
+  Result := True;
+  if CharInSet(S[i], ['''', '"']) then
+    LEnd := Pos(S[i], S, i + 1)
+  else if Copy(S, i, 2) = '--' then
+    LEnd := Pos(#10, S, i + 2)
+  else if Copy(S, i, 2) = '/*' then
+  begin
+    LEnd := Pos('*/', S, i + 2);
+    if LEnd > 0 then
+      Inc(LEnd);
+  end
+  else
+    Exit(False);
+  if LEnd = 0 then
+    i := Length(S) + 1
+  else
+    i := LEnd + 1;
+end;
+
+function RadSqlHasSetOperator(const ASql: string): Boolean;
+var
+  i, LStart, LDepth: Integer;
+begin
+  Result := False;
+  LDepth := 0;
+  i := 1;
+  while i <= Length(ASql) do
+  begin
+    if SkipSqlLiteral(ASql, i) then
+      Continue;
+    if ASql[i].IsLetterOrDigit or (ASql[i] = '_') then
+    begin
+      LStart := i;
+      while (i <= Length(ASql)) and (ASql[i].IsLetterOrDigit or (ASql[i] = '_')) do
+        Inc(i);
+      if (LDepth = 0) and MatchText(Copy(ASql, LStart, i - LStart), ['union', 'intersect', 'except']) then
+        Exit(True);
+      Continue;
+    end;
+    if ASql[i] = '(' then
+      Inc(LDepth)
+    else if ASql[i] = ')' then
+      Dec(LDepth);
+    Inc(i);
+  end;
+end;
 
 { TRadSqlFilter }
 

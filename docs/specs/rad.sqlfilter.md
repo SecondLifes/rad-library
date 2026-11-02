@@ -28,8 +28,19 @@ LF := TRadSqlFilter.New(sdPostgreSQL)            // varsayılan: sdPostgreSQL, r
   .AddOrderBy('adi', True).AddOrderBy('soyad');
 
 LQuery.SQL.Text := 'select * from cari ' + LF.GetWhere + ' ' + LF.GetOrderBy;
-LQuery._ApplyFilter(LF);                          // Help.uni: parametreleri yazar
+LQuery._ApplyFilter(LF);                          // Help.uni: yalnız parametreleri yazar
 ```
+
+Hazır SQL'i olan bir dataset'e (DFM sorgusu, `TUniTable`) tek çağrıda:
+
+```pascal
+LQuery._OpenFilter(LF);   // _UseFilter + Open
+```
+
+`_UseFilter` (Help.uni) kapatır, `RestoreSQL`/`SaveSQL` ile geliştiricinin SQL'ine döner, `AddWhere` +
+`SetOrderBy` + parametreleri yazar; kendi `WHERE`, varsayılan `ORDER BY` ve parametreler korunur.
+Üst düzey `UNION`/`INTERSECT`/`EXCEPT` (`RadSqlHasSetOperator`) ya da sorgudaki parametreyle aynı
+adlı filtre parametresi `ERadSqlFilter` fırlatır. Etkin filtre varken `SQL.Text` elle değiştirilmemeli.
 
 Her koşul yöntemi `IRadSqlFilter` döndürür. Nesne `TInterfacedObject`;
 `try..finally` yok, sınıf değişkeniyle tutulmaz.

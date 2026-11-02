@@ -352,6 +352,24 @@ begin
     Esit('T29e GetSql degismez', 'WHERE (a = :p1)', F.GetSql);
     F := TRadSqlFilter.New.CaseSensitive(False).Contains('ad', 'x');
     Esit('T29f ESCAPE korunur', 'WHERE (ad ILIKE ''%x%'' ESCAPE ''!'')', F.GetDebugSql);
+
+    Writeln('=== RadSqlHasSetOperator ===');
+    Kontrol('T30a duz sorgu', not RadSqlHasSetOperator('select a from t where b = 1'));
+    Kontrol('T30b union', RadSqlHasSetOperator('select a from t UNION ALL select a from u'));
+    Kontrol('T30c intersect', RadSqlHasSetOperator('select a from t intersect select a from u'));
+    Kontrol('T30d except', RadSqlHasSetOperator('select a from t' + sLineBreak + 'except' + sLineBreak + 'select a from u'));
+    Kontrol('T30e alt sorguda sayilmaz', not RadSqlHasSetOperator('select * from (select a from t union select a from u) x'));
+    Kontrol('T30f CTE icinde sayilmaz', not RadSqlHasSetOperator('with x as (select a from t union select a from u) select * from x'));
+    Kontrol('T30g metin icinde sayilmaz', not RadSqlHasSetOperator('select ''a union b'' from t'));
+    Kontrol('T30h kacisli metin', not RadSqlHasSetOperator('select ''o''''union'' from t'));
+    Kontrol('T30i tirnakli ad', not RadSqlHasSetOperator('select "union" from t'));
+    Kontrol('T30j satir yorumu', not RadSqlHasSetOperator('select a -- union' + sLineBreak + 'from t'));
+    Kontrol('T30k blok yorumu', not RadSqlHasSetOperator('select /* union */ a from t'));
+    Kontrol('T30l kelime parcasi', not RadSqlHasSetOperator('select union_id, reunion, union2 from t'));
+    Kontrol('T30m yorum sonrasi union', RadSqlHasSetOperator('select a /* x */ from t union select 1'));
+    Kontrol('T30n parantez kapaninca', RadSqlHasSetOperator('(select a from t) union (select a from u)'));
+    Kontrol('T30o kapanmamis tirnak', not RadSqlHasSetOperator('select ''union'));
+    Kontrol('T30p bos', not RadSqlHasSetOperator(''));
   except
     on E: Exception do
     begin

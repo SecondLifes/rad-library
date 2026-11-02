@@ -159,8 +159,25 @@ Ayrıntı: `docs/specs/rad.script.md`.
 
 ## Host tarafı (script yazarı değil, ERP geliştiricisi için)
 
-`TRadScriptBinder.Store`, `TRadScriptFacade.Bind(Context)`, `RegisterUniClasses`,
-`RegisterDevExpressClasses`, form yaratılınca `TRadScriptBinder.Attach(Form)`, modül `Register`'ında
-`TRadScriptCommands.Attach`, KP'de `TRadScriptJobs` + `TRadScriptFacade.PrepareProc`. Kodla yaratılan
-düğmelere `Name` ver; adsız düğme kancalanamaz ve tasarımcıda görünmez. Tasarım kipi için `RadScriptTmsDesign.bpl`
-(yalnız ERP, KP'ye değil) ve yetkiyi host'un verdiği bir menü/kısayolla `TRadScriptDesigner.Start`.
+Tek giriş birimi (share/rules/single-entry-facade.md): ERP yalnız `uses rad.scripting;`, KP yalnız
+`uses rad.scripting.kp;` — alt `rad.script.*` birimleri host'ta geçmez.
+
+```pascal
+// ERP: bağlantı kurulunca bir kez (dm.erp)
+LSetup := Default(TRadScriptingSetup);
+LSetup.Connection := cnSirketDB; LSetup.UserName := Oturum.UserName;
+LSetup.CompanyCode := Oturum.SirketKod; LSetup.CompanyName := Oturum.SirketUnvan;
+TRadScripting.Kur(LSetup);                 // store, tablolar, facade, sınıf kayıtları
+// taban form (TBaseForm.DoCreate, inherited'dan sonra): her form için tek satır
+TRadScripting.Bagla(Self);
+// modül başlangıcı
+TRadScripting.KomutlariBagla(Self, procedure(const ACode, ACaption: string; AOnExecute: TNotifyEvent)
+  begin Komut(ACode, ACaption, 'Script', '', -1, AOnExecute, False); end);
+// menü: Sistem → Script paketleri
+TRadScripting.PaketYoneticisi(Application).OnOpenFormForDesign := ...;
+// KP
+TRadScriptingKp.Kur(LKpSetup, Bus, Workers);   // olay/zaman görevleri başlar; paketler değişince Yenile
+```
+
+Kodla yaratılan düğme/editörlere `Name` ver; adsız bileşen kancalanamaz ve tasarımcıda görünmez.
+`RadScriptTmsDesign.bpl` yalnız ERP'de (tasarımcı + IDE); KP `RadScriptTms` ile yetinir.

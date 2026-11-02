@@ -186,6 +186,7 @@
         <DCCReference Include="..\vendor\tms\rad.script.packages.pas">
             <Form>RadScriptPackagesForm</Form>
         </DCCReference>
+        <DCCReference Include="..\vendor\tms\rad.scripting.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

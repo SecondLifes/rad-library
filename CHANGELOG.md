@@ -174,6 +174,13 @@ that break something else in the kit.
   (`FacadeTest` 24/24 Win32+Win64 PG canlı, `FacadeVclTest` 7/7 Win32); HooksTest 34/34, ScriptLiveTest 78/78.
 - `.agents/skills/rad-script/SKILL.md` — script yazma skill'i (kanca adları, facade, yapılmazlar, 5 örnek, host sözleşmesi).
 - `docs/script-api.md` — `TRadScriptEngine.ExportReference` ile üretilen API referansı (FacadeTest her koşuda yeniler).
+- `src/vendor/tms/rad.scripting.pas` (RadScriptTmsDesign) ve `src/vendor/tms/rad.scripting.kp.pas` (RadScriptTms) — script
+  sisteminin **tek giriş birimleri** (yeni workspace kuralı `share/rules/single-entry-facade.md`, Dext.UI deseni): alt
+  `rad.script.*` türleri takma adla dışa verilir (enum değerleri `const` ile), `TRadScripting.Kur(TRadScriptingSetup)` store +
+  tanım tabloları + bağlam + facade + UniDAC/DevExpress sınıf kayıtlarını tek çağrıda yapar; `Bagla(Form)` (TBaseForm.DoCreate),
+  `KomutlariBagla`, `PaketYoneticisi`, `Tasarla`, `Kapat`. KP: `TRadScriptingKp.Kur(setup, Bus, Workers)` görevleri başlatır,
+  `Yenile`, `Kapat`. Host artık dokuz birim yerine bir birim ekler. Test `src/test/scratch/rad_script_ide/ScriptingTest.dpr`
+  (PG canlı, 7/7). `.specify/spec-template.md`'ye zorunlu "Entry Unit and Setup Call" bölümü eklendi.
 - `src/vendor/tms/rad.script.ide.pas`, `rad.script.packages.pas/.dfm`, `rad.script.newscript.pas/.dfm` — **script sistemi
   6. aşama (RAD-15, son): IDE ve paket yöneticisi.** `TRadScriptIde.Open` TMS `TIDEDialog`'u paketin üstünde açar (script =
   sanal dosya: `OnCheckValidFile/OnLoadFile/OnSaveFile/...` DB'ye, diske dosya yok; `pencere` DFM'si `DesignFormResource` +

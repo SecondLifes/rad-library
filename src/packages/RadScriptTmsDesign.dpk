@@ -50,6 +50,7 @@ contains
   rad.script.design.tools in '..\vendor\tms\rad.script.design.tools.pas' {RadScriptDesignTools},
   rad.script.ide in '..\vendor\tms\rad.script.ide.pas',
   rad.script.newscript in '..\vendor\tms\rad.script.newscript.pas' {RadScriptNewScriptForm},
-  rad.script.packages in '..\vendor\tms\rad.script.packages.pas' {RadScriptPackagesForm};
+  rad.script.packages in '..\vendor\tms\rad.script.packages.pas' {RadScriptPackagesForm},
+  rad.scripting in '..\vendor\tms\rad.scripting.pas';
 
 end.

@@ -63,6 +63,16 @@ CREATE TABLE [nome_tabela] (
 - Main form: `Tfrm[Nome]`
 - Components: `pgcMain`, `tabSearch`, `tabEdit`
 
+## Entry Unit and Setup Call
+
+<!-- share/rules/single-entry-facade.md: a multi-unit system is consumed through ONE entry unit -->
+
+- **Entry unit:** `<root>.<system>` (e.g. `rad.scripting`) — the only unit a consumer adds
+- **Re-exported types:** [list the public types/interfaces/exceptions aliased in the entry unit]
+- **Setup call:** `T<System>.Kur(...)` / `Kapat` — [what it registers and wires, in one call]
+- **Per-instance binding point (if any):** [the single base-class hook, e.g. `TBaseForm.DoCreate`]
+- **Acceptance:** the host runs the system by adding the entry unit and calling setup — proven by a test
+
 ## Out of Scope
 
 - [What will NOT be done in this spec]

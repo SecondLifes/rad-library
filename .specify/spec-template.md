@@ -69,6 +69,7 @@ CREATE TABLE [nome_tabela] (
 
 - **Entry unit:** `<root>.<system>` (e.g. `rad.scripting`) — the only unit a consumer adds
 - **Re-exported types:** [list the public types/interfaces/exceptions aliased in the entry unit]
+- **Cannot be aliased:** [enum values, open generics, helpers, free routines ... and how each is exposed instead]
 - **Setup call:** `T<System>.Kur(...)` / `Kapat` — [what it registers and wires, in one call]
 - **Per-instance binding point (if any):** [the single base-class hook, e.g. `TBaseForm.DoCreate`]
 - **Acceptance:** the host runs the system by adding the entry unit and calling setup — proven by a test

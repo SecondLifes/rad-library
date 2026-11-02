@@ -6,7 +6,7 @@ uses
 Winapi.Windows,System.SysUtils,System.UITypes,System.Classes,Vcl.Graphics,Vcl.Menus, Data.DB,System.Rtti,
 Vcl.Controls,Vcl.Dialogs,Generics.Collections
 
-,rad.db
+,rad.db, rad.sqlfilter
 ,dxCore, dxCoreGraphics, dxGDIPlusApi,
 cxLookAndFeels,cxLookAndFeelPainters, dxSkinsCore, dxSkinsLookAndFeelPainter,
 
@@ -130,6 +130,18 @@ function _CaptionOf(AConsumer: TComponent): string;
 function _DataSetOf(AConsumer: TComponent): TDataSet;
 /// <summary>Bagli TField; cozulemezse nil.</summary>
 function _FieldOf(AConsumer: TComponent): TField;
+/// <summary>Odagin bulundugu editor; yoksa nil. Odak editorun IC denetimindedir (TcxCustomInnerTextEdit),
+/// bu yuzden 'ActiveControl is TcxCustomEdit' her zaman False'tur; bu islev yerine kullanilir.</summary>
+function _ActiveEdit: TcxCustomEdit;
+/// <summary>Editorun degerini filtre kosuluna cevirir; bos editor kosul yazmaz. TcxTextEdit, TcxMaskEdit,
+/// TcxButtonEdit: Contains (harf duyarsiz). TcxCheckComboBox: isaretli Description'lar InList. Digerleri: Equal.
+/// TcxCheckBox AllowGrayed olmali (gri = bos); yoksa isaretsiz durum False kosulu yazar.</summary>
+procedure _EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit);
+/// <summary>Editor degerini dilden bagimsiz saklanacak bicimde verir. TcxCheckComboBox: isaretli Description'lar
+/// JSON dizisi (["TRY","USD"]; EditValue DevExpress'e ozgu ";3:TRY3:USD" bicimindedir). Digerleri: EditValue.</summary>
+function _EditGetValue(AEdit: TcxCustomEdit): Variant;
+/// <summary>_EditGetValue degerini editore yazar; JSON'dan metin donen tarihi (yyyy-mm-dd...) TDate'e cevirir.</summary>
+procedure _EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant);
 
 
 
@@ -159,7 +171,7 @@ var
 
 implementation
  uses
- Vcl.Forms,
+ Vcl.Forms, System.Variants, cxCheckComboBox, cxCalendar,
  rad,
  mormot.core.base,mormot.core.variants, mormot.core.text
  ;
@@ -432,6 +444,86 @@ begin
        (LCol.DataBinding.DataController.DataSource <> nil) then
       Result := LCol.DataBinding.DataController.DataSource.DataSet;
   end;
+end;
+
+function _ActiveEdit: TcxCustomEdit;
+var
+  LControl: TWinControl;
+begin
+  LControl := Screen.ActiveControl;
+  while (LControl <> nil) and not (LControl is TcxCustomEdit) do
+    LControl := LControl.Parent;
+  Result := TcxCustomEdit(LControl);
+end;
+
+function CheckedDescriptions(AEdit: TcxCustomCheckComboBox): TArray<Variant>;
+var
+  i: Integer;
+begin
+  Result := nil;
+  for i := 0 to AEdit.ActiveProperties.Items.Count - 1 do
+    if AEdit.States[i] = cbsChecked then
+      Result := Result + [Variant(AEdit.ActiveProperties.Items[i].Description)];
+end;
+
+procedure _EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit);
+begin
+  if AEdit is TcxCustomCheckComboBox then
+    AFilter.InList(AField, CheckedDescriptions(TcxCustomCheckComboBox(AEdit)))
+  else if (AEdit is TcxTextEdit) or (AEdit is TcxMaskEdit) or (AEdit is TcxButtonEdit) then
+    AFilter.Contains(AField, VarToStr(AEdit.EditValue), rcInsensitive)
+  else
+    AFilter.Equal(AField, AEdit.EditValue);
+end;
+
+function _EditGetValue(AEdit: TcxCustomEdit): Variant;
+var
+  V: Variant;
+begin
+  if AEdit is TcxCustomCheckComboBox then
+  begin
+    TDocVariant.NewFast(Result, dvArray);
+    for V in CheckedDescriptions(TcxCustomCheckComboBox(AEdit)) do
+      TDocVariantData(Result).AddItem(V);
+  end
+  else
+    Result := AEdit.EditValue;
+end;
+
+procedure SetCheckedDescriptions(AEdit: TcxCustomCheckComboBox; const AValue: Variant);
+var
+  i, j: Integer;
+  LDizi: PDocVariantData;
+  LIsaretli: Boolean;
+begin
+  LDizi := _Safe(AValue);
+  for i := 0 to AEdit.ActiveProperties.Items.Count - 1 do
+  begin
+    LIsaretli := False;
+    for j := 0 to LDizi^.Count - 1 do
+      LIsaretli := LIsaretli or (VarToStr(LDizi^.Values[j]) = AEdit.ActiveProperties.Items[i].Description);
+    if LIsaretli then
+      AEdit.States[i] := cbsChecked
+    else
+      AEdit.States[i] := cbsUnchecked;
+  end;
+end;
+
+procedure _EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant);
+var
+  LFormat: TFormatSettings;
+begin
+  if AEdit is TcxCustomCheckComboBox then
+    SetCheckedDescriptions(TcxCustomCheckComboBox(AEdit), AValue)
+  else if (AEdit is TcxCustomDateEdit) and VarIsStr(AValue) then
+  begin
+    LFormat := TFormatSettings.Invariant;
+    LFormat.DateSeparator := '-';
+    LFormat.ShortDateFormat := 'yyyy-mm-dd';
+    AEdit.EditValue := StrToDate(Copy(VarToStr(AValue), 1, 10), LFormat);
+  end
+  else
+    AEdit.EditValue := AValue;
 end;
 
 function _FieldOf(AConsumer: TComponent): TField;

@@ -7,7 +7,7 @@
         <Base>True</Base>
         <Config Condition="'$(Config)'==''">Debug</Config>
         <Platform Condition="'$(Platform)'==''">Win32</Platform>
-        <ProjectName Condition="'$(ProjectName)'==''">RadScriptTms</ProjectName>
+        <ProjectName Condition="'$(ProjectName)'==''">RadScriptTmsDesign</ProjectName>
         <TargetedPlatforms>1048579</TargetedPlatforms>
         <AppType>Package</AppType>
     </PropertyGroup>
@@ -85,7 +85,7 @@
         <GenPackage>true</GenPackage>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
         <DCC_CBuilderOutput>All</DCC_CBuilderOutput>
-        <SanitizedProjectName>RadScriptTms</SanitizedProjectName>
+        <SanitizedProjectName>RadScriptTmsDesign</SanitizedProjectName>
         <VerInfo_Locale>1055</VerInfo_Locale>
         <VerInfo_Keys>CompanyName=;FileDescription=$(MSBuildProjectName);FileVersion=1.0.0.0;InternalName=;LegalCopyright=;LegalTrademarks=;OriginalFilename=;ProgramID=com.embarcadero.$(MSBuildProjectName);ProductName=$(MSBuildProjectName);ProductVersion=1.0.0.0;Comments=</VerInfo_Keys>
         <DCC_UnitSearchPath>E:\system\dev\Delphi\src\git\synopse\mORMot2\src\core;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\app;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\crypt;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\db;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\lib;E:\system\dev\Delphi\src\git\synopse\mORMot2\src\ui;$(DCC_UnitSearchPath)</DCC_UnitSearchPath>
@@ -105,17 +105,17 @@
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <DCC_UsePackage>vcl;rtl;dbrtl;RadKon;TMSScripter;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;RadKon;TMSScripter;unidac370;dac370;cxLibraryRS37;dxCoreRS37;cxVerticalGridRS37;cxGridRS37;TMSScripter_Memo;TMSScripter_VCL;TMSScripter_IDE;RadScriptTms;$(DCC_UsePackage)</DCC_UsePackage>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
-        <DCC_UsePackage>vcl;rtl;dbrtl;RadKon;TMSScripter;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;RadKon;TMSScripter;cxLibraryRS37;dxCoreRS37;cxVerticalGridRS37;cxGridRS37;TMSScripter_Memo;TMSScripter_VCL;TMSScripter_IDE;RadScriptTms;$(DCC_UsePackage)</DCC_UsePackage>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64x)'!=''">
-        <DCC_UsePackage>vcl;rtl;dbrtl;RadKon;TMSScripter;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;RadKon;TMSScripter;cxLibraryRS37;dxCoreRS37;cxVerticalGridRS37;cxGridRS37;TMSScripter_Memo;TMSScripter_VCL;TMSScripter_IDE;RadScriptTms;$(DCC_UsePackage)</DCC_UsePackage>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>

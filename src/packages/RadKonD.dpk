@@ -61,11 +61,11 @@ requires
   RadKon;
 
 contains
-  Rad.Register in 'Rad.Register.pas',
-  Rad.Editor in 'Rad.Editor.pas',
   Rad.Editor.FormState.Model in 'Rad.Editor.FormState.Model.pas',
   Rad.Editor.FormState in 'Rad.Editor.FormState.pas' {RadFormStateEditorForm},
   Rad.Editor.Tools in 'Rad.Editor.Tools.pas',
-  Rad.Editor.FluentOptions in 'Rad.Editor.FluentOptions.pas' {RadFluentOptionsForm};
+  Rad.Editor.FluentOptions in 'Rad.Editor.FluentOptions.pas' {RadFluentOptionsForm},
+  Rad.Register in 'Rad.Register.pas',
+  Rad.Editor in 'Rad.Editor.pas';
 
 end.

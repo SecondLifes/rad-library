@@ -107,17 +107,17 @@
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
-        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dac370;Jcl;JvCore;JvStdCtrls;tdsprovider370;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;unidacvcl370;dacvcl370;cxVerticalGridRS37;vquery370;dxSkinsCoreRS37;Dext.Core;TMSVCLUIPackPkg;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dac370;Jcl;JvCore;JvStdCtrls;tdsprovider370;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;unidacvcl370;dacvcl370;cxVerticalGridRS37;vquery370;dxSkinsCoreRS37;Dext.Core;TMSVCLUIPackPkg;RadKon;$(DCC_UsePackage)</DCC_UsePackage>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64)'!=''">
-        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;Dext.Core;TMSVCLUIPackPkg;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;Dext.Core;TMSVCLUIPackPkg;RadKon;$(DCC_UsePackage)</DCC_UsePackage>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
         <VerInfo_Locale>1033</VerInfo_Locale>
     </PropertyGroup>
     <PropertyGroup Condition="'$(Base_Win64x)'!=''">
-        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;TMSVCLUIPackPkg;$(DCC_UsePackage)</DCC_UsePackage>
+        <DCC_UsePackage>vcl;rtl;dbrtl;vclimg;vclwinx;dxCoreRS37;cxLibraryRS37;dxGDIPlusRS37;dxServerModeRS37;dxSpreadSheetCoreRS37;cxGridRS37;cxTreeListRS37;dxBarRS37;cxTreeListdxBarPopupMenuRS37;cxVerticalGridRS37;dxSkinsCoreRS37;TMSVCLUIPackPkg;RadKon;$(DCC_UsePackage)</DCC_UsePackage>
         <DCC_Namespace>Winapi;System.Win;Data.Win;Datasnap.Win;Web.Win;Soap.Win;Xml.Win;$(DCC_Namespace)</DCC_Namespace>
         <BT_BuildType>Debug</BT_BuildType>
         <VerInfo_IncludeVerInfo>true</VerInfo_IncludeVerInfo>
@@ -189,8 +189,6 @@
         <DCCReference Include="Dext.Core.dcp"/>
         <DCCReference Include="TMSVCLUIPackPkg.dcp"/>
         <DCCReference Include="RadKon.dcp"/>
-        <DCCReference Include="Rad.Register.pas"/>
-        <DCCReference Include="Rad.Editor.pas"/>
         <DCCReference Include="Rad.Editor.FormState.Model.pas"/>
         <DCCReference Include="Rad.Editor.FormState.pas">
             <Form>RadFormStateEditorForm</Form>
@@ -199,6 +197,8 @@
         <DCCReference Include="Rad.Editor.FluentOptions.pas">
             <Form>RadFluentOptionsForm</Form>
         </DCCReference>
+        <DCCReference Include="Rad.Register.pas"/>
+        <DCCReference Include="Rad.Editor.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>
@@ -255,21 +255,21 @@
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\RadKon.bpl" Configuration="Debug" Class="ProjectOutput">
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\RadKonD.bpl" Configuration="Release" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>RadKon.bpl</RemoteName>
+                        <RemoteName>RadKonD.bpl</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\RadKon.bpl" Configuration="Release" Class="ProjectOutput">
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\RadKonD.bpl" Configuration="Debug" Class="ProjectOutput">
                     <Platform Name="Win32">
-                        <RemoteName>RadKon.bpl</RemoteName>
+                        <RemoteName>RadKonD.bpl</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>
-                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\Win64\RadKon.bpl" Configuration="Release" Class="ProjectOutput">
+                <DeployFile LocalName="C:\Users\Public\Documents\Embarcadero\Studio\37.0\Bpl\Win64\RadKonD.bpl" Configuration="Release" Class="ProjectOutput">
                     <Platform Name="Win64">
-                        <RemoteName>RadKon.bpl</RemoteName>
+                        <RemoteName>RadKonD.bpl</RemoteName>
                         <Overwrite>true</Overwrite>
                     </Platform>
                 </DeployFile>

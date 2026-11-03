@@ -1,0 +1,72 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <ProjectGuid>{01B322BE-807E-4419-9403-93D58F8C19BB}</ProjectGuid>
+    </PropertyGroup>
+    <ItemGroup>
+        <Projects Include="RadKon.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="RadKonD.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="RadScriptTms.dproj">
+            <Dependencies/>
+        </Projects>
+        <Projects Include="RadScriptTmsDesign.dproj">
+            <Dependencies/>
+        </Projects>
+    </ItemGroup>
+    <ProjectExtensions>
+        <Borland.Personality>Default.Personality.12</Borland.Personality>
+        <Borland.ProjectType/>
+        <BorlandProject>
+            <Default.Personality/>
+        </BorlandProject>
+    </ProjectExtensions>
+    <Target Name="RadKon">
+        <MSBuild Projects="RadKon.dproj"/>
+    </Target>
+    <Target Name="RadKon:Clean">
+        <MSBuild Projects="RadKon.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="RadKon:Make">
+        <MSBuild Projects="RadKon.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="RadKonD">
+        <MSBuild Projects="RadKonD.dproj"/>
+    </Target>
+    <Target Name="RadKonD:Clean">
+        <MSBuild Projects="RadKonD.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="RadKonD:Make">
+        <MSBuild Projects="RadKonD.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="RadScriptTms">
+        <MSBuild Projects="RadScriptTms.dproj"/>
+    </Target>
+    <Target Name="RadScriptTms:Clean">
+        <MSBuild Projects="RadScriptTms.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="RadScriptTms:Make">
+        <MSBuild Projects="RadScriptTms.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="RadScriptTmsDesign">
+        <MSBuild Projects="RadScriptTmsDesign.dproj"/>
+    </Target>
+    <Target Name="RadScriptTmsDesign:Clean">
+        <MSBuild Projects="RadScriptTmsDesign.dproj" Targets="Clean"/>
+    </Target>
+    <Target Name="RadScriptTmsDesign:Make">
+        <MSBuild Projects="RadScriptTmsDesign.dproj" Targets="Make"/>
+    </Target>
+    <Target Name="Build">
+        <CallTarget Targets="RadKon;RadKonD;RadScriptTms;RadScriptTmsDesign"/>
+    </Target>
+    <Target Name="Clean">
+        <CallTarget Targets="RadKon:Clean;RadKonD:Clean;RadScriptTms:Clean;RadScriptTmsDesign:Clean"/>
+    </Target>
+    <Target Name="Make">
+        <CallTarget Targets="RadKon:Make;RadKonD:Make;RadScriptTms:Make;RadScriptTmsDesign:Make"/>
+    </Target>
+    <Import Project="$(BDS)\Bin\CodeGear.Group.Targets" Condition="Exists('$(BDS)\Bin\CodeGear.Group.Targets')"/>
+</Project>

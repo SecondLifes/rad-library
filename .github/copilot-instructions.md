@@ -64,7 +64,7 @@ This is a **Delphi (Object Pascal) library development** project that follows SO
 
 - Target Win32/Win64, VCL and FMX; the core depends only on the RTL and
   mORMot2, and no other vendor.
-- Helper units use `help.*`; public helper functions/methods begin with `_`.
+- Helper units use `help.*`; public helper methods begin with `_`; public routines are `static` class members.
 - Component classes begin with `TRAD`; keep runtime/design-time packages
   separate.
 - Put tests in `src/test/` with `.test.pas` filenames and optional vendor

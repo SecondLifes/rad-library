@@ -104,8 +104,8 @@ the user decide.
 
 ## Crucial Directives (Memory Management & Components)
 
-- Helper units begin with `help.` and public helper functions/methods begin
-  with `_`; examples never define an API.
+- Helper units begin with `help.` and public helper methods begin with
+  `_`; public routines are `static` class members, never plain functions; examples never define an API.
 - Component classes begin with `TRAD`; runtime/design-time packages stay
   separate.
 - Project paths live under `src/`, tests under `src/test/`, vendor adapters

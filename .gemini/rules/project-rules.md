@@ -65,7 +65,7 @@ silently; user decides.
 
 ## Convention Summary
 
-- Helper units use `help.*`; public helper functions/methods start with `_`.
+- Helper units use `help.*`; public helper methods start with `_`; public routines are `static` class members.
 - Component classes start with `TRAD`; runtime/design-time packages are
   separate.
 - Use `src/test/` for `.test.pas` units and `src/vendor/` for optional

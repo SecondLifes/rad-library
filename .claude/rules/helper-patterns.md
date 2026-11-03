@@ -9,8 +9,8 @@ alwaysApply: true
 ## Naming
 
 - Every helper unit filename and unit name begins with `help.`.
-- Every public helper function or helper method begins with `_`. Exception:
-  members of a vendor static class — see "Vendor helper units" below.
+- Every public helper method begins with `_`. Public routines are static class
+  members (`delphi-conventions.md`) and take no prefix.
 - Test files live under `src/test/` and append `.test` to the source
   filename: `help.date.pas` → `help.date.test.pas`.
 - Names shown here are structural examples, not approved APIs. Never infer

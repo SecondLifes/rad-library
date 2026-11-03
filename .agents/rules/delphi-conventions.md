@@ -88,6 +88,25 @@ set `pfArray`, so the two are distinguishable.
 
 Also: `TRttiType.QualifiedName` raises `ENonPublicType` for types not declared in a
 unit's interface section (e.g. inside a `.dpr` or an `implementation` block). Guard it.
+A generic instance raises it too, wherever it is declared: take its unit from
+`TClass.UnitName`. `IsPublicType` is no use for visibility: it is `False` for such an
+instance and `True` for a `private` nested type, which still fails with E2361 when
+named from outside.
+
+**Reading Delphi source as text.** Stripping comments also strips directives, so both
+branches of every `{$IF}` get read. RTL and VCL sources keep .NET-era
+`{$IF DEFINED(CLR)}` blocks, and `{$ELSEIF}` chains need a "branch already taken" state:
+reading them produced members that do not exist (`TControl.Color`, `TBitmap.ImageFormat`,
+`TThread.Policy`). A `TX = class;` forward declaration also matches a naive header
+search, and it precedes the real class in `System.Classes`, `Vcl.Forms` and others.
+For units in a `uses` list there is an exact answer: a loaded class has every unit of its
+active branch linked, so `GetPackageInfo` over `EnumModules` filters out the rest.
+
+**Walking `BaseType` to collect members.** RTTI lists a hidden member as if it were
+reachable. A name declared in a descendant hides every ancestor member of that name,
+across kinds: a method hides overloads, and a property and a method hide each other
+(`TRadConnection.InTransaction` failed with E2250). RTTI does not expose the `overload`
+directive, so take each name from the most derived class that declares it.
 
 ## Unit name qualification in generated `uses`
 
@@ -262,6 +281,57 @@ the referenced table name, and `CREATE TABLE` failed on PostgreSQL, SQL Server
 and Firebird with three different syntax errors that all pointed at the wrong
 place. Once one specifier carries an index, index the ones after it explicitly
 (`%16:s`) — or avoid mixing the two forms in one format string.
+
+## Public functions live in static classes
+
+A routine that a unit exposes in its interface section is a `class function` or
+`class procedure` of a class named for its subject, marked `static`. Use an
+existing class when the routine belongs to it (`TSmartCache.New`), otherwise a
+dedicated one:
+
+```pascal
+TRadFluent = class abstract
+public
+  class function GenerateUnit(AClass: TClass; const AOutputPath: string): string; static;
+end;
+```
+
+- One subject, one class: `rad.utils` holds `TRadFluent` and `TRadDate`. A catch-all
+  `TUtils` is a God Class and is rejected.
+- Do not repeat the class name in the member: `TRadFluent.GenerateUnit`, not
+  `TRadFluent.GenerateFluentUnit`.
+- Use the `TRad` prefix, or the vendor alias in a `help.{vendor}` unit (`TDev`,
+  `TMormot`). These members take no `_` prefix.
+- `static` lets the routine be passed as a plain function; without it that fails
+  (E2009). A static member works as a callback and as a typed constant
+  (`Cache: function: ISmartCache = TSmartCache.Global`). A `reference to` type accepts
+  both forms.
+- A class method stays non-static only where `static` breaks it. Compiled with
+  Delphi 37.0 (Win32) on 2026-11-02:
+
+  | Case | With `static` |
+  |---|---|
+  | Uses `Self` (metaclass dispatch) | E2003 |
+  | Is `virtual` | E2376 |
+  | Is assigned to an `of object` event such as `TNotifyEvent` | E2009 |
+
+- `class abstract` states intent only: `TX.Create` still compiles and runs, and
+  W1020 appears only when the class has an abstract method. A class of such routines
+  has no instance fields and is never instantiated; `class var` is for state it
+  really needs (a facade's setup handle).
+- Avoid a member name that hides what its body calls: inside the class it wins over
+  `System.Classes.RegisterClasses` or `System.New`.
+- If the routine extends one type, prefer a class or record helper
+  (`helper-patterns.md`).
+- A public class must be declared in the interface section: a factory for a class
+  private to the implementation needs its own class (`TRadCmds.New`, not `TCmds.New`).
+
+Exceptions:
+
+- `procedure Register`: the IDE requires this name as a plain routine.
+- Routines private to the implementation section.
+- Deprecated wrappers: a renamed public routine stays as a plain function marked
+  `deprecated 'Use TX.Y'` for one minor release (`library-packaging.md`).
 
 ## Prohibitions
 

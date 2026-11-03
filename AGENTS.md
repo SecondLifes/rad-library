@@ -164,8 +164,8 @@ and reused:
 ## RAD Library Domain Contract
 
 - All helper units and filenames start with `help.` (for example,
-  `help.date.pas`); every public helper function or helper method starts
-  with `_`. Examples illustrate structure only and never authorize the AI
+  `help.date.pas`); every public helper method starts
+  with `_`; public routines are static class members. Examples illustrate structure only and never authorize the AI
   to invent a public API or its semantics.
 - Component classes use the `TRAD` prefix. Runtime and design-time packages
   are separate; `DesignIntf`, property editors and `Register` stay out of

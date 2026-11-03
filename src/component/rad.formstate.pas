@@ -6,10 +6,12 @@
 interface
 
 uses
+  Uni,
   rad.cipher,
   rad.formstate.core,
   rad.formstate.store,
   rad.formstate.component,
+  rad.formstate.uni,
   mormot.core.base;
 
 type
@@ -27,12 +29,14 @@ type
   TRadStateEntries = rad.formstate.store.TRadStateEntries;
   TRadFileStateStore = rad.formstate.store.TRadFileStateStore;
   TRadCallbackStateStore = rad.formstate.store.TRadCallbackStateStore;
+  TRadUniStateStore = rad.formstate.uni.TRadUniStateStore;
   TRadStateRepository = rad.formstate.store.TRadStateRepository;
   ERadFormState = rad.formstate.store.ERadFormState;
   IRadCipher = rad.cipher.IRadCipher;
   TRadAesGcmCipher = rad.cipher.TRadAesGcmCipher;
 
 const
+  RAD_STATE_DEFAULT_TABLE = rad.formstate.uni.RAD_STATE_DEFAULT_TABLE;
   soPlacement = rad.formstate.component.soPlacement;
   soActiveControl = rad.formstate.component.soActiveControl;
   soProps = rad.formstate.component.soProps;
@@ -58,6 +62,9 @@ type
     class function FileStore(const AFolder: string = ''): IRadStateStore; static;
     /// <summary>Routes to TRadCallbackStateStore.DoLoad/DoSave/DoDelete/DoLoadScope.</summary>
     class function CallbackStore: IRadStateStore; static;
+    /// <summary>One row per record in ATable on the host's connection; DDL: TRadUniStateStore.CreateTableSql.</summary>
+    class function DbStore(AConnection: TUniConnection;
+      const ATable: string = RAD_STATE_DEFAULT_TABLE): IRadStateStore; static;
     class function Repository: TRadStateRepository; static;
   end;
 
@@ -93,6 +100,11 @@ end;
 class function TRadFormState.CallbackStore: IRadStateStore;
 begin
   Result := TRadCallbackStateStore.Create;
+end;
+
+class function TRadFormState.DbStore(AConnection: TUniConnection; const ATable: string): IRadStateStore;
+begin
+  Result := TRadUniStateStore.Create(AConnection, ATable);
 end;
 
 class function TRadFormState.Repository: TRadStateRepository;

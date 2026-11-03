@@ -299,9 +299,10 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
   ölçüt 1, 6, 7, 8, 10, 12): 13/13 Win32 + Win64.
 - [x] Ölçüm: 300 yol (50 `TEdit` × 6), görünür form, değerler değişirken.
 
-**A4 — veritabanı deposu (`rad.formstate.uni`)**
-- [ ] Upsert, `LoadScope`.
-- [ ] Canlı test: PostgreSQL `testdb`, SQL Server `rad_filter_test`, Firebird (Win32).
+**A4 — veritabanı deposu (`rad.formstate.uni`)** (2026-11-03, tamam)
+- [x] Upsert, `LoadScope`, sağlayıcı başına DDL (`CreateTableSql`), giriş biriminde `DbStore`, `RadKon`.
+- [x] Canlı test `RunFormStateDbTests`: PostgreSQL `testdb`, SQL Server `rad_filter_test` (Win32 + Win64),
+  Firebird (yalnız Win32): 20/20.
 
 **A5 — tasarım editörü**
 - [ ] DFM + editör kodu, bileşen ve özellik editörü kaydı.
@@ -367,6 +368,25 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
   IDE'de paletten bırakma ve DFM'e yazma A5'te kullanıcıyla doğrulanacak.
 - Mutasyon: kanca `FreeNotification`'ı, yüklemeden kaydetme koruması, `poDesigned` ve monitör kontrolü
   ayrı ayrı kaldırıldı; her biri en az bir testi kırmızıya çevirdi.
+
+**A4 (2026-11-03)**
+
+- Thread olmadığı için depo host'un bağlantısını kullanır; ayrı bağlantı (`_NewConnection`) yok.
+- Yük `ftBlob` + `SetBlobData` ile yazılır, `Fields[i].AsBytes` ile okunur. 300 KB'lık, her bayt değerini
+  (`#0` dahil) içeren yük üç veritabanında da birebir döndü.
+- **PostgreSQL bulgusu:** `UseUnicode` yokken `'TCariForm.İkinci Ω'` anahtarı `'TCariForm.?kinci ?'` olarak
+  saklandı. Yazma ve okuma aynı biçimde bozduğu için arama yine eşleşiyor, gidiş-dönüş testi geçiyor;
+  ancak farklı Türkçe kapsamlar tek kayda düşebilir. Yalnız `LoadScope`'un döndürdüğü saklanan ad
+  bunu gösterdi; test buna göre güçlendirildi. `UseUnicode=True` ile sorun yok. Depo bağlantıyı
+  değiştirmez (alan sınıflarını tüm uygulama için değiştirir), yalnız `TSynLog` uyarısı yazar. Projedeki
+  bağlantıların hiçbiri `UseUnicode` ayarlamıyor; diğer tabloların Türkçe metni için doğrulanmadı.
+- SQL Server: `nvarchar` sütun + geniş parametre yeterli. ANSI parametre mutasyonu bu makinede Türkçe ile
+  yakalanmadı (kod sayfası 1254); 1254 dışındaki `Ω` ile yakalandı.
+- Ölçüm (yerel sunucular, 6 KB): kayıt PostgreSQL 0,25 ms, SQL Server 0,20 ms, Firebird 0,69 ms; okuma
+  0,64 / 0,08 / 0,59 ms.
+- Win64'te Firebird testleri atlanır (64-bit `fbclient` yok); DUnitX bunları "geçti" sayar.
+- Mutasyon: yalnız `INSERT`, ANSI anahtar parametresi ve tablo adı doğrulaması ayrı ayrı bozuldu; her biri
+  en az bir testi kırmızıya çevirdi.
 
 ## Riskler
 

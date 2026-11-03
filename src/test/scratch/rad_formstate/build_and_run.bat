@@ -29,8 +29,9 @@ exit /b %RC%
 echo ===== %~1 %PROJ% ===== >> "%LOG%"
 if not exist "%~3" mkdir "%~3"
 if not exist "%~4" mkdir "%~4"
+set UNI=C:\01\UniDAC\13\Lib\%~1
 %~2 -B -Q -NSSystem;System.Win;Winapi;Vcl;Data;Xml ^
-  -U"%DUNITX%;..\..\..\core;..\..\unit;%MORMOT%\core;%MORMOT%\crypt;%MORMOT%" ^
+  -U"%DUNITX%;..\..\..\core;..\..\..\vendor\unidac;..\..\unit;%UNI%;%MORMOT%\core;%MORMOT%\crypt;%MORMOT%" ^
   -I"%MORMOT%;%MORMOT%\core" ^
   -E"%~3" -N0"%~4" "%PROJ%.dpr" >> "%LOG%" 2>&1
 if errorlevel 1 (

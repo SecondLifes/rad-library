@@ -108,6 +108,18 @@ Firebird 5 (ScriptLiveTest S06, 2026-11-01):
   `EEncodingError: No mapping for the Unicode character` on `İ`. The choice must be keyed on the
   dialect, not on the field class. `Help.uni.pas` `TRadUniStoreBase.MemoText` is the shared fix.
 
+## PostgreSQL: without `UseUnicode` non-ASCII parameters are stored lossy (measured)
+
+UniDAC 13, PostgreSQL 18, `varchar` columns, parameters set with `AsWideString`
+(`rad.formstate.uni` live test, 2026-11-03): with no `SpecificOptions['UseUnicode']`
+the key `'TCariForm.İkinci Ω'` was stored as `'TCariForm.?kinci ?'`. Save and load
+garble it the same way, so a lookup by the same key still matches and a round-trip
+test passes; only reading the stored value back (e.g. a `select` of the column) shows
+it. With `UseUnicode=True` the value is stored intact. SQL Server with `nvarchar`
+columns and wide parameters needed nothing. The project's own connections never set
+`UseUnicode`; setting it changes the field classes (`TWideStringField`) for the whole
+application, so decide it per application rather than inside a store.
+
 ## When to prefer UniDAC over FireDAC
 
 - ✅ Project already licensed and built on UniDAC (consistency wins).

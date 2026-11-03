@@ -47,6 +47,7 @@ type
     procedure RememberDefault(AComponent: TComponent; const APath: RawUtf8; const AValue: Variant;
       AReplace: Boolean);
     procedure ApplyDiff(const AScale: TRadStateScale);
+    procedure CommitPath(AComponent: TComponent; const AKey: RawUtf8; const AOld, ANew: Variant);
     procedure TakeOverwrittenDefaults;
     procedure NormalizeDiff;
     function CurrentPpi: Integer;
@@ -77,8 +78,11 @@ type
     function SnapshotAll: IDocDict;
     /// <summary>Writes AValues into AComponent; paths that are not allowed are ignored.</summary>
     procedure ApplyValues(AComponent: TComponent; const AValues: IDocDict);
-    /// <summary>Adds every allowed path that differs from ABefore (a SnapshotAll) to the changes and saves.</summary>
+    /// <summary>Adds every allowed path that differs from ABefore (a SnapshotAll) to the changes and saves.
+    /// A path back at its default leaves the changes instead.</summary>
     procedure Commit(const ABefore: IDocDict);
+    /// <summary>The known defaults of AComponent's changed paths (a copy); empty when nothing changed.</summary>
+    function Defaults(AComponent: TComponent): IDocDict;
     /// <summary>Forgets the saved change of one path and puts its default back.</summary>
     procedure ResetPath(AComponent: TComponent; const APath: string);
     /// <summary>Forgets every saved change and puts the defaults back.</summary>
@@ -114,7 +118,8 @@ const
   FIELD_DIFF = 'diff';
   MOVE_PATHS: array[0..1] of string = ('Left', 'Top');
   SIZE_PATHS: array[0..1] of string = ('Width', 'Height');
-  BUILT_IN_CAPTIONS: array[0..19] of string = (
+  BUILT_IN_CAPTIONS: array[0..23] of string = (
+    'Font=Yazı', 'Style=Görünüm', 'Properties=Özellikler', 'Margins=Kenar boşlukları',
     'Caption=Başlık', 'Text=Metin', 'Hint=İpucu', 'Color=Renk', 'Visible=Görünür', 'Enabled=Etkin',
     'Left=Sol', 'Top=Üst', 'Width=Genişlik', 'Height=Yükseklik', 'TabOrder=Sekme sırası',
     'ReadOnly=Salt okunur', 'Font.Name=Yazı tipi', 'Font.Size=Yazı boyutu', 'Font.Color=Yazı rengi',
@@ -436,11 +441,47 @@ begin
     FOnChanged(Self);
 end;
 
+function TRadFormCustomizer.Defaults(AComponent: TComponent): IDocDict;
+var
+  LDefaults: IDocDict;
+begin
+  LDefaults := ChildDoc(FDefaults, StringToUtf8(AComponent.Name), False);
+  if LDefaults = nil then
+    Result := DocDict(mFastFloat)
+  else
+    Result := LDefaults.Copy;
+end;
+
+procedure TRadFormCustomizer.CommitPath(AComponent: TComponent; const AKey: RawUtf8;
+  const AOld, ANew: Variant);
+var
+  LName: RawUtf8;
+  LDefaults, LDiff: IDocDict;
+  LDefault: Variant;
+begin
+  LName := StringToUtf8(AComponent.Name);
+  LDefaults := ChildDoc(FDefaults, LName, False);
+  if (LDefaults <> nil) and LDefaults.Get(AKey, LDefault) and SameJsonValue(LDefault, ANew) then
+  begin
+    LDiff := ChildDoc(FDiff, LName, False); // back at its default: not a change any more
+    if LDiff <> nil then
+    begin
+      LDiff.Del(AKey);
+      if LDiff.Len = 0 then
+        FDiff.Del(LName);
+    end;
+    Exit;
+  end;
+  if not VarIsEmpty(AOld) then
+    RememberDefault(AComponent, AKey, AOld, False); // first change: the session start is the default
+  ChildDoc(FDiff, LName, True).Item[AKey] := ANew;
+end;
+
 procedure TRadFormCustomizer.Commit(const ABefore: IDocDict);
 var
   I: Integer;
   LComponent: TComponent;
-  LBefore, LNow, LDiff: IDocDict;
+  LBefore, LNow: IDocDict;
   LKey: RawUtf8;
   LOld, LNew: Variant;
 begin
@@ -454,12 +495,8 @@ begin
     begin
       LNew := LNow.Item[LKey];
       LOld := Unassigned;
-      if LBefore.Get(LKey, LOld) and SameJsonValue(LOld, LNew) then
-        Continue;
-      if not VarIsEmpty(LOld) then
-        RememberDefault(LComponent, LKey, LOld, False); // first change: the session start is the default
-      LDiff := ChildDoc(FDiff, StringToUtf8(LComponent.Name), True);
-      LDiff.Item[LKey] := LNew;
+      if not (LBefore.Get(LKey, LOld) and SameJsonValue(LOld, LNew)) then
+        CommitPath(LComponent, LKey, LOld, LNew);
     end;
   end;
   Changed;

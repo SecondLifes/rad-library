@@ -525,6 +525,9 @@ begin
       except
         on E: ERadScript do Kontrol('S06c ikinci oturum reddi', True);
       end;
+      // All controls are protected here (ProtectedInverse, empty list), and TMS skips protected ones.
+      Kontrol('S01c mevcut formda csDesigning acilmaz',
+        not (csDesigning in F.btnKaydet.ComponentState) and not (csDesigning in F.edt.ComponentState));
       D.Select(F.btnKaydet);
       Kontrol('S01b secim inspector + cubuk', (D.IdeEngine.SelectedComponent = F.btnKaydet) and (D.IdeEngine.Inspector.Instance = F.btnKaydet));
 

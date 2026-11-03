@@ -164,6 +164,7 @@
         <DCCReference Include="dxCoreRS37.dcp"/>
         <DCCReference Include="cxLibraryRS37.dcp"/>
         <DCCReference Include="cxGridRS37.dcp"/>
+        <DCCReference Include="cxVerticalGridRS37.dcp"/>
         <DCCReference Include="dac370.dcp"/>
         <DCCReference Include="unidac370.dcp"/>
         <DCCReference Include="RadKon.dcp"/>
@@ -187,6 +188,10 @@
             <Form>RadScriptPackagesForm</Form>
         </DCCReference>
         <DCCReference Include="..\vendor\tms\rad.scripting.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.formstate.customize.tools.pas">
+            <Form>RadCustomizeToolsForm</Form>
+        </DCCReference>
+        <DCCReference Include="..\vendor\tms\rad.formstate.customize.session.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

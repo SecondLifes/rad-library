@@ -265,8 +265,24 @@ Customizer1.Customize;             // "formu düzenle" komutu (RadScriptTmsDesig
    Testler 8/8 (runner 35/35) Win32 + Win64; beş mutasyon her biri ayrı testi kırdı. Script testleri
    (Hooks 34, Facade 24, FacadeVcl 7, DesignVcl 35, Ide 18) yeşil; HooksTest'teki `TRadScriptJobs`/
    `TChannelBus` sızıntısı bu değişiklikten önce de vardı (kanca geri alınarak ölçüldü).
-5. TMS oturumu ve araç penceresi; ilk iş canlı DevExpress formunda tıklama/sürükleme probu.
-   `TRadScriptDesigner` `OnEditBehaviour` düzeltmesi ve test sızıntısı.
+5. ✅ TMS oturumu (`rad.formstate.customize.session`) ve araç penceresi (`.tools.pas/.dfm`, interposer
+   `TcxRTTIInspector`: `FilterPropertyEx` izinli yol + önekleri, `DoEditing` önek satırını düzenletmez —
+   böylece düğme, çift tık ve Ctrl+Enter ile nesne diyaloğu da açılmaz —, `DoDrawRowHeader` Türkçe başlık).
+   - Prob (`src/test/scratch/rad_formcustom/CustomizeProbe.dpr`, canlı form + `TcxTextEdit`): `*Runtime`
+     davranışlarında hiçbir kontrole `csDesigning` açılmıyor; tık VCL ve DevExpress editörünü seçiyor;
+     korunan ve kilitli (`ebLockedRuntime`) düğmenin `OnClick`'i çalışmıyor; **gerçek fare** sürüklemesi
+     kontrolü taşıyor (`-realmouse` ile, kullanıcının imlecini oynattığı için isteğe bağlı). Gönderilmiş
+     mesajla sürükleme taşımıyor: TMS sürüklerken gerçek imleci okuyor.
+   - Oturum testleri 19/19 Win32 + Win64 (`CustomizeSessionTest.dpr`); dört mutasyon (`*Runtime` yerine
+     `ebDefault`, varsayılana dönen yolun farktan çıkması, geri alma yığını, Vazgeç) her biri kırmızı.
+   - `Commit` artık varsayılana dönen yolu farktan çıkarır: oturumdaki "sıfırla" Kaydet'le kalıcı olur,
+     Vazgeç'le geri alınır.
+   - **`TRadScriptDesigner` csDesigning "hatası" yokmuş**: form kipinde `ProtectedInverse` + boş liste
+     her kontrolü korunan yapıyor, TMS korunanları `csDesigning` döngüsünde atlıyor. Düzeltmeden önce
+     yazılan test (`DesignVclTest` S01c) yeşil geldi; kod değişmedi, test gerileme koruması olarak kaldı.
+   - `DesignVclTest` sızıntısı (`TList`×2, `TcxStreamObjectData`): DevExpress `TdxLayoutControl.
+     LoadFromStream` bozuk akışta istisna yolunda bırakıyor (bozuk kaynak çıkarılınca kayboluyor).
+     Vendor hatası; bizde yalnız bozuk veriyle olur.
 6. Tasarım anı: customizer için izin listesi editörü (mevcut ağaç editörü, store'dan bağımsız model),
    README, CHANGELOG, proje haritası.
 

@@ -35,6 +35,7 @@ requires
   dxCoreRS37,
   cxLibraryRS37,
   cxGridRS37,
+  cxVerticalGridRS37,
   dac370,
   unidac370,
   RadKon,
@@ -51,6 +52,8 @@ contains
   rad.script.ide in '..\vendor\tms\rad.script.ide.pas',
   rad.script.newscript in '..\vendor\tms\rad.script.newscript.pas' {RadScriptNewScriptForm},
   rad.script.packages in '..\vendor\tms\rad.script.packages.pas' {RadScriptPackagesForm},
-  rad.scripting in '..\vendor\tms\rad.scripting.pas';
+  rad.scripting in '..\vendor\tms\rad.scripting.pas',
+  rad.formstate.customize.tools in '..\vendor\tms\rad.formstate.customize.tools.pas' {RadCustomizeToolsForm},
+  rad.formstate.customize.session in '..\vendor\tms\rad.formstate.customize.session.pas';
 
 end.

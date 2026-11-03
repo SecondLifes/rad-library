@@ -204,7 +204,7 @@ DFM ile, DevExpress kontrolleriyle. Bileşen editörü fiili + `Items` için `pa
   öğeleri (`Panels.0.Width`) dahil.
 - Yazarken süzen arama; "yalnız seçililer" filtresi.
 - Her satırda tip ve mevcut değer; geri yüklenemeyen özellik (setter yok, `TComponent` referansı,
-  olay) pasif ve gerekçesi ipucunda.
+  desteklenmeyen tür) pasif ve gerekçesi değer sütununda. Olaylar hiç listelenmez.
 - Sağ: seçili yolların sıralanabilir listesi (apply sırası anlamlı: `Align` önce, boyut sonra).
 - Hazır seçimler: "Pencere", "Splitter konumları", "Sayfa (ActivePageIndex)".
 - Sekmeler: Özellikler, Değerler (`StoredValues`), Seçenekler (`Options`, `Version`).
@@ -304,9 +304,12 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
 - [x] Canlı test `RunFormStateDbTests`: PostgreSQL `testdb`, SQL Server `rad_filter_test` (Win32 + Win64),
   Firebird (yalnız Win32): 20/20.
 
-**A5 — tasarım editörü**
-- [ ] DFM + editör kodu, bileşen ve özellik editörü kaydı.
-- [ ] IDE'de elle doğrulama (kullanıcı): seçim, sıralama, arama, İptal'in hiçbir şey değiştirmemesi.
+**A5 — tasarım editörü** (2026-11-03, IDE doğrulaması dışında tamam)
+- [x] `Rad.Editor.FormState.Model` (IDE'siz, `TypInfo`), `Rad.Editor.FormState` + `.dfm` (form),
+  `Rad.Editor` içinde bileşen editörü ("Durum Editörü...") ve `Items` için `paDialog` özellik editörü.
+- [x] IDE'siz test `RunFormStateEditorTests`: model + DFM'li form, 13/13 Win32 + Win64. `RadKon` Win32 derlendi.
+- [ ] IDE'de elle doğrulama (kullanıcı): sağ tık fiili, Object Inspector'dan `Items`, seçim, sıralama,
+  arama, İptal'in formu değiştirmemesi, Tamam sonrası DFM'e yazılma.
 
 **A6 — kapanış**
 - [ ] `TRadActionList` için `IRadStateful`.
@@ -387,6 +390,29 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
 - Win64'te Firebird testleri atlanır (64-bit `fbclient` yok); DUnitX bunları "geçti" sayar.
 - Mutasyon: yalnız `INSERT`, ANSI anahtar parametresi ve tablo adı doğrulaması ayrı ayrı bozuldu; her biri
   en az bir testi kırmızıya çevirdi.
+
+**A5 (2026-11-03)**
+
+- Editör iki birim: model (`TypInfo`, IDE ve DevExpress yok, test edilebilir) ve form (DFM). Bileşen ve
+  özellik editörü sınıfları kurala uyarak `Rad.Editor.pas`'ta; formu yalnız `Execute` ile çağırırlar.
+- DevExpress yalnız ağaçta: `TcxTreeList`, `OptionsView.CheckGroups`, düğüm başına `CheckGroupType :=
+  ncgCheckGroup` + `AllowGrayed`, arama için yerleşik Find Panel (`fpdmAlways`, `fcbFilter`). Liste,
+  sekmeler, düğmeler ve değer tablosu (`TValueListEditor`) sade VCL.
+- Ağaç bileşen → yol adımları; "özelliğe göre grupla" yol → bileşenler. Geri yüklenemeyen yol (bileşen
+  referansı, salt okunur, desteklenmeyen tür) listelenir ama düğümü kapalıdır, gerekçe değer sütununda.
+  Derinlik 3 adım, koleksiyon başına 50 öğe.
+- Hazır seçimler: "sayfa/sekme" (`ActivePageIndex`/`TabIndex`/`ItemIndex`'ten yazılabilir published olan ilki)
+  ve "splitter boyutları" (kenara yaslı denetimin `Width`/`Height`'ı). "Pencere" hazır seçimi yerine
+  Seçenekler sekmesindeki yerleşim kutusu.
+- `TPageControl.ActivePageIndex` public, published değil: ne `TypInfo` ne mORMot yol çözücü görür.
+  Hazır seçim `TabIndex`'i (published, `stored False`) seçer; `TabIndex` yazılınca aktif sayfa gerçekten
+  değişiyor (test, ölçüldü).
+- Grup düğümü işaretlenince `TcxTreeList` her alt düğüm için ayrı `OnNodeCheckChanged` yayınlıyor: grup
+  için kendi özyinelemem kaldırıldığında test yine geçti (ölçüldü), kod buna göre sadeleşti.
+- Değerler sekmesi metin düzenler; tamsayıya benzeyen değer `Integer`, diğerleri `string` saklanır.
+- Kayıt sırası bileşen bazında gruplanır (store öğeleri bileşen başına); bileşenler arası sıra ilk görülüşe göre.
+- Mutasyon: store'un kendini listelemesi ve bileşen referansının saklanabilir sayılması ayrı ayrı denendi;
+  her biri testi kırmızıya çevirdi.
 
 ## Riskler
 

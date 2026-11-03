@@ -188,6 +188,10 @@
         <DCCReference Include="TMSVCLUIPackPkg.dcp"/>
         <DCCReference Include="Rad.Register.pas"/>
         <DCCReference Include="Rad.Editor.pas"/>
+        <DCCReference Include="Rad.Editor.FormState.Model.pas"/>
+        <DCCReference Include="Rad.Editor.FormState.pas">
+            <Form>RadFormStateEditorForm</Form>
+        </DCCReference>
         <DCCReference Include="..\share\Kisayol.Edit.pas">
             <Form>Kisayol_Edit</Form>
         </DCCReference>

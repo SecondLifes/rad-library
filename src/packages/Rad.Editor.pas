@@ -38,6 +38,21 @@ type
      procedure ExecuteVerb(Index: Integer); override;
   end;
 
+  /// <summary>Opens the TRadPropertiesStore editor (Rad.Editor.FormState).</summary>
+  TRadFormStateEditor = class(TComponentEditorBase)
+    public
+     procedure Edit; override;
+     function GetItem:TArray<string>;override;
+     procedure ExecuteVerb(Index: Integer); override;
+  end;
+
+  /// <summary>Items of a TRadPropertiesStore: the same editor from the Object Inspector.</summary>
+  TRadStateItemsProperty = class(TClassProperty)
+    public
+     function GetAttributes: TPropertyAttributes; override;
+     procedure Edit; override;
+  end;
+
   TRadPermissonEditor = class(TComponentEditorBase)
     public
      procedure Edit; override;
@@ -103,7 +118,7 @@ type
 
 procedure Register;
 implementation
-uses System.Variants,Vcl.Controls,vcl.forms,Vcl.Dialogs,
+uses System.Variants,Vcl.Controls,vcl.forms,Vcl.Dialogs, rad.formstate.component, Rad.Editor.FormState,
 cxNavigator,cxDBNavigator,
 cxGridCustomTableView,
 cxGridServerModeBandedTableView,
@@ -120,6 +135,8 @@ procedure Register;
 begin
   //RegisterComponentEditor(TAksaPropertiesStore,TAksaPropertiesStoreEditor);
   RegisterComponentEditor(TRadPermission,TRadPermissonEditor);
+  RegisterComponentEditor(TRadPropertiesStore,TRadFormStateEditor);
+  RegisterPropertyEditor(TypeInfo(TRadStateItems), TRadPropertiesStore, 'Items', TRadStateItemsProperty);
   (* Zincir denetimi: AMaster/AComponent1..4 tasiyan HER dort sinifa.
      Combo ailesi de kaskad yuvalarina sahip ve kendi sessiz tuzagi var
      (AOnCascade siz zincir - bkz. TRadComboBoxProperties.CascadeWarning);
@@ -224,6 +241,38 @@ end;
 function TAksaPropertiesStoreEditor.GetItem: TArray<string>;
 begin
   Result:=['Düzenle']
+end;
+
+{ TRadFormStateEditor }
+
+procedure TRadFormStateEditor.Edit;
+begin
+  // Modified only after OK: Cancel must leave the form untouched.
+  if TRadFormStateEditorForm.Execute(TRadPropertiesStore(Component)) then
+    Designer.Modified;
+end;
+
+procedure TRadFormStateEditor.ExecuteVerb(Index: Integer);
+begin
+  Edit;
+end;
+
+function TRadFormStateEditor.GetItem: TArray<string>;
+begin
+  Result := ['Durum Edit'#246'r'#252'...'];
+end;
+
+{ TRadStateItemsProperty }
+
+function TRadStateItemsProperty.GetAttributes: TPropertyAttributes;
+begin
+  Result := inherited GetAttributes + [paDialog] - [paSubProperties];
+end;
+
+procedure TRadStateItemsProperty.Edit;
+begin
+  if TRadFormStateEditorForm.Execute(GetComponent(0) as TRadPropertiesStore) then
+    Modified;
 end;
 
 { TAksaPermissonEditor }

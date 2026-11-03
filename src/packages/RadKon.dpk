@@ -60,6 +60,8 @@ requires
 contains
   Rad.Register in 'Rad.Register.pas',
   Rad.Editor in 'Rad.Editor.pas',
+  Rad.Editor.FormState.Model in 'Rad.Editor.FormState.Model.pas',
+  Rad.Editor.FormState in 'Rad.Editor.FormState.pas' {RadFormStateEditorForm},
   Kisayol.Edit in '..\share\Kisayol.Edit.pas' {Kisayol_Edit},
   Permission.Edit in '..\component\Permission.Edit.pas' {Permission_Edit: TFrame},
   rad.db in '..\component\rad.db.pas',

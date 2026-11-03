@@ -12,7 +12,8 @@ uses
   Uni, Help.uni,
   rad.script, rad.script.override, rad.script.engine, rad.script.hooks, rad.script.jobs, rad.script.facade,
   rad.script.commands, rad.script.typedhooks, rad.script.dev, rad.script.uni, rad.script.design, rad.script.ide,
-  rad.script.packages, rad.script.newscript;
+  rad.script.packages, rad.script.newscript,
+  rad.formstate.customize.session; // registers the TRadFormCustomizer session on load
 
 type
   // ---- model (rad.script) ----
@@ -57,6 +58,7 @@ type
   TRadScriptPackagesForm = rad.script.packages.TRadScriptPackagesForm;
   TRadScriptOpenFormEvent = rad.script.packages.TRadScriptOpenFormEvent;
   TRadScriptNewScriptForm = rad.script.newscript.TRadScriptNewScriptForm;
+  TRadFormCustomizeSession = rad.formstate.customize.session.TRadFormCustomizeSession;
 
 const
   // enum değerleri takma adla gelmez; host `skForm` yazabilsin diye

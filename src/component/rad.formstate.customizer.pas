@@ -108,7 +108,8 @@ uses
   mormot.core.log;
 
 resourcestring
-  SNoSession = 'Form düzenleme oturumu yüklü değil (RadScriptTmsDesign paketi).';
+  SNoSession = 'Form düzenleme oturumu yüklü değil: uygulama rad.scripting birimini uses etmeli ' +
+    '(RadScriptTmsDesign paketi; runtime paketle çalışılıyorsa bu paket de yüklenmeli).';
   SNoStore = 'rad.formstate %s: no TRadPropertiesStore on the owner, changes are not saved';
 
 const

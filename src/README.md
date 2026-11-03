@@ -131,8 +131,9 @@ skipped once the developer changes the grid or layout. `TRadFormState.ResetForm`
 record and reopens the form through the host's `TRadFormState.Reopen`.
 
 `TRadFormCustomizer` lets the user move, resize and edit what the developer allowed
-(`Allowed`, Turkish `Captions`) on the live form: `Customizer1.Customize` opens the session
-(`RadScriptTmsDesign` must be loaded). Only the user's changes are saved; the company layout
+(`Allowed`, Turkish `Captions`) on the live form: `Customizer1.Customize` opens the session.
+The session lives in `RadScriptTmsDesign` and registers itself when `rad.scripting` is linked,
+so the host must `uses rad.scripting` (with runtime packages, that package must be loaded). Only the user's changes are saved; the company layout
 (`TRadScriptDesigner`) is applied first and the user's changes go back on top of it.
 
 A `StoredValues` item with a `ValueType` (`svtInteger`, `svtDateTime`, ...) always reads back

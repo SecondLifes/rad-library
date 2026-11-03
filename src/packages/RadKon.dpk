@@ -25,6 +25,8 @@
 {$IMAGEBASE $400000}
 {$DEFINE DEBUG}
 {$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'RAD Library runtime'}
+{$RUNONLY}
 {$IMPLICITBUILD ON}
 
 requires
@@ -38,7 +40,6 @@ requires
   dxGDIPlusRS37,
   dac370,
   tdsprovider370,
-  designide,
   dxServerModeRS37,
   dxSpreadSheetCoreRS37,
   cxGridRS37,
@@ -47,7 +48,6 @@ requires
   cxTreeListdxBarPopupMenuRS37,
   unidacvcl370,
   dacvcl370,
-  dclcxLibraryRS37,
   cxVerticalGridRS37,
   vquery370,
   Jcl,
@@ -58,17 +58,12 @@ requires
   TMSVCLUIPackPkg;
 
 contains
-  Rad.Register in 'Rad.Register.pas',
-  Rad.Editor in 'Rad.Editor.pas',
-  Rad.Editor.FormState.Model in 'Rad.Editor.FormState.Model.pas',
-  Rad.Editor.FormState in 'Rad.Editor.FormState.pas' {RadFormStateEditorForm},
-  Rad.Editor.Tools in 'Rad.Editor.Tools.pas',
-  Rad.Editor.FluentOptions in 'Rad.Editor.FluentOptions.pas' {RadFluentOptionsForm},
   Kisayol.Edit in '..\share\Kisayol.Edit.pas' {Kisayol_Edit},
   Permission.Edit in '..\component\Permission.Edit.pas' {Permission_Edit: TFrame},
   rad.db in '..\component\rad.db.pas',
   rad.rtl in '..\component\rad.rtl.pas',
   rad.vcl in '..\component\rad.vcl.pas',
+  rad.tms.formtabs in '..\component\rad.tms.formtabs.pas',
   rad.cipher in '..\core\rad.cipher.pas',
   rad.formstate.core in '..\core\rad.formstate.core.pas',
   rad.formstate.store in '..\core\rad.formstate.store.pas',

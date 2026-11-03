@@ -83,6 +83,8 @@
         <DCC_K>false</DCC_K>
         <GenDll>true</GenDll>
         <GenPackage>true</GenPackage>
+        <RuntimeOnlyPackage>true</RuntimeOnlyPackage>
+        <DCC_Description>RAD Library runtime</DCC_Description>
         <DCC_Namespace>System;Xml;Data;Datasnap;Web;Soap;Vcl;Vcl.Imaging;Vcl.Touch;Vcl.Samples;Vcl.Shell;$(DCC_Namespace)</DCC_Namespace>
         <DCC_CBuilderOutput>All</DCC_CBuilderOutput>
         <SanitizedProjectName>RadKon</SanitizedProjectName>
@@ -168,7 +170,6 @@
         <DCCReference Include="dxGDIPlusRS37.dcp"/>
         <DCCReference Include="dac370.dcp"/>
         <DCCReference Include="tdsprovider370.dcp"/>
-        <DCCReference Include="designide.dcp"/>
         <DCCReference Include="dxServerModeRS37.dcp"/>
         <DCCReference Include="dxSpreadSheetCoreRS37.dcp"/>
         <DCCReference Include="cxGridRS37.dcp"/>
@@ -177,7 +178,6 @@
         <DCCReference Include="cxTreeListdxBarPopupMenuRS37.dcp"/>
         <DCCReference Include="unidacvcl370.dcp"/>
         <DCCReference Include="dacvcl370.dcp"/>
-        <DCCReference Include="dclcxLibraryRS37.dcp"/>
         <DCCReference Include="cxVerticalGridRS37.dcp"/>
         <DCCReference Include="vquery370.dcp"/>
         <DCCReference Include="Jcl.dcp"/>
@@ -186,16 +186,6 @@
         <DCCReference Include="dxSkinsCoreRS37.dcp"/>
         <DCCReference Include="Dext.Core.dcp"/>
         <DCCReference Include="TMSVCLUIPackPkg.dcp"/>
-        <DCCReference Include="Rad.Register.pas"/>
-        <DCCReference Include="Rad.Editor.pas"/>
-        <DCCReference Include="Rad.Editor.FormState.Model.pas"/>
-        <DCCReference Include="Rad.Editor.FormState.pas">
-            <Form>RadFormStateEditorForm</Form>
-        </DCCReference>
-        <DCCReference Include="Rad.Editor.Tools.pas"/>
-        <DCCReference Include="Rad.Editor.FluentOptions.pas">
-            <Form>RadFluentOptionsForm</Form>
-        </DCCReference>
         <DCCReference Include="..\share\Kisayol.Edit.pas">
             <Form>Kisayol_Edit</Form>
         </DCCReference>
@@ -206,6 +196,7 @@
         <DCCReference Include="..\component\rad.db.pas"/>
         <DCCReference Include="..\component\rad.rtl.pas"/>
         <DCCReference Include="..\component\rad.vcl.pas"/>
+        <DCCReference Include="..\component\rad.tms.formtabs.pas"/>
         <DCCReference Include="..\core\rad.cipher.pas"/>
         <DCCReference Include="..\core\rad.formstate.core.pas"/>
         <DCCReference Include="..\core\rad.formstate.store.pas"/>

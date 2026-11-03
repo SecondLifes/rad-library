@@ -20,10 +20,11 @@ src/
 ├── share/       shared forms used across components (Kisayol.Edit) — not part of the original layout contract
 │                below; kept as its own top-level folder rather than
 │                forced into component/
-├── packages/    Delphi package project files (RadKon.dpk/.dproj) plus
-│                their registration/editor units (Rad.Register.pas,
-│                Rad.Editor.pas, and Rad.Editor.Tools.pas plus
-│                Rad.Editor.FluentOptions.pas, the IDE-free parts of RadMenü)
+├── packages/    RadKon (runtime only, {$RUNONLY}) and RadKonD (design only:
+│                Rad.Register.pas, Rad.Editor.pas, Rad.Editor.FormState(.Model),
+│                and Rad.Editor.Tools.pas plus Rad.Editor.FluentOptions.pas,
+│                the IDE-free parts of RadMenü). Install RadKonD in the IDE;
+│                it pulls in RadKon. RadScriptTms(Design) for the script system.
 ├── test/
 │   ├── unit/    DUnitX test units (one per source unit, `.Tests.pas`)
 │   ├── app/     a DUnitX GUI test runner project (Rad_Test_GUI)

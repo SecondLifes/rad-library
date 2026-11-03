@@ -1,0 +1,71 @@
+﻿package RadKonD;
+
+{$R *.res}
+{$IFDEF IMPLICITBUILDING This IFDEF should not be used by users}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO OFF}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION OFF}
+{$OVERFLOWCHECKS ON}
+{$RANGECHECKS ON}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES ON}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DEFINE DEBUG}
+{$ENDIF IMPLICITBUILDING}
+{$DESCRIPTION 'RAD Library design-time'}
+{$DESIGNONLY}
+{$IMPLICITBUILD ON}
+
+requires
+  rtl,
+  vcl,
+  dbrtl,
+  vclimg,
+  vclwinx,
+  dxCoreRS37,
+  cxLibraryRS37,
+  dxGDIPlusRS37,
+  dac370,
+  tdsprovider370,
+  designide,
+  dxServerModeRS37,
+  dxSpreadSheetCoreRS37,
+  cxGridRS37,
+  cxTreeListRS37,
+  dxBarRS37,
+  cxTreeListdxBarPopupMenuRS37,
+  unidacvcl370,
+  dacvcl370,
+  dclcxLibraryRS37,
+  cxVerticalGridRS37,
+  vquery370,
+  Jcl,
+  JvCore,
+  JvStdCtrls,
+  dxSkinsCoreRS37,
+  Dext.Core,
+  TMSVCLUIPackPkg,
+  RadKon;
+
+contains
+  Rad.Register in 'Rad.Register.pas',
+  Rad.Editor in 'Rad.Editor.pas',
+  Rad.Editor.FormState.Model in 'Rad.Editor.FormState.Model.pas',
+  Rad.Editor.FormState in 'Rad.Editor.FormState.pas' {RadFormStateEditorForm},
+  Rad.Editor.Tools in 'Rad.Editor.Tools.pas',
+  Rad.Editor.FluentOptions in 'Rad.Editor.FluentOptions.pas' {RadFluentOptionsForm};
+
+end.

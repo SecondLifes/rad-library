@@ -22,7 +22,8 @@ src/
 │                forced into component/
 ├── packages/    Delphi package project files (RadKon.dpk/.dproj) plus
 │                their registration/editor units (Rad.Register.pas,
-│                Rad.Editor.pas)
+│                Rad.Editor.pas, and Rad.Editor.Tools.pas plus
+│                Rad.Editor.FluentOptions.pas, the IDE-free parts of RadMenü)
 ├── test/
 │   ├── unit/    DUnitX test units (one per source unit, `.Tests.pas`)
 │   ├── app/     a DUnitX GUI test runner project (Rad_Test_GUI)
@@ -36,6 +37,64 @@ imported code is the working reference — it does not by itself authorize
 inventing new public API surface beyond what it actually contains; extend
 it following the same rules (`helper-patterns.md`, `component-patterns.md`,
 `vendor-integration.md`) as any other change to this library.
+
+## RadMenü (design-time tools)
+
+RadKon adds a top-level **RadMenü** to the IDE main menu, right after Tools, and a
+**RadMenü** submenu to the designer's right-click menu. Design-time tools go there:
+add one `AddTool` line in `TRadMenuTools.Install` (`packages/Rad.Editor.pas`) plus
+its handler, and the tool appears in both. `RadMenü` is built with
+`INTAServices`, not with a component editor, so no registered editor is
+replaced or disabled. The menu is removed in the unit's `finalization`.
+The right-click submenu is a `TSelectionEditor` verb, which adds a line without
+touching component editors. It copies the main menu's items, and the IDE drops it
+when the package unloads.
+
+**Seçili Komponenti Fluent'e Çevir** is in both menus. On the form itself the
+right-click RadMenü is hidden, because the command cannot run there. It runs
+`TRadFluent.GenerateUnit` on the class of every selected component. A form first lists
+the classes with their member counts and asks whether to include inherited
+members (`fgoIncludeInherited`, off by default); the counts show the cost before
+you choose. Then it asks for a `.pas` path and opens the result in the
+editor, because the generated unit needs its `uses` clause to compile and may
+hold several classes. If the file exists, only that class's `RAD-FLUENT`
+regions are updated; everything else in it stays. Sources are looked up in the
+IDE's Browsing and Search paths to see past the RTTI blind spots. If a source is
+not found, the class is generated from RTTI alone and the unit's header says so.
+The form or frame being designed cannot be converted: its class is not loaded in
+the IDE.
+
+`Rad.Editor.Tools.pas` and `Rad.Editor.FluentOptions.pas` must stay free of `DesignIntf`, `DesignEditors` and
+`ToolsAPI`. `test/scratch/rad_radmenu/build_and_run.bat` tests it from a console
+on Win32 and Win64, compiles a generated unit and checks the linker map for
+those units. `test/scratch/rad_fluentgen/build_and_run.bat` covers the generator
+itself: every unit it produces, from trap classes and merge targets, must compile.
+A public member that uses a private nested type still needs a manual edit
+(`TStringBuilder.GetEnumerator`): RTTI cannot tell such a type apart.
+
+### Manual check in the IDE
+
+The console cannot reach these, so run them after every change to the menu:
+
+1. Rebuild and install RadKon. **RadMenü** appears after Tools.
+2. On a form, select a `TButton`, choose RadMenü > Seçili Komponenti Fluent'e
+   Çevir. The options form lists `TButton` with its member counts and the
+   inherited box is off. Choose Devam and save as the suggested
+   `Button.Fluent.pas`. The unit opens in the editor and compiles. Vazgeç on the
+   form writes nothing.
+3. Select a `TLabel`, tick the inherited box and save into the same file. The
+   unit compiles and the `TLabel` wrapper has `SetName`. `TButton` stays, `TLabel` is
+   added. Run it again with unsaved edits in that tab: the edits survive.
+4. Select nothing, so the form itself is selected. RadMenü shows a message and
+   writes no file; the right-click menu has no RadMenü line. Do the same
+   with a frame dropped on a form.
+5. Right-click a `TButton`: one **RadMenü** line opens a submenu with the
+   command, and it gives the same result as step 2.
+6. Right-click and double-click `TRadPermission`, `TRadComboBox` and a stock
+   `TButton`. Their usual editors and context menu entries work as before.
+7. Component > Install Packages: untick RadKon. Both **RadMenü** entries
+   disappear. Tick it again: one of each returns, not two.
+8. Close the IDE. No error appears on shutdown.
 
 ## Form state (`rad.formstate`)
 

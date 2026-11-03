@@ -192,6 +192,10 @@
         <DCCReference Include="Rad.Editor.FormState.pas">
             <Form>RadFormStateEditorForm</Form>
         </DCCReference>
+        <DCCReference Include="Rad.Editor.Tools.pas"/>
+        <DCCReference Include="Rad.Editor.FluentOptions.pas">
+            <Form>RadFluentOptionsForm</Form>
+        </DCCReference>
         <DCCReference Include="..\share\Kisayol.Edit.pas">
             <Form>Kisayol_Edit</Form>
         </DCCReference>

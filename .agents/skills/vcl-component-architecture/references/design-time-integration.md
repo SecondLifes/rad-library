@@ -109,6 +109,30 @@ After a component editor mutates the component, call
 - A visual component should still paint something meaningful at design
   time (placeholder text/frame) so the developer can see and select it.
 
+## IDE main menu and selection (verified against the 37.0 sources)
+
+- A menu reached through `INTAServices` touches no component editor. Never
+  `RegisterComponentEditor(TComponent, ...)` to reach every component: it
+  displaces the real editor of any class without a closer one.
+- `RegisterSelectionEditor` is additive. `DesignIntf` says the closest
+  registration wins, but `GetSelectionEditors` in `DesignEditors.pas` creates
+  every matching editor. Its registrations are dropped with the package group.
+- A verb becomes a submenu through `AItem.AddItem` in `PrepareItem`; leave
+  `ExecuteVerb` empty. Bind `OnClick` to a package-lifetime object, not to the
+  selection editor, whose lifetime the designer owns.
+- `AddActionMenu` raises on an unknown `Name`, and an exception there aborts
+  `Register`. Check the name first and call it after the editor registrations.
+  `ToolsMenu` exists in the 32-bit and 64-bit IDE. Passing `NewItem = nil` only
+  adds the action.
+- Own the items from a package-lifetime `TComponent` and free it in
+  `finalization`. Pair the root with `FreeNotification`, and treat `opRemove` as
+  an end of life only under `csDestroying`: it also fires when the owner changes,
+  and the source does not say whether `AddActionMenu` keeps your ownership.
+- Do not hang logic on `OnUpdate` unless needed: it fires on IDE idle.
+- Get the selection from `INTAFormEditor.FormDesigner.GetSelections`. The root
+  and frames with `csInline` in `ComponentState` are classes under design, not
+  loaded in the IDE, so RTTI code must skip them.
+
 ## Checklist — design-time review
 
 - [ ] `DesignIntf`/`DesignEditors` referenced only from the design-time package?

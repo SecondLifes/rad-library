@@ -126,10 +126,39 @@ cxGridServerModeTableView,
 Help.Dev,
 rad.db,
 Rad.Dev,          { RadChainAudit + TRadLookupComboBox / TRadDBLookupComboBox }
-Permission.Edit
+Permission.Edit,
+Vcl.Menus,
+DesignMenus,
+rad.utils,
+Rad.Editor.Tools,
+Rad.Editor.FluentOptions
 
 
 ;
+
+type
+  { RadMenu: the IDE main menu for design-time tools. It is not a component
+    editor, so no registered editor is replaced. A new tool is one AddTool line
+    in Install plus its handler; the right-click RadMenu picks it up too. }
+  TRadMenuTools = class(TRadToolMenu)
+  strict private
+    class var FInstance: TRadMenuTools;
+    procedure FluentClick(Sender: TObject);
+  public
+    class procedure Install;
+    class procedure Uninstall;
+    /// <summary>Copies the tools under AItem; False if there are none.</summary>
+    class function AddToolsTo(const AItem: IMenuItem): Boolean;
+  end;
+
+  { Right-click RadMenu. A selection editor only adds a verb: the designer creates
+    every match, so component editors stay as they are. }
+  TRadMenuSelectionEditor = class(TSelectionEditor)
+  public
+    function GetVerb(Index: Integer): string; override;
+    function GetVerbCount: Integer; override;
+    procedure PrepareItem(Index: Integer; const AItem: IMenuItem); override;
+  end;
 
 procedure Register;
 begin
@@ -177,6 +206,9 @@ begin
   RegisterComponentEditor(TAdvSmoothPopupTouchKeyBoard,TAdvSmoothTouchKeyBoardEditor);
 
   }
+
+  RegisterSelectionEditor(TComponent,TRadMenuSelectionEditor);
+  TRadMenuTools.Install;
 end;
 
 
@@ -304,7 +336,7 @@ begin
   if LRoot.Owner <> nil then
     LRoot := LRoot.Owner;
 
-  LRapor := RadChainAudit(LRoot);
+  LRapor := TRadChain.Audit(LRoot);
   if LRapor = '' then
     ShowMessage('Zincir denetimi temiz: rapor edilecek bir sey yok.')
   else
@@ -477,8 +509,190 @@ begin
   end;
 end;
 
+{ TRadMenuTools }
+
+const
+  CIdeToolsMenu = 'ToolsMenu';
+  CPascalExt = '.pas';
+
+procedure AttachAfterToolsMenu(const AServices: INTAServices; AItem: TMenuItem);
+var
+  I: Integer;
+begin
+  for I := 0 to AServices.MainMenu.Items.Count - 1 do
+    if AServices.MainMenu.Items[I].Name = CIdeToolsMenu then
+    begin
+      AServices.AddActionMenu(CIdeToolsMenu, nil, AItem, True, False);
+      Exit;
+    end;
+  { AddActionMenu raises on an unknown name, which would abort Register. }
+  AServices.MainMenu.Items.Add(AItem);
+end;
+
+function CurrentDesigner: IDesigner;
+var
+  LModules: IOTAModuleServices;
+  LModule: IOTAModule;
+  LForm: INTAFormEditor;
+  I: Integer;
+begin
+  Result := nil;
+  if not Supports(BorlandIDEServices, IOTAModuleServices, LModules) then
+    Exit;
+  LModule := LModules.CurrentModule;
+  if LModule = nil then
+    Exit;
+  for I := 0 to LModule.ModuleFileCount - 1 do
+    if Supports(LModule.ModuleFileEditors[I], INTAFormEditor, LForm) then
+      Exit(LForm.FormDesigner);
+end;
+
+function FluentSelectionOf(const ADesigner: IDesigner;
+  const AList: IDesignerSelections): TRadFluentSelection;
+var
+  LItems: TArray<TPersistent>;
+  I: Integer;
+begin
+  SetLength(LItems, AList.Count);
+  for I := 0 to AList.Count - 1 do
+    LItems[I] := AList[I];
+  Result := TRadFluentDesign.Selection(LItems, ADesigner.Root);
+end;
+
+function AskFluentPath(const ADesigner: IDesigner; AClass: TClass; out APath: string): Boolean;
+var
+  LDialog: TSaveDialog;
+  LImpl, LIntf, LForm: string;
+begin
+  ADesigner.ModuleFileNames(LImpl, LIntf, LForm);
+  LDialog := TSaveDialog.Create(nil);
+  try
+    LDialog.Title := SRadFluentSaveTitle;
+    LDialog.Filter := SRadFluentSaveFilter;
+    LDialog.InitialDir := ExtractFilePath(LImpl);
+    LDialog.FileName := TRadFluentDesign.DefaultFileName(AClass);
+    LDialog.Options := LDialog.Options + [ofPathMustExist, ofNoChangeDir];
+    Result := LDialog.Execute;
+    APath := LDialog.FileName;
+  finally
+    LDialog.Free;
+  end;
+  { DefaultExt is no help: "Foo.Fluent" already has an extension for the dialog. }
+  if Result and not SameText(ExtractFileExt(APath), CPascalExt) then
+    APath := APath + CPascalExt;
+end;
+
+procedure WriteAndOpenFluent(const AClasses: TArray<TClass>; const APath: string;
+  AOptions: TFluentGenOptions);
+var
+  LServices: IOTAServices;
+  LActions: IOTAActionServices;
+  LOpen: Boolean;
+begin
+  LServices := BorlandIDEServices as IOTAServices;
+  LActions := BorlandIDEServices as IOTAActionServices;
+  LOpen := (BorlandIDEServices as IOTAModuleServices).FindModule(APath) <> nil;
+  { The merge reads the file from disk: unsaved editor changes must get there first. }
+  if LOpen then
+    LActions.SaveFile(APath);
+  TRadFluentDesign.WriteUnit(AClasses, APath,
+    LServices.ExpandRootMacro(TRadFluentDesign.LibraryPath(LServices.GetBaseRegistryKey)), AOptions);
+  if LOpen then
+    LActions.ReloadFile(APath)
+  else
+    LActions.OpenFile(APath);
+end;
+
+procedure ConvertToFluent(const ADesigner: IDesigner; const AList: IDesignerSelections);
+var
+  LSelection: TRadFluentSelection;
+  LOptions: TFluentGenOptions;
+  LPath: string;
+begin
+  LSelection := FluentSelectionOf(ADesigner, AList);
+  if LSelection.Classes = nil then
+  begin
+    ShowMessage(SRadFluentNothing);
+    Exit;
+  end;
+  if not TRadFluentOptionsForm.Ask(LSelection.Classes, LOptions) then
+    Exit;
+  if not AskFluentPath(ADesigner, LSelection.Classes[0], LPath) then
+    Exit;
+  WriteAndOpenFluent(LSelection.Classes, LPath, LOptions);
+  if LSelection.Skipped <> nil then
+    ShowMessage(Format(SRadFluentSkipped, [string.Join(', ', LSelection.Skipped)]));
+end;
+
+procedure TRadMenuTools.FluentClick(Sender: TObject);
+var
+  LDesigner: IDesigner;
+  LList: IDesignerSelections;
+begin
+  LDesigner := CurrentDesigner;
+  if LDesigner = nil then
+  begin
+    ShowMessage(SRadFluentNoDesigner);
+    Exit;
+  end;
+  LList := CreateSelectionList;
+  LDesigner.GetSelections(LList);
+  ConvertToFluent(LDesigner, LList);
+end;
+
+class procedure TRadMenuTools.Install;
+var
+  LServices: INTAServices;
+begin
+  if (FInstance <> nil) or not Supports(BorlandIDEServices, INTAServices, LServices) then
+    Exit;
+  FInstance := TRadMenuTools.Create(nil);
+  FInstance.AddTool(SRadFluentCaption, FInstance.FluentClick);
+  AttachAfterToolsMenu(LServices, FInstance.Root);
+end;
+
+class procedure TRadMenuTools.Uninstall;
+begin
+  FreeAndNil(FInstance);
+end;
+
+class function TRadMenuTools.AddToolsTo(const AItem: IMenuItem): Boolean;
+var
+  I: Integer;
+begin
+  Result := (FInstance <> nil) and (FInstance.Root <> nil) and (FInstance.Root.Count > 0);
+  if not Result then
+    Exit;
+  { The handlers belong to FInstance, which outlives any selection editor. }
+  for I := 0 to FInstance.Root.Count - 1 do
+    AItem.AddItem(FInstance.Root[I].Caption, 0, False, True, FInstance.Root[I].OnClick);
+end;
+
+{ TRadMenuSelectionEditor }
+
+function TRadMenuSelectionEditor.GetVerb(Index: Integer): string;
+begin
+  Result := SRadMenuCaption;
+end;
+
+function TRadMenuSelectionEditor.GetVerbCount: Integer;
+begin
+  Result := 1;
+end;
+
+procedure TRadMenuSelectionEditor.PrepareItem(Index: Integer; const AItem: IMenuItem);
+var
+  LList: IDesignerSelections;
+begin
+  LList := CreateSelectionList;
+  Designer.GetSelections(LList);
+  AItem.Visible := (FluentSelectionOf(Designer, LList).Classes <> nil) and
+    TRadMenuTools.AddToolsTo(AItem);
+end;
+
 initialization
 
 finalization
+  TRadMenuTools.Uninstall;
 
 end.

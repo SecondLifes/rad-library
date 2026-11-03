@@ -13,7 +13,7 @@ procedure Register;
 
 implementation
  uses SqlClassesUni
- ,rad.rtl, rad.formstate.component
+ ,rad.rtl, rad.vcl, rad.formstate.component
  ,rad.db, Permission.Edit
  ,Rad.Dev
  ,rad.tms.formtabs

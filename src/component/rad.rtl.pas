@@ -12,7 +12,8 @@ uses
   mormot.core.base,
   mormot.core.unicode,
   mormot.core.json,
-  mormot.core.variants;
+  mormot.core.variants,
+  rad.formstate.core;
 
 type
   TRadActionList = class;
@@ -60,7 +61,7 @@ type
   end;
 
 
-  TRadActionList = class(TActionList)
+  TRadActionList = class(TActionList, IRadStateful)
   private
     FDefaultKeys: TArray<TShortCut>;
     function  GetActions: TArray<TContainedAction>;
@@ -75,6 +76,9 @@ type
 
     procedure LoadFromJson(const AJson: RawUtf8);
     function  ToJson: RawUtf8;
+    { IRadStateful: the same shape as ToJson, kept per form by TRadPropertiesStore. }
+    procedure SaveState(const ADoc: IDocDict);
+    procedure LoadState(const ADoc: IDocDict);
 
   published
    property Json :RawUtf8 read ToJson write LoadFromJson stored False;
@@ -259,6 +263,19 @@ begin
 end;
 
 
+
+{ TRadActionList: IRadStateful }
+
+procedure TRadActionList.SaveState(const ADoc: IDocDict);
+begin
+  // Shortcuts by action name, or by GlobalKey; sharing a key across forms stays OnLoad/OnSave's job.
+  ADoc.Update(DocDict(ToJson, mFastFloat));
+end;
+
+procedure TRadActionList.LoadState(const ADoc: IDocDict);
+begin
+  LoadFromJson(ADoc.Json);
+end;
 
 { TRadCmdList }
 

@@ -1,6 +1,7 @@
 # Specification: `rad.formstate` — form ve DataModule durumunu JSON olarak saklama
 
-Durum: **onaylandı, uygulanıyor** (2026-11-03). Kullanıcı kararları: thread sistemi yok; mORMot
+Durum: **uygulandı** (2026-11-03, A0–A6). Açık kalan tek madde: tasarım editörünün IDE içinde
+kullanıcı tarafından denenmesi (A5). Kullanıcı kararları: thread sistemi yok; mORMot
 `E:\system\dev\Delphi\src\git\synopse\mORMot2` (en güncel kopya, `RadKon.dproj`'un da kullandığı).
 `src/component/rad.vcl.pas` içindeki çalışma kopyası (DevExpress `cxPropertiesStore` türevi, commit
 edilmedi) bu sistemle **değiştirilir**, genişletilmez.
@@ -311,9 +312,10 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
 - [ ] IDE'de elle doğrulama (kullanıcı): sağ tık fiili, Object Inspector'dan `Items`, seçim, sıralama,
   arama, İptal'in formu değiştirmemesi, Tamam sonrası DFM'e yazılma.
 
-**A6 — kapanış**
-- [ ] `TRadActionList` için `IRadStateful`.
-- [ ] Bu spec'in durum satırı, `CHANGELOG.md`, `src/README.md`.
+**A6 — kapanış** (2026-11-03, tamam)
+- [x] `TRadActionList` için `IRadStateful` (`ToJson`/`LoadFromJson` biçimi aynen); editörde
+  `IRadStateful` bileşenler için yolsuz "(durum)" satırı.
+- [x] Bu spec'in durum satırı, `CHANGELOG.md`, `src/README.md`.
 
 ## Uygulamada sapmalar ve ölçümler
 
@@ -413,6 +415,19 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
 - Kayıt sırası bileşen bazında gruplanır (store öğeleri bileşen başına); bileşenler arası sıra ilk görülüşe göre.
 - Mutasyon: store'un kendini listelemesi ve bileşen referansının saklanabilir sayılması ayrı ayrı denendi;
   her biri testi kırmızıya çevirdi.
+
+**A6 (2026-11-03)**
+
+- `TRadActionList.SaveState` `ToJson`'ı, `LoadState` `LoadFromJson`'ı kullanır: kısayol eylem adıyla ya da
+  `GlobalKey` ile. Store bunu form başına `custom` bölümünde saklar; bir `GlobalKey`'i formlar arasında
+  paylaştırmak hâlâ `TRadActionList.OnLoad/OnSave`'in işi.
+- Editör modeli `IRadStateful` bileşen için "(durum)" sözde yolu listeler; seçilince store'a yolsuz bir öğe
+  yazılır. Böyle bir bileşenin herhangi bir öğesi varsa çalışma anında durumu zaten kaydedilir; editör de
+  açılışta satırı işaretli gösterir.
+- Testler: kısayol gidiş-dönüşü (VCL) ve "(durum)" satırı (editör), Win32 + Win64. `IRadStateful` bildirimi
+  kaldırılınca kısayol testi kırmızı (`16467` yerine `0`).
+- `rad.rtl.pas`'ın kendi eski kodunda ipuçları var (kullanılmayan `sc`, `GetActions`, `mormot.core.text`
+  inline'ı); bu değişikliğin kapsamı dışında bırakıldı.
 
 ## Riskler
 

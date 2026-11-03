@@ -16,9 +16,13 @@ uses
   Vcl.Controls,
   Vcl.Forms,
   Vcl.StdCtrls,
+  System.Actions,
+  Vcl.ActnList,
+  Vcl.Menus,
   DUnitX.TestFramework,
   mormot.core.base,
   mormot.core.variants,
+  rad.rtl,
   rad.formstate;
 
 type
@@ -58,6 +62,8 @@ type
     procedure DataModule_RoundTrip_HasNoFormSection;
     [Test]
     procedure Kapat_SavesFormsStillOpen;
+    [Test]
+    procedure ActionList_ShortcutsRoundTripThroughTheStore;
     [Test]
     procedure Measure_ThreeHundredPaths;
   end;
@@ -369,6 +375,36 @@ begin
     Assert.IsTrue(FileExists(StateFile('TFormA')), 'saved by Kapat');
   finally
     LForm.Free; // after Kapat a store saves nothing and must not fail
+  end;
+end;
+
+procedure TRadFormStateVclTests.ActionList_ShortcutsRoundTripThroughTheStore;
+var
+  LForm: TFormPlain;
+  LStore: TRadPropertiesStore;
+  LList: TRadActionList;
+  LAction: TAction;
+  LCtrlS: TShortCut;
+begin
+  LCtrlS := ShortCut(Ord('S'), [ssCtrl]);
+  LForm := TFormPlain.Create(nil);
+  try
+    LList := TRadActionList.Create(LForm);
+    LList.Name := 'Actions1';
+    LAction := TAction.Create(LForm);
+    LAction.Name := 'actSave';
+    LAction.ActionList := LList;
+    LAction.ShortCut := LCtrlS;
+    LStore := TRadPropertiesStore.Create(LForm);
+    LStore.Items.Add.Component := LList; // no paths: the list saves itself (IRadStateful)
+    LStore.Load;
+    Assert.IsTrue(LStore.Save);
+    LAction.ShortCut := 0;
+    LStore.Load;
+    Assert.AreEqual(Integer(LCtrlS), Integer(LAction.ShortCut));
+    Assert.IsTrue(LoadDoc('TFormPlain').Exists('custom'));
+  finally
+    LForm.Free;
   end;
 end;
 

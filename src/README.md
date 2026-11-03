@@ -13,7 +13,7 @@ src/
 │                rad.permission, rad.sqlfilter, rad.customfield, rad.script, rad.script.override (+ vendor/tms: rad.script.engine/hooks/jobs/facade/commands/typedhooks/dev/uni, tasarımcı: rad.script.design/.bar/.tools, IDE: rad.script.ide/.newscript/.packages; giriş birimleri rad.scripting (ERP) ve rad.scripting.kp (KP)), rad.thread, rad.utils,
 │                rad.worker, ...)
 ├── component/   VCL components and their editors (Permission.Edit,
-│                rad.db, rad.rtl, rad.vcl, rad.dev, rad.dev.customfields —
+│                rad.db, rad.rtl, rad.vcl, rad.formstate, rad.dev, rad.dev.customfields —
 │                custom-field frame — and rad.dev.customfielddesigner, its
 │                definition dialog) — no separate fmx/ split yet;
 │                everything here targets VCL today
@@ -36,3 +36,31 @@ imported code is the working reference — it does not by itself authorize
 inventing new public API surface beyond what it actually contains; extend
 it following the same rules (`helper-patterns.md`, `component-patterns.md`,
 `vendor-integration.md`) as any other change to this library.
+
+## Form state (`rad.formstate`)
+
+`TRadPropertiesStore` saves chosen published properties, the window placement and
+free key/value pairs of a form or data module as JSON, and restores them before the
+owner's `OnCreate`. One setup call through the entry unit:
+
+```pascal
+uses rad.formstate;
+TRadFormState.Kur(TRadFormState.FileStore, 'emrah');   // or DbStore(Conn), CallbackStore; 3rd: IRadCipher
+...
+TRadFormState.Kapat;                                    // saves forms still open
+```
+
+| Unit | Role |
+|---|---|
+| `core/rad.formstate.core` | dotted property paths over mORMot RTTI, document rules, `IRadStateful` |
+| `core/rad.formstate.store` | file and callback stores, encryption envelope, cached repository, `Prefetch` |
+| `vendor/unidac/rad.formstate.uni` | database store (PostgreSQL, SQL Server, Firebird) |
+| `component/rad.formstate.component` | `TRadPropertiesStore` |
+| `component/rad.formstate` | entry unit: aliases and `TRadFormState` |
+| `packages/Rad.Editor.FormState(.Model)` | design-time editor (right click: Durum Editörü...) |
+
+`TRadActionList` implements `IRadStateful`: list it in `Items` and its shortcuts are
+saved with the form. Spec, decisions and measurements: `docs/specs/rad.formstate.md`.
+Tests: `test/scratch/rad_formstate/build_and_run.bat Win32|Win64 <runner>` with
+`RunFormStateTests`, `RunFormStateVclTests`, `RunFormStateEditorTests` or
+`RunFormStateDbTests` (live databases).

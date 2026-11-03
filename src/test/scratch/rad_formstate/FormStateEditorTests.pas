@@ -19,6 +19,7 @@ uses
   rad.formstate.core,
   rad.formstate.store,
   rad.formstate.component,
+  rad.rtl,
   Rad.Editor.FormState.Model,
   Rad.Editor.FormState,
   FormStateTestA;
@@ -45,6 +46,8 @@ type
     procedure Model_LoadFromStore_KeepsItemOrder;
     [Test]
     procedure Model_SaveToStore_GroupsByComponent;
+    [Test]
+    procedure Model_StatefulComponent_HasItsOwnStateRow;
     [Test]
     procedure Model_MoveSelection_StopsAtTheEnds;
     [Test]
@@ -179,6 +182,41 @@ begin
   Assert.AreEqual('Width,Font.Style', FForm.Store1.Items[0].Properties.CommaText);
   Assert.AreSame(FForm.Memo1, FForm.Store1.Items[1].Component);
   Assert.AreEqual('Lines,Width', FForm.Store1.Items[1].Properties.CommaText);
+end;
+
+procedure TRadFormStateEditorTests.Model_StatefulComponent_HasItsOwnStateRow;
+var
+  LList: TRadActionList;
+  LModel: TRadStateEditorModel;
+  LLeaf: TRadStateLeaf;
+  LItem: TRadStateItem;
+  I: Integer;
+begin
+  LList := TRadActionList.Create(FForm);
+  LList.Name := 'Actions1';
+  LModel := TRadStateEditorModel.Create(FForm.Store1);
+  try
+    LModel.Build;
+    Assert.IsTrue(LModel.LeafOf(LList, STATE_SELF_PATH, LLeaf) and LLeaf.Restorable);
+    LModel.LoadFromStore;
+    LModel.SetSelected(LList, STATE_SELF_PATH, True);
+    LModel.SaveToStore;
+  finally
+    LModel.Free;
+  end;
+  LItem := nil;
+  for I := 0 to FForm.Store1.Items.Count - 1 do
+    if FForm.Store1.Items[I].Component = LList then
+      LItem := FForm.Store1.Items[I];
+  Assert.IsTrue(LItem <> nil, 'an item for the list');
+  Assert.AreEqual(0, LItem.Properties.Count, 'no paths: the list saves itself');
+  LModel := TRadStateEditorModel.Create(FForm.Store1);
+  try
+    LModel.LoadFromStore;
+    Assert.IsTrue(LModel.IsSelected(LList, STATE_SELF_PATH), 'reopening the editor shows it checked');
+  finally
+    LModel.Free;
+  end;
 end;
 
 procedure TRadFormStateEditorTests.Model_MoveSelection_StopsAtTheEnds;

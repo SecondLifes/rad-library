@@ -9,6 +9,7 @@ uses
   System.SysUtils,
   System.Classes,
   System.Generics.Collections,
+  rad.formstate.core,
   rad.formstate.component;
 
 type
@@ -66,6 +67,8 @@ type
 const
   STATE_MAX_DEPTH = 3;
   STATE_MAX_COLLECTION_ITEMS = 50;
+  /// <summary>Pseudo path of an IRadStateful component: an item without paths, saved by the component itself.</summary>
+  STATE_SELF_PATH = '(durum)';
 
 implementation
 
@@ -144,8 +147,11 @@ begin
   for I := 0 to FStore.Owner.ComponentCount - 1 do
   begin
     LComponent := FStore.Owner.Components[I];
-    if (LComponent <> FStore) and (LComponent.Name <> '') and not (LComponent is TRadPropertiesStore) then
-      AddObject(LComponent, LComponent, '', 1);
+    if (LComponent = FStore) or (LComponent.Name = '') or (LComponent is TRadPropertiesStore) then
+      Continue;
+    if Supports(LComponent, IRadStateful) then
+      AddLeaf(LComponent, STATE_SELF_PATH, 'IRadStateful', '', '');
+    AddObject(LComponent, LComponent, '', 1);
   end;
 end;
 
@@ -242,6 +248,8 @@ begin
   for I := 0 to FStore.Items.Count - 1 do
   begin
     LItem := FStore.Items[I];
+    if Supports(LItem.Component, IRadStateful) then
+      SetSelected(LItem.Component, STATE_SELF_PATH, True); // any item of it saves its state
     if LItem.Component <> nil then
       for J := 0 to LItem.Properties.Count - 1 do
         if Trim(LItem.Properties[J]) <> '' then
@@ -272,7 +280,8 @@ begin
         LItem.Component := LComponent;
         LItems.Add(LComponent, LItem);
       end;
-      LItem.Properties.Add(LPath);
+      if LPath <> STATE_SELF_PATH then
+        LItem.Properties.Add(LPath);
     end;
   finally
     LItems.Free;

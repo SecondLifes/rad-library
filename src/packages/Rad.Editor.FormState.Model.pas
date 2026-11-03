@@ -91,6 +91,7 @@ const
   REASON_READ_ONLY = 'salt okunur (setter yok)';
   REASON_COMPONENT = 'bileşen referansı saklanmaz';
   REASON_KIND = 'bu tür saklanamaz';
+  REASON_NAME = 'bileşen adı: değişirse kayıtlar ve kod onu bulamaz';
   PAGE_PROPS: array[0..2] of string = ('ActivePageIndex', 'TabIndex', 'ItemIndex');
   SIZE_ALIGNS = [alTop, alBottom, alLeft, alRight];
 
@@ -226,6 +227,8 @@ begin
       AddLeaf(AComponent, LPath, string(LInfo^.PropType^.Name), '', REASON_KIND)
     else if LInfo^.SetProc = nil then
       AddLeaf(AComponent, LPath, string(LInfo^.PropType^.Name), SafeValueText(AObject, LInfo), REASON_READ_ONLY)
+    else if (APrefix = '') and SameText(LPath, 'Name') then
+      AddLeaf(AComponent, LPath, string(LInfo^.PropType^.Name), SafeValueText(AObject, LInfo), REASON_NAME)
     else
       AddLeaf(AComponent, LPath, string(LInfo^.PropType^.Name), SafeValueText(AObject, LInfo), '');
     Exit;

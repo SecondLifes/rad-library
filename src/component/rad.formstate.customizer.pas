@@ -117,6 +117,7 @@ const
   DEFAULT_GRID_STEP = 8;
   FIELD_PPI = 'ppi';
   FIELD_DIFF = 'diff';
+  FORBIDDEN_PATH = 'Name';
   MOVE_PATHS: array[0..1] of string = ('Left', 'Top');
   SIZE_PATHS: array[0..1] of string = ('Width', 'Height');
   BUILT_IN_CAPTIONS: array[0..23] of string = (
@@ -171,11 +172,16 @@ end;
 
 procedure TRadFormCustomizer.Loaded;
 var
-  I: Integer;
+  I, J: Integer;
 begin
   inherited;
   if (csDesigning in ComponentState) or (Owner = nil) then
     Exit;
+  // A renamed component would no longer match its saved changes or the code that names it.
+  for I := 0 to FAllowed.Count - 1 do
+    for J := FAllowed[I].Properties.Count - 1 downto 0 do
+      if SameText(Trim(FAllowed[I].Properties[J]), FORBIDDEN_PATH) then
+        FAllowed[I].Properties.Delete(J);
   for I := 0 to Owner.ComponentCount - 1 do
     if Owner.Components[I] is TRadPropertiesStore then
     begin

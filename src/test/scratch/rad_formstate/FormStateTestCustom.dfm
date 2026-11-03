@@ -47,7 +47,8 @@ object FormCustom: TFormCustom
           'Top'
           'Width'
           'Font.Size'
-          'Color')
+          'Color'
+          'Name')
       end
       item
         Component = Label1

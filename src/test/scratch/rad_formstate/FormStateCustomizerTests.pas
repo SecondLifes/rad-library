@@ -117,6 +117,7 @@ begin
     Assert.IsTrue(LCustomizer.Store = LForm.Store1, 'joined the owner store');
     Assert.IsTrue(LCustomizer.IsAllowed(LForm.Edit1, 'width'), 'case-insensitive path');
     Assert.IsFalse(LCustomizer.IsAllowed(LForm.Edit1, 'Text'));
+    Assert.IsFalse(LCustomizer.IsAllowed(LForm.Edit1, 'Name'), 'Name is dropped even when the DFM allows it');
     Assert.IsTrue(LCustomizer.AllowedPaths(LForm.Button1) = nil, 'not allowed at all');
     Assert.IsTrue(LCustomizer.CanMove(LForm.Edit1));
     Assert.IsTrue(LCustomizer.CanResize(LForm.Edit1));

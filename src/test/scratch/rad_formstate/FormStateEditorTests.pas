@@ -71,6 +71,8 @@ type
     [Test]
     procedure Form_NotRestorableLeaf_IsDisabled;
     [Test]
+    procedure Model_NameLeaf_IsNotRestorable;
+    [Test]
     procedure Model_CustomizerMode_ListsControlsOnly;
     [Test]
     procedure Form_CustomizerMode_HidesStoreTabsAndWritesAllowed;
@@ -423,6 +425,21 @@ begin
   LNode.Values[AEditor.colValueName.ItemIndex] := AName;
   LNode.Values[AEditor.colValueType.ItemIndex] := AType;
   LNode.Values[AEditor.colValueValue.ItemIndex] := AValue;
+end;
+
+procedure TRadFormStateEditorTests.Model_NameLeaf_IsNotRestorable;
+var
+  LModel: TRadStateEditorModel;
+  LLeaf: TRadStateLeaf;
+begin
+  LModel := TRadStateEditorModel.Create(FForm.Store1);
+  try
+    LModel.Build;
+    Assert.IsTrue(HasLeaf(LModel, 'Edit1', 'Name', LLeaf));
+    Assert.IsFalse(LLeaf.Restorable, 'a renamed component would match nothing');
+  finally
+    LModel.Free;
+  end;
 end;
 
 procedure TRadFormStateEditorTests.Model_CustomizerMode_ListsControlsOnly;

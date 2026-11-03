@@ -518,10 +518,15 @@ begin
       Assert.DoesNotContain(LPreview, 'Edit1:', 'closed, Allowed included');
       Assert.Contains(LPreview, 'HATA 3. satır', 'a bad line is shown');
       Assert.Contains(LEditor.lblPreview.Caption, '2 bileşende 2 özellik');
+      LEditor.chkAllowedOnly.Checked := True;
+      Assert.DoesNotContain(LEditor.lstPreview.Items.Text, 'Button1:', 'only the chosen ones');
+      Assert.Contains(LEditor.lstPreview.Items.Text, 'Label1: Caption');
+      LEditor.chkAllowedOnly.Checked := False;
       LEditor.Apply;
     finally
       LEditor.Free;
     end;
+    Assert.IsTrue(LForm.Customizer1.PermissionMode = rpRulesAndAllowed);
     Assert.Contains(LForm.Customizer1.Rules.Text, 'TButton: Caption', 'written back');
     Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Button1, 'Caption'));
     Assert.IsTrue(LForm.Customizer1.AllowedPaths(LForm.Edit1) = nil);

@@ -42,6 +42,7 @@ type
   TRadFormCustomizer = rad.formstate.customizer.TRadFormCustomizer;
   TRadCustomizeSession = rad.formstate.customizer.TRadCustomizeSession;
   TRadCustomizeRules = rad.formstate.rules.TRadCustomizeRules;
+  TRadPermissionMode = rad.formstate.customizer.TRadPermissionMode;
   IRadStateStore = rad.formstate.store.IRadStateStore;
   TRadStateEntry = rad.formstate.store.TRadStateEntry;
   TRadStateEntries = rad.formstate.store.TRadStateEntries;
@@ -56,6 +57,8 @@ type
 const
   RAD_STATE_DEFAULT_TABLE = rad.formstate.uni.RAD_STATE_DEFAULT_TABLE;
   RAD_CUSTOMIZE_APPEARANCE = rad.formstate.rules.RAD_CUSTOMIZE_APPEARANCE;
+  rpRulesAndAllowed = rad.formstate.customizer.rpRulesAndAllowed;
+  rpAllowedOnly = rad.formstate.customizer.rpAllowedOnly;
   soPlacement = rad.formstate.component.soPlacement;
   soActiveControl = rad.formstate.component.soActiveControl;
   soProps = rad.formstate.component.soProps;

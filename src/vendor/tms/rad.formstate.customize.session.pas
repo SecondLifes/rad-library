@@ -45,6 +45,9 @@ type
     procedure DesignerPopup(Sender: TObject; var Handled: Boolean);
     procedure InspectorChanged(Sender: TObject);
     procedure InspectorEdited(Sender: TObject; ARowProperties: TcxCustomEditorRowProperties);
+    procedure ToolsCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure CloseSession(AFreeNow: Boolean);
+    function HasChanges: Boolean;
     procedure ButtonClick(Sender: TObject);
     function IsLayoutChild(AControl: TControl): Boolean;
     procedure RememberCurrent;
@@ -92,7 +95,8 @@ uses
 resourcestring
   SNotAForm = 'TRadFormCustomizer %s: its owner must be a form.';
   SPickControl = 'Bir kontrol se'#231'in';
-  SConfirmResetForm = 'Bu formdaki t'#252'm ki'#351'isel ayarlar silinecek ve form yeniden a'#231#305'lacak. Devam edilsin mi?';
+  SConfirmSaveOnClose = 'Yapılan değişiklikler kaydedilsin mi?';
+  SConfirmResetForm ='Bu formdaki t'#252'm ki'#351'isel ayarlar silinecek ve form yeniden a'#231#305'lacak. Devam edilsin mi?';
 
 { TRadFormCustomizeSession }
 
@@ -135,6 +139,7 @@ begin
   FTools := TRadCustomizeToolsForm.Create(Self);
   FTools.insp.OnPropertyChanged := InspectorChanged;
   FTools.insp.OnEdited := InspectorEdited;
+  FTools.OnCloseQuery := ToolsCloseQuery;
   FTools.btnUndo.OnClick := ButtonClick;
   FTools.btnResetSelected.OnClick := ButtonClick;
   FTools.btnResetAll.OnClick := ButtonClick;
@@ -161,9 +166,19 @@ begin
     Exit;
   if AComponent = FDesigner then
     FDesigner := nil;
-  if (AComponent = FForm) or (AComponent = FCustomizer) then
+  if AComponent = FForm then
   begin
+    // The form reports its end after its windows, grab handles included, are gone: switching the
+    // designer off now crashed in a window callback (0xC000041D). The form frees it with the rest.
+    FDesigner := nil;
     FForm := nil;
+    FCustomizer := nil;
+    FCurrent := nil;
+    if not FClosing then
+      CloseSession(True); // no click of ours is running, and a closing main form never runs the queue
+  end
+  else if AComponent = FCustomizer then
+  begin
     FCustomizer := nil;
     FCurrent := nil;
     if not FClosing then
@@ -413,6 +428,11 @@ end;
 
 procedure TRadFormCustomizeSession.Close;
 begin
+  CloseSession(False);
+end;
+
+procedure TRadFormCustomizeSession.CloseSession(AFreeNow: Boolean);
+begin
   if FClosing then
     Exit;
   FClosing := True;
@@ -422,10 +442,38 @@ begin
     FreeAndNil(FDesigner);
   end;
   if FTools <> nil then
+  begin
     FTools.insp.Bind(nil, nil);
+    FTools.Hide;
+  end;
   FActive := nil;
-  // The click that closed the session is still running in the tool window: free afterwards.
-  System.Classes.TThread.ForceQueue(nil, Free);
+  if AFreeNow then
+    Free
+  else
+    System.Classes.TThread.ForceQueue(nil, Free); // the click that closed us still runs in the tool window
+end;
+
+function TRadFormCustomizeSession.HasChanges: Boolean;
+begin
+  Result := (FCustomizer <> nil) and (FCustomizer.SnapshotAll.Json <> FBefore.Json);
+end;
+
+procedure TRadFormCustomizeSession.ToolsCloseQuery(Sender: TObject; var CanClose: Boolean);
+begin
+  // The window's X ends the session like Vazgeç; with changes the user picks.
+  if FClosing then
+    Exit;
+  if not HasChanges then
+  begin
+    Cancel;
+    Exit;
+  end;
+  case MessageDlg(SConfirmSaveOnClose, mtConfirmation, [mbYes, mbNo, mbCancel], 0) of
+    mrYes: Save;
+    mrNo: Cancel;
+  else
+    CanClose := False;
+  end;
 end;
 
 procedure TRadFormCustomizeSession.ButtonClick(Sender: TObject);

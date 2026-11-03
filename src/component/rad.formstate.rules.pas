@@ -43,9 +43,10 @@ type
     procedure AddAllowed(AComponent: TComponent; APaths: TStrings);
     /// <summary>Removes what the closing rules take from AComponent.</summary>
     procedure RemoveDenied(AComponent: TComponent; APaths: TStrings);
-    /// <summary>What AComponent may change: the opening rules (controls only) plus AExplicit (may be nil),
-    /// minus the closing rules and Name.</summary>
-    procedure PathsFor(AComponent: TComponent; const AExplicit: TStrings; APaths: TStrings);
+    /// <summary>What AComponent may change: the opening rules (controls only, unless AOpenRules is False)
+    /// plus AExplicit (may be nil), minus the closing rules and Name.</summary>
+    procedure PathsFor(AComponent: TComponent; const AExplicit: TStrings; APaths: TStrings;
+      AOpenRules: Boolean = True);
     /// <summary>'*', the component's name, or the name of its class or an ancestor class.</summary>
     class function Matches(AComponent: TComponent; const ATarget: string): Boolean; static;
     /// <summary>APath and, for an object property, its writable leaves; nothing when APath does not exist.</summary>
@@ -298,12 +299,13 @@ begin
   end;
 end;
 
-procedure TRadCustomizeRules.PathsFor(AComponent: TComponent; const AExplicit: TStrings; APaths: TStrings);
+procedure TRadCustomizeRules.PathsFor(AComponent: TComponent; const AExplicit: TStrings; APaths: TStrings;
+  AOpenRules: Boolean);
 var
   LPath: string;
   I: Integer;
 begin
-  if AComponent is TControl then
+  if AOpenRules and (AComponent is TControl) then
     AddAllowed(AComponent, APaths);
   if AExplicit <> nil then
     for I := 0 to AExplicit.Count - 1 do

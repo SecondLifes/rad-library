@@ -40,6 +40,7 @@ begin
     Inc(GHata);
     Writeln('  [HATA] ', AAd, '  ', ADetay);
   end;
+  Flush(Output); // a hard crash (0xC000041D) would otherwise eat the lines before it
 end;
 
 procedure Settle;
@@ -202,8 +203,57 @@ begin
     Kontrol('T4 duzenleme bitince geri alinabilir', LSession.CanUndo);
     LSession.Undo;
     Kontrol('T5 tek adimda butun yazilan geri alinir', LForm.Label1.Caption = 'Etiket', LForm.Label1.Caption);
+    Flush(Output);
     LSession.Cancel;
     Settle;
+  finally
+    LForm.Free;
+  end;
+end;
+
+function HasDesigner(AForm: TForm): Boolean;
+var
+  I: Integer;
+begin
+  for I := 0 to AForm.ComponentCount - 1 do
+    if AForm.Components[I] is TAdvFormDesigner then
+      Exit(True);
+  Result := False;
+end;
+
+procedure ClosingWhileSelected;
+var
+  LForm: TFormCustom;
+  LSession: TRadFormCustomizeSession;
+begin
+  // The tool window's X used to hide the window only: the form stayed in design mode.
+  LForm := TFormCustom.Create(nil);
+  try
+    LSession := OpenSession(LForm);
+    LSession.Select(LForm.Edit1);
+    Settle;
+    LSession.Tools.Close;
+    Settle;
+    Kontrol('K1 arac penceresi kapaninca oturum biter', TRadFormCustomizeSession.Active = nil);
+    Kontrol('K2 form tasarim kipinde kalmaz', not HasDesigner(LForm) and NoControlDesigning(LForm));
+  finally
+    LForm.Free;
+  end;
+  // Closing the form itself while a control is selected (its grab handles are up) raised an error.
+  LForm := TFormCustom.Create(nil);
+  try
+    LSession := OpenSession(LForm);
+    LSession.Select(LForm.Edit1);
+    Settle;
+    try
+      FreeAndNil(LForm);
+      Settle;
+      Kontrol('K3 secim varken form kapanir, hata yok', True);
+    except
+      on E: Exception do
+        Kontrol('K3 secim varken form kapanir, hata yok', False, E.ClassName + ': ' + E.Message);
+    end;
+    Kontrol('K4 form gidince oturum biter', TRadFormCustomizeSession.Active = nil);
   finally
     LForm.Free;
   end;
@@ -218,6 +268,7 @@ begin
     BehavioursAndFilter;
     UndoSaveResetCancel;
     TypingInInspector;
+    ClosingWhileSelected;
   except
     on E: Exception do
       Kontrol('beklenmeyen istisna', False, E.ClassName + ': ' + E.Message);

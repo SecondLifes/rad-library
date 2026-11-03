@@ -89,6 +89,12 @@ that break something else in the kit.
 
 ### Changed
 
+- Form düzenleme oturumu, kullanıcı geri bildirimi (2026-11-03):
+  - Bir kontrol seçiliyken form kapanınca süreç `0xC000041D` ile çöküyordu: form, pencereleri (seçim tutamaçları dahil) yok edildikten sonra haber veriyor, oturum da o anda TMS designer'ı kapatmaya çalışıyordu. Artık designer'a dokunulmuyor (form onu kendisi serbest bırakıyor) ve oturum hemen serbest kalıyor; kapanan ana form kuyruğu hiç çalıştırmadığı için kuyruğa bırakılmıyor.
+  - Araç penceresinin X'i yalnız pencereyi gizliyordu, form tasarım kipinde kalıyordu. Artık oturumu bitiriyor: değişiklik yoksa Vazgeç gibi, varsa "kaydedilsin mi?" (Evet/Hayır/İptal).
+  - `TRadFormCustomizer.PermissionMode` (`rpRulesAndAllowed` varsayılan, `rpAllowedOnly`): yalnız `Allowed`'da seçilenler görünür, açan kurallar (uygulama geneli dahil) yok sayılır, kapatanlar geçerli. Editörde "Yalnız bileşene özel izinler" kutusu, önizleme ona göre.
+  - Inspector'da Türkçe karşılığı olmayan satırlar BÜYÜK HARF görünüyordu (`cxOI` `GetRowPropertyPath` yolu büyük harfe çeviriyor); artık satırın kendi adı kalıyor.
+  - `CustomizeSessionTest` K1-K4 (X, seçimle form kapanışı) önce kırmızı/çökme, sonra yeşil; `Kontrol` her satırdan sonra `Flush` ediyor, yoksa sert çökme önceki satırları yutuyordu.
 - Form düzenleme penceresi: başlık gibi her tuşta yazılan satırlarda her tuş metnin tamamını seçip bir sonraki tuşla siliyordu. Inspector her tuşta `OnPropertyChanged` veriyor (`cxOI` `EditChange`, `ipaAutoUpdate`), oturum da buna inspector'ı yenileyerek cevap veriyordu; yenileme açık editörü yeniden kuruyordu. Artık düzenleme sürerken inspector yenilenmiyor, geri al adımı tuş başına değil düzenleme bitince (`OnEdited`) alınıyor. Gerçek `WM_CHAR` gönderen test (`CustomizeSessionTest` T1-T5) önce kırmızı (`b`, `Etiketa`), sonra yeşil.
 - `TRadFormCustomizer.Allowed` artık tek bileşen istisnası; izinler kural + `Allowed` − kapatan satırlar − `Name` olarak hesaplanır. `Name` artık `Loaded`'da `Allowed`'dan silinmiyor, hesapta çıkarılıyor; editör eski kayıtlı `Edit1.Name` satırını açılışta atar ve Tamam'la DFM'den temizler.
 

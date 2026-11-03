@@ -23,6 +23,10 @@ uses
 type
   TRadFormCustomizer = class;
 
+  /// <summary>rpRulesAndAllowed: rules open by class, Allowed adds single components.
+  /// rpAllowedOnly: only what Allowed lists; opening rules are ignored, closing rules still apply.</summary>
+  TRadPermissionMode = (rpRulesAndAllowed, rpAllowedOnly);
+
   /// <summary>Opens the editing session; registered by the TMS package.</summary>
   TRadCustomizeSession = reference to procedure(ACustomizer: TRadFormCustomizer);
 
@@ -38,6 +42,7 @@ type
     class procedure SetDefaultRules(const AValue: string); static;
   private
     FAllowed: TRadStateItems;
+    FPermissionMode: TRadPermissionMode;
     FRules: TStrings;
     FResolved: TObjectDictionary<TComponent, TStringList>;
     FTargets: TList<TComponent>;
@@ -52,6 +57,7 @@ type
     FLoaded: Boolean;
     procedure SetAllowed(const AValue: TRadStateItems);
     procedure SetRules(const AValue: TStrings);
+    procedure SetPermissionMode(AValue: TRadPermissionMode);
     procedure SetStore(AValue: TRadPropertiesStore);
     procedure SetCaptions(const AValue: TStrings);
     procedure RulesChanged(Sender: TObject);
@@ -115,6 +121,9 @@ type
   published
     /// <summary>Where the changes are saved (its Encrypted, StorageType...); empty: the owner's first store.</summary>
     property Store: TRadPropertiesStore read FStore write SetStore;
+    /// <summary>rpAllowedOnly: the user sees only what Allowed lists, whatever the rules open.</summary>
+    property PermissionMode: TRadPermissionMode read FPermissionMode write SetPermissionMode
+      default rpRulesAndAllowed;
     /// <summary>'TControl: Left, Top' opens by class (descendants too), '-Edit1' or '-TPanel: Color'
     /// closes; a closing line always wins, also over Allowed.</summary>
     property Rules: TStrings read FRules write SetRules;
@@ -245,6 +254,12 @@ begin
   FRules.Assign(AValue);
 end;
 
+procedure TRadFormCustomizer.SetPermissionMode(AValue: TRadPermissionMode);
+begin
+  FPermissionMode := AValue;
+  Invalidate;
+end;
+
 procedure TRadFormCustomizer.RulesChanged(Sender: TObject);
 begin
   Invalidate;
@@ -322,9 +337,9 @@ begin
   try
     LItem := ItemOf(AComponent);
     if LItem <> nil then
-      ARules.PathsFor(AComponent, LItem.Properties, LPaths)
+      ARules.PathsFor(AComponent, LItem.Properties, LPaths, FPermissionMode = rpRulesAndAllowed)
     else
-      ARules.PathsFor(AComponent, nil, LPaths);
+      ARules.PathsFor(AComponent, nil, LPaths, FPermissionMode = rpRulesAndAllowed);
   except
     LPaths.Free;
     raise;

@@ -132,10 +132,18 @@ begin
 end;
 
 function TcxRTTIInspector.DoDrawRowHeader(AHeaderViewInfo: TcxCustomRowHeaderInfo): Boolean;
+var
+  LPath, LCaption: string;
 begin
-  // Only the drawn caption changes: the row path is built from Properties.Caption.
+  // Only the drawn caption changes: the row path is built from Properties.Caption. The path comes
+  // back upper-cased (cxOI GetRowPropertyPath), so a row without a Turkish name keeps its own caption.
   if (FCustomizer <> nil) and (AHeaderViewInfo.CaptionsInfo.Count > 0) then
-    AHeaderViewInfo.CaptionsInfo[0].Caption := FCustomizer.CaptionOf(GetRowPropertyPath(AHeaderViewInfo.Row));
+  begin
+    LPath := GetRowPropertyPath(AHeaderViewInfo.Row);
+    LCaption := FCustomizer.CaptionOf(LPath);
+    if LCaption <> LPath then
+      AHeaderViewInfo.CaptionsInfo[0].Caption := LCaption;
+  end;
   Result := inherited DoDrawRowHeader(AHeaderViewInfo);
 end;
 

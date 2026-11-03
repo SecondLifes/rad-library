@@ -138,7 +138,8 @@ form: `Customizer1.Customize` opens the session. Permissions are rules by class,
 `TControl: Left, Top, Font` opens (descendants too, `Font` gives its leaves), `-Edit1`,
 `-Edit1.Color` or `-TPanel: Color` closes and always wins. Application rules come first
 (`TRadFormState.CustomizeRules := RAD_CUSTOMIZE_APPEARANCE;`), then the form's `Rules`, then
-`Allowed` for single components; `Name` never opens. `Store` picks the store it saves into (and so
+`Allowed` for single components; `Name` never opens. `PermissionMode := rpAllowedOnly` shows only
+what `Allowed` lists. `Store` picks the store it saves into (and so
 encryption); empty means the owner's first store. Turkish labels: `Captions`.
 The session lives in `RadScriptTmsDesign` and registers itself when `rad.scripting` is linked,
 so the host must `uses rad.scripting` (with runtime packages, that package must be loaded). Only the user's changes are saved; the company layout

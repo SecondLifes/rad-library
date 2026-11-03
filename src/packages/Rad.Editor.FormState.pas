@@ -76,6 +76,7 @@ type
     memRules: TMemo;
     pnlRulesTools: TPanel;
     btnRulesAppearance: TButton;
+    chkAllowedOnly: TCheckBox;
     pnlPreview: TPanel;
     lblPreview: TLabel;
     lstPreview: TListBox;
@@ -97,6 +98,7 @@ type
     procedure btnRemoveClick(Sender: TObject);
     procedure memRulesChange(Sender: TObject);
     procedure btnRulesAppearanceClick(Sender: TObject);
+    procedure chkAllowedOnlyClick(Sender: TObject);
   private
     FModel: TRadStateEditorModel;
     FCustomizer: TRadFormCustomizer;
@@ -226,6 +228,7 @@ begin
   btnPresetSize.Visible := False;
   tabRules.PageIndex := 0; // rules are the usual way; single components are the exception
   pgcMain.ActivePage := tabRules;
+  chkAllowedOnly.Checked := ACustomizer.PermissionMode = rpAllowedOnly;
   memRules.Lines.Assign(ACustomizer.Rules); // OnChange fills the preview
   FillTree;
   FillSelected;
@@ -235,7 +238,13 @@ procedure TRadFormStateEditorForm.Apply;
 begin
   FModel.SaveToStore;
   if FCustomizer <> nil then
+  begin
     FCustomizer.Rules.Assign(memRules.Lines);
+    if chkAllowedOnly.Checked then
+      FCustomizer.PermissionMode := rpAllowedOnly
+    else
+      FCustomizer.PermissionMode := rpRulesAndAllowed;
+  end;
   if FModel.Store = nil then
     Exit; // customizer mode: no values or options
   ApplyValues;
@@ -264,7 +273,7 @@ begin
     LPaths := TStringList.Create;
     try
       SelectedPathsOf(AComponent, LExplicit);
-      ARules.PathsFor(AComponent, LExplicit, LPaths); // the same core the customizer runs
+      ARules.PathsFor(AComponent, LExplicit, LPaths, not chkAllowedOnly.Checked); // the customizer's own core
       Result := LPaths.Count;
       if Result > 0 then
         lstPreview.Items.Add(AComponent.Name + ': ' + string.Join(', ', LPaths.ToStringArray));
@@ -307,6 +316,11 @@ begin
 end;
 
 procedure TRadFormStateEditorForm.memRulesChange(Sender: TObject);
+begin
+  FillPreview;
+end;
+
+procedure TRadFormStateEditorForm.chkAllowedOnlyClick(Sender: TObject);
 begin
   FillPreview;
 end;

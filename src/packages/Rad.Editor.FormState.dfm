@@ -416,6 +416,21 @@ object RadFormStateEditorForm: TRadFormStateEditorForm
             TabOrder = 0
             OnClick = btnRulesAppearanceClick
           end
+          object chkAllowedOnly: TCheckBox
+            Left = 192
+            Top = 10
+            Width = 270
+            Height = 17
+            Hint =
+              'PermissionMode = rpAllowedOnly: kullan'#305'c'#305' yaln'#305'z '#214'zellikler ' +
+              'sekmesinde se'#231'ilenleri g'#246'r'#252'r; a'#231'an kurallar yok say'#305'l'#305'r, kapatan' +
+              'lar ge'#231'erli'
+            Caption = 'Yaln'#305'z bile'#351'ene '#246'zel izinler'
+            ParentShowHint = False
+            ShowHint = True
+            TabOrder = 1
+            OnClick = chkAllowedOnlyClick
+          end
         end
       end
       object pnlPreview: TPanel

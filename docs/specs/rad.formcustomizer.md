@@ -312,6 +312,10 @@ Customizer1.Customize;             // "formu düzenle" komutu (RadScriptTmsDesig
      "Hazır görünüm kuralları" düğmesi. Önizleme customizer ile aynı çekirdeği (`PathsFor`) çalıştırır;
      uygulama geneli kurallar tasarım anında bilinmediği için önizlemede yoktur. `LoadFromStore`
      listede olup geri yüklenemeyen yolu (eski sürümün kaydettiği `Edit1.Name`) atar.
+   - `PermissionMode = rpAllowedOnly` (kullanıcı isteği: "yalnız seçtiklerim görünsün"): açan
+     kurallar yok sayılır, kapatanlar ve `Name` çıkarma kalır. Varsayılan `rpRulesAndAllowed`.
+   - Oturum kapanışı: form kendi sonunu pencereleri yok edildikten sonra bildirdiği için o anda
+     designer kapatılmaz; araç penceresinin X'i oturumu bitirir (değişiklik varsa sorar).
    - Testler: kural 6, editör +2; VCL 44/44, editör 22/22, oturum 19/19 Win32 + Win64. Altı mutasyon
      (yasak, kalıtım, font süzgeci, DFM `Store` bağı, kural değişince yenileme, `Name` temizliği)
      her biri en az bir testi kırdı.

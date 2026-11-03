@@ -32,6 +32,8 @@ type
     procedure Customizer_FormAndDefaultRules;
     [Test]
     procedure Customizer_StoreLink_SavesIntoTheChosenStore;
+    [Test]
+    procedure Customizer_AllowedOnly_IgnoresOpeningRules;
   end;
 
 implementation
@@ -180,6 +182,26 @@ begin
     LForm.Customizer1.Rules.Text := 'TButton: Caption';
     Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Button1, 'Caption'), 'form rule, picked up at once');
     Assert.IsTrue(LForm.Customizer1.CanMove(LForm.Edit1), 'explicit Allowed unchanged');
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormRulesTests.Customizer_AllowedOnly_IgnoresOpeningRules;
+var
+  LForm: TFormCustom;
+begin
+  TRadFormState.CustomizeRules := 'TControl: Hint';
+  LForm := TFormCustom.Create(nil);
+  try
+    LForm.Customizer1.Rules.Text := 'TButton: Caption' + sLineBreak + '-Edit1.Color';
+    Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Button1, 'Caption'), 'rules open it by default');
+    LForm.Customizer1.PermissionMode := rpAllowedOnly;
+    Assert.IsTrue(LForm.Customizer1.AllowedPaths(LForm.Button1) = nil, 'not chosen: not shown');
+    Assert.IsFalse(LForm.Customizer1.IsAllowed(LForm.Edit1, 'Hint'), 'application rules opened nothing');
+    Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Edit1, 'Width'), 'chosen');
+    Assert.IsFalse(LForm.Customizer1.IsAllowed(LForm.Edit1, 'Color'), 'a closing rule still closes');
+    Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Label1, 'Caption'));
   finally
     LForm.Free;
   end;

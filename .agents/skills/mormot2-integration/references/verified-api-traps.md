@@ -297,3 +297,17 @@ PostgreSQL `jsonb` column. Use `mFastFloat` for a document that leaves the proce
 Changes made to `child` after the assignment do not reach `d`: measured
 `{child:{}}` after `C.I['after'] := 1`. Finish building the child first, or
 modify it through `d.D[key]`, which returns a reference.
+
+## `DocDict(const dv: TDocVariantData)` is a weak reference, not a copy
+
+The overload's own comment says "weak reference" and the body is
+`TDocDict.CreateByRef(@dv)`. Validating JSON with a local
+`LData.InitJson(...)` and then returning `DocDict(LData)` hands out a pointer
+into a stack record that is finalized when the function returns. Measured in
+`rad.formstate.store` (Delphi 37.0, Win32): with `DocDict(LData)` the returned
+document lost its nested sections and two tests failed; `DocDictCopy(LData)`
+fixed both. Use `DocDictCopy` whenever the `TDocVariantData` is local.
+
+`UpperCase` belongs on the shadowing list above too: an unqualified call on a
+`string` raised the same pair of W1057 warnings. Write
+`System.SysUtils.UpperCase(S)`.

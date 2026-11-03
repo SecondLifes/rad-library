@@ -16,6 +16,7 @@ uses
   Vcl.Forms,
   mormot.core.base,
   mormot.core.variants,
+  cxVGrid,
   FormDesigner,
   rad.formstate.customizer,
   rad.formstate.customize.tools;
@@ -43,6 +44,7 @@ type
     procedure DesignerKeyDown(Sender: TObject; var Key: Word; Shift: TShiftState);
     procedure DesignerPopup(Sender: TObject; var Handled: Boolean);
     procedure InspectorChanged(Sender: TObject);
+    procedure InspectorEdited(Sender: TObject; ARowProperties: TcxCustomEditorRowProperties);
     procedure ButtonClick(Sender: TObject);
     function IsLayoutChild(AControl: TControl): Boolean;
     procedure RememberCurrent;
@@ -132,6 +134,7 @@ begin
   FDesigner.Active := True;
   FTools := TRadCustomizeToolsForm.Create(Self);
   FTools.insp.OnPropertyChanged := InspectorChanged;
+  FTools.insp.OnEdited := InspectorEdited;
   FTools.btnUndo.OnClick := ButtonClick;
   FTools.btnResetSelected.OnClick := ButtonClick;
   FTools.btnResetAll.OnClick := ButtonClick;
@@ -303,7 +306,21 @@ end;
 
 procedure TRadFormCustomizeSession.InspectorChanged(Sender: TObject);
 begin
-  Changed;
+  // Caption-like rows post on every keystroke (cxOI EditChange, ipaAutoUpdate). Refreshing the
+  // inspector here rebuilt the open editor with its text selected, so the next key replaced it.
+  if FDesigner <> nil then
+    FDesigner.Update; // the grab handles follow a typed size at once
+  if not FTools.insp.IsEditing then
+    InspectorEdited(Sender, nil); // a value list or check box posts without an open editor
+end;
+
+procedure TRadFormCustomizeSession.InspectorEdited(Sender: TObject; ARowProperties: TcxCustomEditorRowProperties);
+begin
+  // One undo step per edit, not per keystroke; the inspector already shows what it wrote.
+  PushIfChanged;
+  if FCurrent is TControl then
+    FCurrentBounds := TControl(FCurrent).BoundsRect;
+  FTools.btnUndo.Enabled := CanUndo;
 end;
 
 procedure TRadFormCustomizeSession.Changed;

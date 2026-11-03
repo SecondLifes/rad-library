@@ -7,7 +7,9 @@
 
 uses
   System.SysUtils, System.Classes, System.IOUtils,
+  Winapi.Windows, Winapi.Messages,
   Vcl.Forms, Vcl.Controls, Vcl.StdCtrls,
+  cxEdit, cxTextEdit, cxOI,
   mormot.core.base, mormot.core.variants,
   FormDesigner,
   rad.formstate.core,
@@ -154,6 +156,59 @@ begin
   end;
 end;
 
+type
+  // Test-only access to protected members the keystroke test needs.
+  TEditAccess = class(TcxCustomEdit);
+  TInspectorAccess = class(TcxCustomRTTIInspector);
+
+procedure TypeChar(ASession: TRadFormCustomizeSession; AChar: Char);
+var
+  LEditor: TcxCustomEdit;
+begin
+  LEditor := ASession.Tools.insp.InplaceEditor; // fetched each time: a refresh may rebuild it
+  if (LEditor <> nil) and (TEditAccess(LEditor).InnerEdit <> nil) then
+    SendMessage(TEditAccess(LEditor).InnerEdit.Control.Handle, WM_CHAR, Ord(AChar), 0);
+  Settle;
+end;
+
+procedure TypingInInspector;
+var
+  LForm: TFormCustom;
+  LSession: TRadFormCustomizeSession;
+  LEditor: TcxCustomEdit;
+begin
+  // Caption posts on every keystroke (cxOI EditChange, ipaAutoUpdate); refreshing the inspector then
+  // rebuilt the open editor with its text selected, so the next key replaced what was typed.
+  LForm := TFormCustom.Create(nil);
+  try
+    LSession := OpenSession(LForm);
+    LSession.Select(LForm.Label1);
+    LSession.Tools.Show;
+    Settle;
+    TInspectorAccess(LSession.Tools.insp).FocusRowByPropertyName('Caption');
+    LSession.Tools.insp.ShowEdit;
+    Settle;
+    LEditor := LSession.Tools.insp.InplaceEditor;
+    Kontrol('T1 Caption duzenleyicisi acilir', LEditor is TcxCustomTextEdit);
+    if not (LEditor is TcxCustomTextEdit) then
+      Exit;
+    TcxCustomTextEdit(LEditor).SelStart := Length(TcxCustomTextEdit(LEditor).Text);
+    TypeChar(LSession, 'a');
+    TypeChar(LSession, 'b');
+    Kontrol('T2 her tus eklenir, oncekini silmez', LForm.Label1.Caption = 'Etiketab', LForm.Label1.Caption);
+    Kontrol('T3 yazarken duzenleyici acik kalir', LSession.Tools.insp.IsEditing);
+    LSession.Tools.insp.HideEdit;
+    Settle;
+    Kontrol('T4 duzenleme bitince geri alinabilir', LSession.CanUndo);
+    LSession.Undo;
+    Kontrol('T5 tek adimda butun yazilan geri alinir', LForm.Label1.Caption = 'Etiket', LForm.Label1.Caption);
+    LSession.Cancel;
+    Settle;
+  finally
+    LForm.Free;
+  end;
+end;
+
 begin
   ReportMemoryLeaksOnShutdown := True;
   Application.Initialize;
@@ -162,6 +217,7 @@ begin
   try
     BehavioursAndFilter;
     UndoSaveResetCancel;
+    TypingInInspector;
   except
     on E: Exception do
       Kontrol('beklenmeyen istisna', False, E.ClassName + ': ' + E.Message);

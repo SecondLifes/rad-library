@@ -89,6 +89,7 @@ that break something else in the kit.
 
 ### Changed
 
+- Form düzenleme penceresi: başlık gibi her tuşta yazılan satırlarda her tuş metnin tamamını seçip bir sonraki tuşla siliyordu. Inspector her tuşta `OnPropertyChanged` veriyor (`cxOI` `EditChange`, `ipaAutoUpdate`), oturum da buna inspector'ı yenileyerek cevap veriyordu; yenileme açık editörü yeniden kuruyordu. Artık düzenleme sürerken inspector yenilenmiyor, geri al adımı tuş başına değil düzenleme bitince (`OnEdited`) alınıyor. Gerçek `WM_CHAR` gönderen test (`CustomizeSessionTest` T1-T5) önce kırmızı (`b`, `Etiketa`), sonra yeşil.
 - `TRadFormCustomizer.Allowed` artık tek bileşen istisnası; izinler kural + `Allowed` − kapatan satırlar − `Name` olarak hesaplanır. `Name` artık `Loaded`'da `Allowed`'dan silinmiyor, hesapta çıkarılıyor; editör eski kayıtlı `Edit1.Name` satırını açılışta atar ve Tamam'la DFM'den temizler.
 
 - Form durumu: kayıt yeri artık her `TRadPropertiesStore`'un kendi özelliği. `StorageType` (`stDefault` = `Kur`'daki depo, `stLocalAppData`, `stExeFolder`, `stCommonAppData` = %ProgramData%, `stDatabase` = `TRadFormState.SetDatabase(Conn)`), `StorageRoot` (taban altında göreli klasör, boşsa `state`; `..` ve mutlak yol reddedilir), `StorageName` (kayıt adı; boşsa sahip sınıf adı), `Encrypted`. Açılış yalnız varsayılanları verir: `Kur` (stDefault deposu, kullanıcı, anahtar) ve `SetDatabase`. Önceki commit'teki `AddStorage`/`Storage` kaldırıldı.

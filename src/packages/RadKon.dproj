@@ -201,6 +201,7 @@
         <DCCReference Include="..\core\rad.formstate.core.pas"/>
         <DCCReference Include="..\core\rad.formstate.store.pas"/>
         <DCCReference Include="..\component\rad.formstate.component.pas"/>
+        <DCCReference Include="..\component\rad.formstate.dev.pas"/>
         <DCCReference Include="..\component\rad.formstate.pas"/>
         <DCCReference Include="..\vendor\unidac\rad.formstate.uni.pas"/>
         <DCCReference Include="..\core\Help.DB.pas"/>

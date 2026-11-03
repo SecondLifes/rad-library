@@ -96,6 +96,7 @@ kullanıcı katmanı ekler.
 {
   "schema": 1, "version": 3, "ppi": 96, "form": {}, "props": {}, "values": {},
   "sections": { "custom/Customizer1": 1, "ext/cxgrid": 1, "ext/dxlayout": 1 },
+  "bases": { "ext/cxgrid": 2864213095, "ext/dxlayout": 918273645 },
   "custom": {
     "ActionList1": { "...": "..." },
     "Customizer1": { "ppi": 96,
@@ -103,8 +104,8 @@ kullanıcı katmanı ekler.
                                "edtAd":     { "Font.Size": 11, "Color": 15790320 } } }
   },
   "ext": {
-    "cxgrid": { "views": { "tvSatirlar": "<base64>" } },
-    "dxlayout": { "controls": { "lytMain": "<base64>" } }
+    "cxgrid": { "tvSatirlar": "<base64>" },
+    "dxlayout": { "lytMain": "<base64>" }
   }
 }
 ```
@@ -186,6 +187,12 @@ end;
   üzerinde yüzer, ana formu örtmez, son konumu kendi store'unda saklanır.
 
 ### Sağlayıcılar
+
+- **Tasarım parmak izi** (`IRadStateDesignBound`): store, ilk `Load`'da (uygulamadan önce, store ömründe
+  bir kez) böyle bir sağlayıcının `Save` çıktısının crc32c'sini alır ve kayda `bases` haritasına yazar.
+  Yüklemede kayıttaki parmak izi bugünkü tasarımınkiyle aynı değilse bölüm uygulanmaz: geliştirici gridi
+  ya da layout'u değiştirdiyse eski kullanıcı düzeni yeni tasarımın üstüne yazılmaz. Grid ve layout
+  sağlayıcıları bunu kullanır; diğer sağlayıcılar etkilenmez.
 - **cxgrid**: sahibin adlı her `TcxCustomGridView`'ı; `StoreToStream(S, [])` (filtre, özet, veri
   durumu yok: sütun sırası, genişlik, görünürlük, sıralama, gruplama); yüklerken
   `RestoreFromStream(S, False, False, [])` — formda olmayan sütun **yaratılmaz**, olan silinmez.
@@ -246,7 +253,10 @@ Customizer1.Customize;             // "formu düzenle" komutu (RadScriptTmsDesig
 2. ✅ Katılımcı sistemi, bölüm sürümleri, `ResetSaved`/`ResetForm`, ValueType setter. VCL testleri
    23/23 Win32 + Win64 (yeni 7); altı mutasyon (sürüm kapısı, sağlayıcı sürümü, istisna yalıtımı,
    `ResetSaved` kapısı, `Attach` bildirimi, ValueType çevirisi) her biri ayrı testi kırmızıya çevirdi.
-3. cxGrid ve dxLayout sağlayıcıları.
+3. ✅ cxGrid ve dxLayout sağlayıcıları (`rad.formstate.dev`, ortak taban `TRadStreamStateProvider`).
+   Testler 4/4 (VCL runner'da 27/27) Win32 + Win64; 3 sütunlu grid kaydı 1.715 bayt; parmak izi kontrolü
+   ve layout geri yüklemesi mutasyonla kırmızıya çevrildi. Not: kodla `CreateItemForControl` üst grup
+   verilmezse öğe kök gruba girmez.
 4. Customizer çekirdeği, `Reapply` kancası.
 5. TMS oturumu ve araç penceresi; ilk iş canlı DevExpress formunda tıklama/sürükleme probu.
    `TRadScriptDesigner` `OnEditBehaviour` düzeltmesi ve test sızıntısı.

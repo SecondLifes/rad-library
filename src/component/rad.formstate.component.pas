@@ -121,6 +121,7 @@ type
     FSaved: Boolean;
     FResetPending: Boolean;
     FAttached: TList<TComponent>;
+    FBases: IDocDict;
     FActiveControlName: RawUtf8;
     FErrors: TRawUtf8DynArray;
     FOnLoad: TRadStateEvent;
@@ -142,6 +143,8 @@ type
     procedure ApplyProps;
     procedure ApplyCustom;
     procedure ApplyProviders;
+    procedure CaptureBases;
+    function BaseMatches(const AProvider: IRadStateProvider): Boolean;
     function Participants: TArray<TComponent>;
     function BuildDoc: IDocDict;
     procedure CapturePlacement(const ADoc: IDocDict);
@@ -899,6 +902,8 @@ begin
     AddError(StringToUtf8(LRepo.LastError));
   if Assigned(FOnLoad) then
     FOnLoad(Self, True);
+  if FBases = nil then
+    CaptureBases; // once, before anything is applied: the designed state
   if FDoc <> nil then
     ApplyDoc;
   if Assigned(FOnLoad) then
@@ -1095,6 +1100,48 @@ begin
   end;
 end;
 
+function Fingerprint(const ADoc: IDocDict): Int64;
+var
+  LJson: RawUtf8;
+begin
+  LJson := ADoc.Json;
+  Result := Int64(crc32c(0, pointer(LJson), Length(LJson))) + 1; // never 0: 0 means unknown
+end;
+
+procedure TRadPropertiesStore.CaptureBases;
+var
+  LValues: IDocDict;
+  LProvider: IRadStateProvider;
+begin
+  FBases := DocDict(mFastFloat);
+  if not (soCustom in FOptions) then
+    Exit;
+  for LProvider in FProviders.ToArray do
+    if Supports(LProvider, IRadStateDesignBound) then
+      try
+        if LProvider.Wants(Owner) then
+        begin
+          LValues := DocDict(mFastFloat);
+          LProvider.Save(Owner, LValues);
+          FBases.I[LProvider.Name] := Fingerprint(LValues);
+        end;
+      except
+        on E: Exception do // boundary: one provider must not stop the others
+          AddError(LProvider.Name + ': ' + StringToUtf8(E.Message));
+      end;
+end;
+
+function TRadPropertiesStore.BaseMatches(const AProvider: IRadStateProvider): Boolean;
+var
+  LBase: Int64;
+begin
+  if not Supports(AProvider, IRadStateDesignBound) then
+    Exit(True);
+  LBase := 0;
+  Result := (FBases <> nil) and FBases.Get(AProvider.Name, LBase) and (LBase =
+    TRadStateDoc.MapValue(FDoc, RAD_STATE_FIELD_BASES, SectionKey(RAD_STATE_SECTION_EXT, AProvider.Name)));
+end;
+
 procedure TRadPropertiesStore.ApplyProviders;
 var
   LExt, LValues: IDocDict;
@@ -1103,7 +1150,7 @@ begin
   if not TRadStateDoc.Section(FDoc, RAD_STATE_SECTION_EXT, LExt) then
     Exit;
   for LProvider in FProviders.ToArray do
-    if LExt.Get(LProvider.Name, LValues) and
+    if LExt.Get(LProvider.Name, LValues) and BaseMatches(LProvider) and
       (TRadStateDoc.SectionVersion(FDoc, SectionKey(RAD_STATE_SECTION_EXT, LProvider.Name)) = LProvider.Version) then
       try
         if LProvider.Wants(Owner) then
@@ -1253,6 +1300,9 @@ begin
         Continue;
       LExt.D[LProvider.Name] := LValues;
       TRadStateDoc.SetSectionVersion(ADoc, SectionKey(RAD_STATE_SECTION_EXT, LProvider.Name), LProvider.Version);
+      if FBases <> nil then
+        TRadStateDoc.SetMapValue(ADoc, RAD_STATE_FIELD_BASES, SectionKey(RAD_STATE_SECTION_EXT, LProvider.Name),
+          FBases.I[LProvider.Name]);
     end;
   if LExt.Len > 0 then
     ADoc.D[RAD_STATE_SECTION_EXT] := LExt;

@@ -12,6 +12,7 @@ uses
   rad.formstate.store,
   rad.formstate.component,
   rad.formstate.uni,
+  rad.formstate.dev,
   Vcl.Forms,
   mormot.core.base;
 
@@ -29,6 +30,9 @@ type
   IRadStateful = rad.formstate.core.IRadStateful;
   IRadStateVersion = rad.formstate.core.IRadStateVersion;
   IRadStateProvider = rad.formstate.core.IRadStateProvider;
+  IRadStateDesignBound = rad.formstate.core.IRadStateDesignBound;
+  TRadGridStateProvider = rad.formstate.dev.TRadGridStateProvider;
+  TRadLayoutStateProvider = rad.formstate.dev.TRadLayoutStateProvider;
   IRadStateStore = rad.formstate.store.IRadStateStore;
   TRadStateEntry = rad.formstate.store.TRadStateEntry;
   TRadStateEntries = rad.formstate.store.TRadStateEntries;

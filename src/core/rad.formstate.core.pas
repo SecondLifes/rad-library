@@ -31,6 +31,8 @@ const
   RAD_STATE_SECTION_EXT = 'ext';
   /// <summary>Root map 'custom/Name' / 'ext/Name' -> version; kept apart so participant data stays theirs.</summary>
   RAD_STATE_FIELD_SECTIONS = 'sections';
+  /// <summary>Root map 'ext/Name' -> fingerprint of the designed state the section was saved over.</summary>
+  RAD_STATE_FIELD_BASES = 'bases';
   RAD_STATE_SECTION_KEY_SEPARATOR = '/';
 
 type
@@ -86,6 +88,12 @@ type
     procedure Load(AOwner: TComponent; const ADoc: IDocDict);
   end;
 
+  /// <summary>Marker on a provider whose saved state is a layout of the designed form: the store
+  /// fingerprints the designed state at load and drops the section once the design changes.</summary>
+  IRadStateDesignBound = interface
+    ['{5B7D2E9A-1C3F-4A6B-8D0E-9F2A4C6E8B1D}']
+  end;
+
   /// <summary>Reads and writes published properties addressed by dotted paths.</summary>
   /// <remarks>A step is a property or a collection index ('Font.Size', 'Panels.0.Width'); class steps
   /// go through getters. TComponent references, whole collections and events are not leaves.</remarks>
@@ -120,6 +128,10 @@ type
     class function SectionVersion(const ADoc: IDocDict; const AKey: RawUtf8): Integer; static;
     /// <summary>Records it only when not 0, so old records and version-less participants stay as they were.</summary>
     class procedure SetSectionVersion(const ADoc: IDocDict; const AKey: RawUtf8; AVersion: Integer); static;
+    /// <summary>Entry AKey of the root map AMap; a missing entry counts as 0.</summary>
+    class function MapValue(const ADoc: IDocDict; const AMap, AKey: RawUtf8): Int64; static;
+    /// <summary>Records it only when not 0.</summary>
+    class procedure SetMapValue(const ADoc: IDocDict; const AMap, AKey: RawUtf8; AValue: Int64); static;
   end;
 
 implementation
@@ -444,27 +456,37 @@ begin
 end;
 
 class function TRadStateDoc.SectionVersion(const ADoc: IDocDict; const AKey: RawUtf8): Integer;
+begin
+  Result := MapValue(ADoc, RAD_STATE_FIELD_SECTIONS, AKey);
+end;
+
+class procedure TRadStateDoc.SetSectionVersion(const ADoc: IDocDict; const AKey: RawUtf8; AVersion: Integer);
+begin
+  SetMapValue(ADoc, RAD_STATE_FIELD_SECTIONS, AKey, AVersion);
+end;
+
+class function TRadStateDoc.MapValue(const ADoc: IDocDict; const AMap, AKey: RawUtf8): Int64;
 var
   LMap: IDocDict;
 begin
   Result := 0;
-  if Section(ADoc, RAD_STATE_FIELD_SECTIONS, LMap) then
+  if Section(ADoc, AMap, LMap) then
     LMap.Get(AKey, Result);
 end;
 
-class procedure TRadStateDoc.SetSectionVersion(const ADoc: IDocDict; const AKey: RawUtf8; AVersion: Integer);
+class procedure TRadStateDoc.SetMapValue(const ADoc: IDocDict; const AMap, AKey: RawUtf8; AValue: Int64);
 var
   LMap: IDocDict;
 begin
-  if (ADoc = nil) or (AVersion = 0) then
+  if (ADoc = nil) or (AValue = 0) then
     Exit;
-  if Section(ADoc, RAD_STATE_FIELD_SECTIONS, LMap) then
-    LMap.I[AKey] := AVersion
+  if Section(ADoc, AMap, LMap) then
+    LMap.I[AKey] := AValue
   else
   begin
     LMap := DocDict(STATE_DOC_MODEL);
-    LMap.I[AKey] := AVersion;
-    ADoc.D[RAD_STATE_FIELD_SECTIONS] := LMap; // stores a copy, so it is filled first
+    LMap.I[AKey] := AValue;
+    ADoc.D[AMap] := LMap; // stores a copy, so it is filled first
   end;
 end;
 

@@ -13,13 +13,15 @@ uses
   rad.formstate.core in '..\..\..\core\rad.formstate.core.pas',
   rad.formstate.store in '..\..\..\core\rad.formstate.store.pas',
   rad.formstate.component in '..\..\..\component\rad.formstate.component.pas',
+  rad.formstate.dev in '..\..\..\component\rad.formstate.dev.pas',
   rad.formstate in '..\..\..\component\rad.formstate.pas',
   rad.rtl in '..\..\..\component\rad.rtl.pas',
   FormStateTestA in 'FormStateTestA.pas' {FormA},
   FormStateTestTwo in 'FormStateTestTwo.pas' {FormTwo},
   FormStateTestDm in 'FormStateTestDm.pas' {DmA: TDataModule},
   FormStateTestPlain in 'FormStateTestPlain.pas' {FormPlain},
-  FormStateVclTests in 'FormStateVclTests.pas';
+  FormStateVclTests in 'FormStateVclTests.pas',
+  FormStateDevTests in 'FormStateDevTests.pas';
 
 var
   LRunner: ITestRunner;

@@ -26,6 +26,10 @@ that break something else in the kit.
 
 ### Added
 
+- `docs/specs/rad.formstate.md` — form/DataModule durum saklama sistemi spec'i (onaylandı; thread yok): JSON şeması, anahtar ve Scope, dosya/callback/UniDAC depoları, şifreleme zarfı, senkron `Prefetch`, tasarım editörü, EARS ölçütleri, ölçümler ve A0-A6 aşamaları.
+- `src/core/rad.formstate.core.pas` — form durum sisteminin çekirdeği (RTL + mORMot): `TRadStateKey`, `TRadStatePaths` (nokta yollu published özellik okuma/yazma; getter'lı sınıf, set, enum, `TStrings`, koleksiyon indeksi; yol başına hata yalıtımı; ppi ölçeği), `TRadStateDoc` (`schema`/`version`/`ppi`), `IRadStateful`.
+- `src/test/unit/rad.formstate.core.Tests.pas`, `src/test/scratch/rad_formstate/RunFormStateTests.dpr`, `build_and_run.bat` — DUnitX, 20/20 Win32 + Win64; DUnitX git kaynağından derlenir.
+- `.agents/skills/mormot2-integration/references/verified-api-traps.md`: üç yeni tuzak (ölçüldü, Win32): VCL nesnelerinde tek özellik okuma/yazma (`ObjectToJson`, `GetInstanceByPath`, `GetValueText`, `PropertyFromJson`, `DocVariantToObject` sessizce yanlış çalışır; çalışan yol eklendi), `mFastExtended` tırnaksız anahtar üretir, `d.D[key] := child` kopya saklar.
 - `Help.Dev`: `_EditGetValue`/`_EditSetValue` — editör değerini dilden bağımsız saklar ve geri yazar (`TcxCheckComboBox` JSON dizisi, tarih ISO metni).
 - `Help.Dev`: `_EditToFilter(F, alan, editör)` — editör değerini türüne göre `IRadSqlFilter` koşuluna çevirir (metin `Contains`, `TcxCheckComboBox` `InList`, diğerleri `Equal`).
 - `src/test/scratch/rad_sqlfilter/FilterEditTest.dpr` — `_EditToFilter` testi.

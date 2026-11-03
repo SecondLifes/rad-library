@@ -116,12 +116,21 @@ Kurallar:
 
 | Sahip | Yükleme | Kayıt |
 |---|---|---|
-| `TForm` | `props`, `values`, `custom`: `OnCreate` öncesi. `form`: ilk `OnShow` öncesi (handle ve DPI hazır) | `OnCloseQuery` (`CanClose = True`), kaydedilmemişse `OnDestroy` başında |
+| `TForm` | `form`, `props`, `values`, `custom`: kullanıcının `OnCreate`'inden önce. `activeControl`: ilk `OnShow`'da | `OnCloseQuery` (`CanClose = True`), kaydedilmemişse `OnDestroy` başında |
 | `TDataModule` | `OnCreate` öncesi | `OnDestroy` başında |
 
-- Kanca yalnız `Loaded` içinde ve yalnız runtime'da takılır (`FHooked`). Söküm, olay hâlâ bize aitse
-  yapılır; aksi halde dokunulmaz. Runtime'da oluşturulan bileşen kanca takmaz; host `Load`/`Save`
-  çağırır.
+- Yerleşim `OnShow`'da değil `OnCreate`'te uygulanır: VCL `CMShowingChanged` içinde `DoShow`'u
+  ortalamadan **önce** çağırıyor, `poScreenCenter` yerleşimi ezerdi. `OnCreate`'te handle yok;
+  `Position := poDesigned` yeniden pencere oluşturmadan yazılır.
+- Kanca yalnız `Loaded` içinde ve yalnız runtime'da takılır; sahip başına **tek** gizli kanca
+  bileşeni (`TRadStateHook`) olayları bir kez alır, tüm store'lar ona kayıt olur. Böylece iki store
+  birbirinin işleyicisini zincirlemez; hangisi önce serbest kalırsa kalsın diğeri ve formun kendi
+  olayları sağlam kalır. Son store ayrılınca kanca olayları, hâlâ kendisinde ise geri verir.
+  Runtime'da oluşturulan store kanca takmaz; host `Load`/`Save` çağırır.
+- `TRadFormState.Kapat`, yüklenip henüz kaydetmemiş açık store'ları kaydeder: uygulama kapanırken
+  açık kalan formlar aksi halde depo serbest kaldıktan sonra yok edilir.
+- `Kur` çağrılmadıysa varsayılan dosya deposu (`%LOCALAPPDATA%\<exe>\state`) kullanılır; `Kapat`
+  sonrasında store'lar hiçbir şey yazmaz.
 - `Restored = False` iken (hata ya da kayıt yok değil, hiç yüklenmemiş) kayıt yapılmaz: hatalı açılan
   formun kullanıcı ayarlarını varsayılanla ezmemek için.
 - Apply sırasında form `DisableAlign` + `WM_SETREDRAW` kilidinde.
@@ -215,14 +224,15 @@ DFM ile, DevExpress kontrolleriyle. Bileşen editörü fiili + `Items` için `pa
 
 ```pascal
 uses rad.formstate;
-TRadFormState.Kur(TRadFormState.DbStore(dm.Connection), 'emrah', {Encrypt=}True);
+TRadFormState.Kur(TRadFormState.FileStore, 'emrah', TRadAesGcmCipher.Create(AppKey));
 TRadFormState.Prefetch;   // isteğe bağlı, veritabanında önerilir
 ...
-TRadFormState.Kapat;      // iki kez çağrılabilir
+TRadFormState.Kapat;      // açık formları kaydeder; iki kez çağrılabilir
 ```
 
-  `Kur` önceki kurulumu önce kapatır. `FileStore(AFolder)`, `DbStore(AConnection, ATable)`,
-  `CallbackStore` yardımcıları yalnız oluşturup döndürür.
+  `Kur` önceki kurulumu önce kapatır; şifreleme anahtarı uygulamanındır (`rad.cipher`), bu yüzden
+  parametre boolean değil `IRadCipher`. `FileStore(AFolder)`, `CallbackStore` (A4: `DbStore`)
+  yardımcıları yalnız oluşturup döndürür.
 - **Kabul:** host yalnız `rad.formstate` ekleyip `Kur` çağırarak sistemi çalıştırır; test ile kanıtlanır.
 
 ## Kabul ölçütleri (EARS)
@@ -282,11 +292,12 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
 - [x] `TRadStateRepository`: önbellek, `Prefetch`, hash ile yazma atlama.
 - [x] DUnitX `rad.formstate.store.Tests.pas` (ölçüt 5, 9, 11): 45/45 (A1 ile birlikte) Win32 + Win64.
 
-**A3 — bileşen + giriş birimi**
-- [ ] `TRadPropertiesStore`, `Items`, `StoredValues`, olaylar, kanca/söküm, yerleşim.
-- [ ] `rad.formstate` facade, `Rad.Register` güncellemesi.
-- [ ] VCL testi `src/test/scratch/rad_formstate/` (ölçüt 1, 6, 7, 8, 10, 12; Win32 + Win64).
-- [ ] Ölçüm: 300 yolluk apply Release Win32/Win64.
+**A3 — bileşen + giriş birimi** (2026-11-03, tamam)
+- [x] `TRadPropertiesStore`, `Items`, `StoredValues`, olaylar, kanca/söküm, yerleşim.
+- [x] `rad.formstate` facade, `Rad.Register` kaydı, `RadKon.dpk/.dproj` (ve örtük giren `rad.cipher`).
+- [x] VCL testi `src/test/scratch/rad_formstate/RunFormStateVclTests` (DFM'li formlar ve DataModule;
+  ölçüt 1, 6, 7, 8, 10, 12): 13/13 Win32 + Win64.
+- [x] Ölçüm: 300 yol (50 `TEdit` × 6), görünür form, değerler değişirken.
 
 **A4 — veritabanı deposu (`rad.formstate.uni`)**
 - [ ] Upsert, `LoadScope`.
@@ -333,6 +344,29 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
   kaldırıldı; her biri en az bir testi kırmızıya çevirdi. Temizleme kaldırılınca `FileNameOf`
   kök dışı yolu yine reddetti (ikinci savunma).
 - `Save` ölçümü (≤ 2 ms hedefi) A3'te, gerçek form dokümanıyla alınacak.
+
+**A3 (2026-11-03)**
+
+- Ölçüm (dcc varsayılan seçenekler, `$O+`; Release yapılandırması değil):
+
+  | | Kayıt (dosya dahil) | Yükleme + uygulama |
+  |---|---|---|
+  | Win32 | 0,89 – 1,17 ms | 14,22 – 15,00 ms |
+  | Win64 | 0,87 ms | 12,38 ms |
+
+  `WM_SETREDRAW` kilidi olmadan Win32 yükleme 25,21 ms idi; kilit spec'teydi ama ilk yazımda unutulmuştu.
+- Yerleşim `OnCreate`'te (bkz. Yaşam döngüsü). `Position := poDesigned` kaldırılınca yeniden açılan
+  form ortalandı ve test kırmızıydı: ölçülmüş bir sebep.
+- `DestroyComponents`, `csFreeNotification` taşımayan çocuğu diğerlerine haber vermeden siliyor. Kanca
+  her store'a `FreeNotification` ile bağlanmasaydı store ölü kancaya `Detach` çağırıyordu: dokuz test
+  AV ile düştü.
+- Sahip yok edilirken her çocukta `csDestroying` zaten var: öğe o anda silinmez, yalnız bileşen
+  referansı unutulur (ölü bileşende `RemoveFreeNotification` çağrılmaz).
+- `TRadStateItem.SetComponent`, eski bileşenin bildirimini yalnız başka öğe onu kullanmıyorsa kaldırır.
+- `RadKon` Win32 MSBuild ile scratchpad'e derlendi (kurulu BPL'e dokunulmadı); yeni birimlerde uyarı yok.
+  IDE'de paletten bırakma ve DFM'e yazma A5'te kullanıcıyla doğrulanacak.
+- Mutasyon: kanca `FreeNotification`'ı, yüklemeden kaydetme koruması, `poDesigned` ve monitör kontrolü
+  ayrı ayrı kaldırıldı; her biri en az bir testi kırmızıya çevirdi.
 
 ## Riskler
 

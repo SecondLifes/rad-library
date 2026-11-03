@@ -198,6 +198,11 @@
         <DCCReference Include="..\component\rad.db.pas"/>
         <DCCReference Include="..\component\rad.rtl.pas"/>
         <DCCReference Include="..\component\rad.vcl.pas"/>
+        <DCCReference Include="..\core\rad.cipher.pas"/>
+        <DCCReference Include="..\core\rad.formstate.core.pas"/>
+        <DCCReference Include="..\core\rad.formstate.store.pas"/>
+        <DCCReference Include="..\component\rad.formstate.component.pas"/>
+        <DCCReference Include="..\component\rad.formstate.pas"/>
         <DCCReference Include="..\core\Help.DB.pas"/>
         <DCCReference Include="..\core\rad.permission.pas"/>
         <DCCReference Include="..\core\Help.uni.pas"/>

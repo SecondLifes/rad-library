@@ -13,7 +13,7 @@ procedure Register;
 
 implementation
  uses SqlClassesUni
- ,rad.rtl
+ ,rad.rtl, rad.formstate.component
  ,rad.db, Permission.Edit
  ,Rad.Dev
  ,rad.tms.formtabs
@@ -38,7 +38,7 @@ implementation
   //RegisterCustomModule(TBase_DataModul, TDataModuleCustomModule);
 
   RegisterComponents('RadKon',[
-  TRadActionList
+  TRadPropertiesStore,TRadActionList
   ,TRadPermission//TAksaPropertiesStore,TAksaActionList,TAksaCmdList
   ,TRadConnection,TRadQuery,TRadEventHandler,TRadUnitOfWork
   ,TRadLookupComboBox,TRadDBLookupComboBox,TRadComboBox,TRadDBComboBox

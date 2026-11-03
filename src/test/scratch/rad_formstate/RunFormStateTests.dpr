@@ -10,7 +10,9 @@ uses
   DUnitX.TestFramework,
   DUnitX.Loggers.Console,
   rad.formstate.core in '..\..\..\core\rad.formstate.core.pas',
-  rad.formstate.core.Tests in '..\..\unit\rad.formstate.core.Tests.pas';
+  rad.formstate.core.Tests in '..\..\unit\rad.formstate.core.Tests.pas',
+  rad.formstate.store in '..\..\..\core\rad.formstate.store.pas',
+  rad.formstate.store.Tests in '..\..\unit\rad.formstate.store.Tests.pas';
 
 var
   LRunner: ITestRunner;

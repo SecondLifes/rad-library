@@ -154,7 +154,7 @@ Depolar bayt taşır; şifreleme bu yüzden üçüne de aynı şekilde uygulanı
 
 | Depo | Yer | Notlar |
 |---|---|---|
-| `TRadFileStateStore` | varsayılan `%LOCALAPPDATA%\<exe>\state\<scope>\<Class>.json` | Geçici dosya + `MoveFileEx(REPLACE)`; okunamayan dosya `.bad` olur |
+| `TRadFileStateStore` | varsayılan `%LOCALAPPDATA%\<exe>\state\<scope>\<Class>.state` | Geçici dosya + `MoveFileEx(REPLACE)`; okunamayan kayıt yok sayılır, loglanır, sonraki kayıt üstüne yazar |
 | `TRadCallbackStateStore` | `TRadFormState.DoSave/DoLoad` class var fonksiyonları | Host'un kendi saklama yolu |
 | `TRadUniStateStore` | tablo (ad ayarlanabilir) | `UPDATE`, etkilenen satır 0 ise `INSERT` (üç DB'de aynı); host'un bağlantısı |
 
@@ -276,11 +276,11 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
 - [x] DUnitX `src/test/unit/rad.formstate.core.Tests.pas`, koşucu `src/test/scratch/rad_formstate/`
   (ölçüt 2, 3, 4, 13): 20/20 Win32 + Win64, sızıntı yok.
 
-**A2 — depolar (`rad.formstate.store`)**
-- [ ] Dosya deposu (atomik yazma, temizleme, `.bad`), callback deposu.
-- [ ] Şifreleme zarfı (düz/şifreli tanıma).
-- [ ] Önbellek, `Prefetch`, hash ile yazma atlama.
-- [ ] DUnitX `rad.formstate.store.Tests.pas` (ölçüt 5, 9, 11).
+**A2 — depolar (`rad.formstate.store`)** (2026-11-03, tamam)
+- [x] Dosya deposu (atomik yazma, temizleme), callback deposu.
+- [x] Şifreleme zarfı (düz/şifreli tanıma, algoritma etiketi).
+- [x] `TRadStateRepository`: önbellek, `Prefetch`, hash ile yazma atlama.
+- [x] DUnitX `rad.formstate.store.Tests.pas` (ölçüt 5, 9, 11): 45/45 (A1 ile birlikte) Win32 + Win64.
 
 **A3 — bileşen + giriş birimi**
 - [ ] `TRadPropertiesStore`, `Items`, `StoredValues`, olaylar, kanca/söküm, yerleşim.
@@ -315,6 +315,24 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
   `rad_cache_tvalue` koşucusu aynı nedenle derlenmiyor.
 - Testlerin bağımsızlığı mutasyonla doğrulandı: `null` koruması, desteklenmeyen yaprak filtresi ve
   yol başına istisna yalıtımı ayrı ayrı kaldırıldı; her biri ilgili testi kırmızıya çevirdi.
+
+**A2 (2026-11-03)**
+
+- Dosya uzantısı `.json` değil `.state`: içerik şifreli olabilir.
+- `.bad` yok: okunamayan kayıt yok sayılır ve loglanır (`LastError`, `TSynLog`), form varsayılanla
+  açılır, sonraki kayıt üstüne yazar. Arayüze yalnız dosya deposunun anlamlı bulacağı bir işlem
+  eklememek için.
+- Önbellek, `Prefetch` ve hash, depoların üstünde tek sınıfta: `TRadStateRepository`. Depolar yalnız
+  bayt taşır.
+- Hash `savedAt` hariç içerikten alınır; `savedAt` yazma kararından sonra damgalanır. Yükleme de hash'i
+  kaydeder, böylece değişmeden kapanan form diske hiç yazmaz.
+- Zarf algoritma etiketini taşır (`rad.cipher`'ın istediği gibi); etiket uymazsa çözme denenmez.
+- `DocDict(TDocVariantData)` zayıf referans döndürüyor; yerel kayıttan dönerken `DocDictCopy` şart.
+  Zayıf referansla iki test kırmızıydı (`verified-api-traps.md`).
+- Mutasyon: zayıf `DocDict`, hash atlama, dosya adı temizleme ve `Prefetch` kısa yolu ayrı ayrı
+  kaldırıldı; her biri en az bir testi kırmızıya çevirdi. Temizleme kaldırılınca `FileNameOf`
+  kök dışı yolu yine reddetti (ikinci savunma).
+- `Save` ölçümü (≤ 2 ms hedefi) A3'te, gerçek form dokümanıyla alınacak.
 
 ## Riskler
 

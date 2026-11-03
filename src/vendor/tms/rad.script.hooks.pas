@@ -160,6 +160,9 @@ type
 
 implementation
 
+uses
+  rad.formstate.component; // not the rad.formstate facade: that one brings every store vendor along
+
 resourcestring
   SWarnNoComponent = '%s: "%s" adlı bileşen/olay bulunamadı; "%s" kancası kurulmadı.';
   SWarnCannotHook = '%s: "%s.%s" olayı sarılamaz (tek nesne parametreli ya da kayıtlı tip olmalı); "%s" kancası kurulmadı.';
@@ -730,6 +733,8 @@ begin
       end;
     end;
   end;
+  // The store loaded in OnCreate, before this: put the user's own changes back on top.
+  TRadPropertiesStore.ReapplyOwner(AForm);
 end;
 
 class function TRadScriptBinder.Attach(AForm: TCustomForm): TRadScriptAttachment;

@@ -69,6 +69,7 @@ contains
   rad.formstate.store in '..\core\rad.formstate.store.pas',
   rad.formstate.component in '..\component\rad.formstate.component.pas',
   rad.formstate.dev in '..\component\rad.formstate.dev.pas',
+  rad.formstate.customizer in '..\component\rad.formstate.customizer.pas',
   rad.formstate in '..\component\rad.formstate.pas',
   rad.formstate.uni in '..\vendor\unidac\rad.formstate.uni.pas',
   Help.DB in '..\core\Help.DB.pas',

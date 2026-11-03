@@ -257,7 +257,14 @@ Customizer1.Customize;             // "formu düzenle" komutu (RadScriptTmsDesig
    Testler 4/4 (VCL runner'da 27/27) Win32 + Win64; 3 sütunlu grid kaydı 1.715 bayt; parmak izi kontrolü
    ve layout geri yüklemesi mutasyonla kırmızıya çevrildi. Not: kodla `CreateItemForControl` üst grup
    verilmezse öğe kök gruba girmez.
-4. Customizer çekirdeği, `Reapply` kancası.
+4. ✅ Customizer çekirdeği (`rad.formstate.customizer`) ve `Reapply` kancası. `LoadState`'in ikinci çağrısı
+   "yeniden uygula" demektir: şirket düzeninin ezdiği yolların değeri o yolun sıfırlama varsayılanı olur
+   (sıfırlama DFM değerine değil şirket değerine döner). Yükleme sonrası fark bileşenlerden yeniden okunur,
+   kayıtlı değerler hep güncel ppi'dedir. Kanca facade'ı değil `TRadPropertiesStore.ReapplyOwner`'ı
+   çağırır: facade tüm depo vendor'larını (UniDAC) içeri çekiyor, script test projeleri derlenmedi.
+   Testler 8/8 (runner 35/35) Win32 + Win64; beş mutasyon her biri ayrı testi kırdı. Script testleri
+   (Hooks 34, Facade 24, FacadeVcl 7, DesignVcl 35, Ide 18) yeşil; HooksTest'teki `TRadScriptJobs`/
+   `TChannelBus` sızıntısı bu değişiklikten önce de vardı (kanca geri alınarak ölçüldü).
 5. TMS oturumu ve araç penceresi; ilk iş canlı DevExpress formunda tıklama/sürükleme probu.
    `TRadScriptDesigner` `OnEditBehaviour` düzeltmesi ve test sızıntısı.
 6. Tasarım anı: customizer için izin listesi editörü (mevcut ağaç editörü, store'dan bağımsız model),

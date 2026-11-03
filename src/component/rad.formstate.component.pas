@@ -34,14 +34,16 @@ type
   TRadStateEvent = procedure(Sender: TRadPropertiesStore; const ABefore: Boolean) of object;
   TRadStateKeyEvent = procedure(Sender: TRadPropertiesStore; var AKey: TRadStateKey) of object;
 
-  /// <summary>One component and the dotted property paths saved for it.</summary>
+  /// <summary>One component and its dotted property paths.</summary>
+  /// <remarks>The collection's owner component gets the free notification and must pass opRemove
+  /// on to TRadStateItems.ComponentRemoved.</remarks>
   TRadStateItem = class(TCollectionItem)
   private
     FComponent: TComponent;
     FProperties: TStrings;
     procedure SetComponent(const AValue: TComponent);
     procedure SetProperties(const AValue: TStrings);
-    function OwnerStore: TRadPropertiesStore;
+    function OwnerComponent: TComponent;
   protected
     function GetDisplayName: string; override;
   public
@@ -177,6 +179,11 @@ type
     function Save: Boolean;
     /// <summary>Deletes the saved record and forgets the runtime values.</summary>
     procedure Reset;
+    /// <summary>Applies the participant and provider sections again, for a layer applied after Load
+    /// (the company layout): the user's own changes stay on top.</summary>
+    procedure Reapply;
+    /// <summary>Reapply on every store of AOwner.</summary>
+    class procedure ReapplyOwner(AOwner: TComponent); static;
     /// <summary>Reset, and this session saves nothing more: the owner is about to be reopened.</summary>
     procedure ResetSaved;
     /// <summary>A named IRadStateful component that takes part without an Items entry.</summary>
@@ -451,40 +458,39 @@ end;
 
 destructor TRadStateItem.Destroy;
 var
-  LStore: TRadPropertiesStore;
+  LOwner: TComponent;
 begin
-  LStore := OwnerStore;
-  if (LStore <> nil) and not (csDestroying in LStore.ComponentState) then
+  LOwner := OwnerComponent;
+  if (LOwner <> nil) and not (csDestroying in LOwner.ComponentState) then
     Component := nil;
   FProperties.Free;
   inherited;
 end;
 
-function TRadStateItem.OwnerStore: TRadPropertiesStore;
+function TRadStateItem.OwnerComponent: TComponent;
 begin
-  if (Collection <> nil) and (TRadStateItems(Collection).Owner is TRadPropertiesStore) then
-    Result := TRadPropertiesStore(TRadStateItems(Collection).Owner)
+  if (Collection <> nil) and (TRadStateItems(Collection).Owner is TComponent) then
+    Result := TComponent(TRadStateItems(Collection).Owner)
   else
     Result := nil;
 end;
 
 procedure TRadStateItem.SetComponent(const AValue: TComponent);
 var
-  LStore: TRadPropertiesStore;
-  LOld: TComponent;
+  LOwner, LOld: TComponent;
 begin
   if FComponent = AValue then
     Exit;
   LOld := FComponent;
   FComponent := AValue;
-  LStore := OwnerStore;
-  if LStore = nil then
+  LOwner := OwnerComponent;
+  if LOwner = nil then
     Exit;
   // Drop the link only when no other item still points at the old component.
   if (LOld <> nil) and not TRadStateItems(Collection).Refers(LOld) then
-    LOld.RemoveFreeNotification(LStore);
+    LOld.RemoveFreeNotification(LOwner);
   if AValue <> nil then
-    AValue.FreeNotification(LStore);
+    AValue.FreeNotification(LOwner);
 end;
 
 procedure TRadStateItem.SetProperties(const AValue: TStrings);
@@ -1317,6 +1323,30 @@ begin
     LRepo.Delete(Key);
   FValues := DocDict(mFastFloat);
   FDoc := nil;
+end;
+
+procedure TRadPropertiesStore.Reapply;
+begin
+  if (FDoc = nil) or not (soCustom in FOptions) then
+    Exit;
+  BeginApply;
+  try
+    ApplyCustom;
+    ApplyProviders;
+  finally
+    EndApply;
+  end;
+end;
+
+class procedure TRadPropertiesStore.ReapplyOwner(AOwner: TComponent);
+var
+  I: Integer;
+begin
+  if AOwner = nil then
+    Exit;
+  for I := 0 to AOwner.ComponentCount - 1 do
+    if AOwner.Components[I] is TRadPropertiesStore then
+      TRadPropertiesStore(AOwner.Components[I]).Reapply;
 end;
 
 procedure TRadPropertiesStore.ResetSaved;

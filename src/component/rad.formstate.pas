@@ -6,6 +6,7 @@
 interface
 
 uses
+  System.Classes,
   Uni,
   rad.cipher,
   rad.formstate.core,
@@ -13,6 +14,7 @@ uses
   rad.formstate.component,
   rad.formstate.uni,
   rad.formstate.dev,
+  rad.formstate.customizer,
   Vcl.Forms,
   mormot.core.base;
 
@@ -33,6 +35,8 @@ type
   IRadStateDesignBound = rad.formstate.core.IRadStateDesignBound;
   TRadGridStateProvider = rad.formstate.dev.TRadGridStateProvider;
   TRadLayoutStateProvider = rad.formstate.dev.TRadLayoutStateProvider;
+  TRadFormCustomizer = rad.formstate.customizer.TRadFormCustomizer;
+  TRadCustomizeSession = rad.formstate.customizer.TRadCustomizeSession;
   IRadStateStore = rad.formstate.store.IRadStateStore;
   TRadStateEntry = rad.formstate.store.TRadStateEntry;
   TRadStateEntries = rad.formstate.store.TRadStateEntries;
@@ -98,6 +102,8 @@ type
     /// <summary>Deletes the form's saved state and reopens it through Reopen, so DFM, company layout
     /// and host code apply in their own order. Without Reopen the form closes with a notice.</summary>
     class procedure ResetForm(AForm: TCustomForm); static;
+    /// <summary>Puts the user's layers back on top after a layer applied later (the company layout).</summary>
+    class procedure Reapply(AOwner: TComponent); static;
   end;
 
 implementation
@@ -159,6 +165,11 @@ end;
 class procedure TRadFormState.RegisterProvider(const AProvider: IRadStateProvider);
 begin
   TRadPropertiesStore.RegisterProvider(AProvider);
+end;
+
+class procedure TRadFormState.Reapply(AOwner: TComponent);
+begin
+  TRadPropertiesStore.ReapplyOwner(AOwner);
 end;
 
 class procedure TRadFormState.ResetForm(AForm: TCustomForm);

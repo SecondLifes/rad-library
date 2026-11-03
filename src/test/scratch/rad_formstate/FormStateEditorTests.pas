@@ -77,6 +77,10 @@ type
     [Test]
     procedure Form_CustomizerMode_HidesStoreTabsAndWritesAllowed;
     [Test]
+    procedure Form_CustomizerMode_RulesTabPreviewsAndWritesRules;
+    [Test]
+    procedure Model_LoadFromStore_DropsAPathThatCannotBeRestored;
+    [Test]
     procedure Form_TypeList_FollowsTheEnum;
     [Test]
     procedure Form_TypedValue_ApplyWritesTypeAndConvertedValue;
@@ -490,6 +494,66 @@ begin
     Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Button1, 'Caption'), 'written into Allowed');
     Assert.AreEqual(0, LForm.Store1.Items.Count, 'the store is untouched');
   finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateEditorTests.Form_CustomizerMode_RulesTabPreviewsAndWritesRules;
+var
+  LForm: TFormCustom;
+  LEditor: TRadFormStateEditorForm;
+  LPreview: string;
+begin
+  LForm := TFormCustom.Create(nil);
+  try
+    LEditor := TRadFormStateEditorForm.Create(nil);
+    try
+      LEditor.Prepare(LForm.Customizer1);
+      Assert.IsTrue(LEditor.tabRules.TabVisible);
+      Assert.IsTrue(LEditor.pgcMain.ActivePage = LEditor.tabRules, 'rules open first');
+      LEditor.memRules.Text := 'TButton: Caption' + sLineBreak + '-Edit1' + sLineBreak + 'TButton Hint';
+      LPreview := LEditor.lstPreview.Items.Text;
+      Assert.Contains(LPreview, 'Button1: Caption', 'rule');
+      Assert.Contains(LPreview, 'Label1: Caption', 'Allowed of one component');
+      Assert.DoesNotContain(LPreview, 'Edit1:', 'closed, Allowed included');
+      Assert.Contains(LPreview, 'HATA 3. satır', 'a bad line is shown');
+      Assert.Contains(LEditor.lblPreview.Caption, '2 bileşende 2 özellik');
+      LEditor.Apply;
+    finally
+      LEditor.Free;
+    end;
+    Assert.Contains(LForm.Customizer1.Rules.Text, 'TButton: Caption', 'written back');
+    Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Button1, 'Caption'));
+    Assert.IsTrue(LForm.Customizer1.AllowedPaths(LForm.Edit1) = nil);
+  finally
+    LForm.Free;
+  end;
+  LEditor := TRadFormStateEditorForm.Create(nil);
+  try
+    LEditor.Prepare(FForm.Store1);
+    Assert.IsFalse(LEditor.tabRules.TabVisible, 'a store has no rules');
+  finally
+    LEditor.Free;
+  end;
+end;
+
+procedure TRadFormStateEditorTests.Model_LoadFromStore_DropsAPathThatCannotBeRestored;
+var
+  LForm: TFormCustom;
+  LModel: TRadStateEditorModel;
+begin
+  LForm := TFormCustom.Create(nil);
+  LModel := nil;
+  try
+    Assert.IsTrue(LForm.Customizer1.Allowed[0].Properties.IndexOf('Name') >= 0, 'the DFM still has it');
+    LModel := TRadStateEditorModel.CreateFor(LForm, LForm.Customizer1.Allowed, False);
+    LModel.Build;
+    LModel.LoadFromStore;
+    Assert.AreEqual(-1, LModel.Selection.IndexOf('Edit1.Name'));
+    LModel.SaveToStore;
+    Assert.AreEqual(-1, LForm.Customizer1.Allowed[0].Properties.IndexOf('Name'), 'OK cleans the DFM');
+  finally
+    LModel.Free;
     LForm.Free;
   end;
 end;

@@ -1,8 +1,8 @@
 ﻿unit rad.formstate.customizer;
 
-{ TRadFormCustomizer: per-user visual changes on a whitelist of components and properties
-  (docs/specs/rad.formcustomizer.md). Saves only what the user changed, through the owner's
-  TRadPropertiesStore. The editing session lives in the TMS package and registers itself here,
+{ TRadFormCustomizer: per-user visual changes on the components and properties that rules and the
+  Allowed list open (docs/specs/rad.formcustomizer.md). Saves only what the user changed, through
+  its TRadPropertiesStore. The editing session lives in the TMS package and registers itself here,
   so this unit stays free of TMS. }
 
 interface
@@ -10,13 +10,15 @@ interface
 uses
   System.SysUtils,
   System.Classes,
+  System.Generics.Collections,
   Vcl.Controls,
   Vcl.Forms,
   mormot.core.base,
   mormot.core.variants,
   rad.formstate.core,
   rad.formstate.store,
-  rad.formstate.component;
+  rad.formstate.component,
+  rad.formstate.rules;
 
 type
   TRadFormCustomizer = class;
@@ -25,13 +27,21 @@ type
   TRadCustomizeSession = reference to procedure(ACustomizer: TRadFormCustomizer);
 
   /// <summary>Lets the user change the allowed properties of the allowed components at runtime.</summary>
-  /// <remarks>Joins the owner's first TRadPropertiesStore by itself; keeps the user's changes only, so a
-  /// property the user never touched still follows the DFM.</remarks>
+  /// <remarks>Saves through Store, else the owner's first TRadPropertiesStore; keeps the user's changes
+  /// only, so a property the user never touched still follows the DFM.</remarks>
   TRadFormCustomizer = class(TComponent, IRadStateful, IRadStateVersion)
   strict private
     class var FSession: TRadCustomizeSession;
+    class var FDefaultRules: string;
+    class var FRulesVersion: Integer;
+    class function GetDefaultRules: string; static;
+    class procedure SetDefaultRules(const AValue: string); static;
   private
     FAllowed: TRadStateItems;
+    FRules: TStrings;
+    FResolved: TObjectDictionary<TComponent, TStringList>;
+    FTargets: TList<TComponent>;
+    FResolvedVersion: Integer;
     FCaptions: TStrings;
     FGridStep: Integer;
     FOnChanged: TNotifyEvent;
@@ -41,7 +51,13 @@ type
     FPpi: Integer;
     FLoaded: Boolean;
     procedure SetAllowed(const AValue: TRadStateItems);
+    procedure SetRules(const AValue: TStrings);
+    procedure SetStore(AValue: TRadPropertiesStore);
     procedure SetCaptions(const AValue: TStrings);
+    procedure RulesChanged(Sender: TObject);
+    procedure Invalidate;
+    procedure Resolve;
+    procedure ResolveComponent(AComponent: TComponent; ARules: TRadCustomizeRules);
     function ItemOf(AComponent: TComponent): TRadStateItem;
     function ChildDoc(const ADoc: IDocDict; const AName: RawUtf8; ACreate: Boolean): IDocDict;
     procedure RememberDefault(AComponent: TComponent; const APath: RawUtf8; const AValue: Variant;
@@ -66,8 +82,11 @@ type
     /// <summary>Opens the editing session; raises ERadFormState when no session is registered.</summary>
     procedure Customize;
     function IsAllowed(AComponent: TComponent; const APath: string): Boolean;
-    /// <summary>The allowed paths of AComponent; nil when it is not allowed at all.</summary>
+    /// <summary>The allowed paths of AComponent (rules, then Allowed, minus closing rules and Name);
+    /// nil when it is not allowed at all. Valid until the rules or Allowed change.</summary>
     function AllowedPaths(AComponent: TComponent): TStrings;
+    /// <summary>Every component with at least one allowed path, in the owner's order.</summary>
+    function Targets: TArray<TComponent>;
     function CanMove(AComponent: TComponent): Boolean;
     function CanResize(AComponent: TComponent): Boolean;
     /// <summary>Captions entry, else a built-in Turkish name, else the path itself.</summary>
@@ -88,10 +107,18 @@ type
     /// <summary>Forgets every saved change and puts the defaults back.</summary>
     procedure ResetAll;
     class procedure RegisterSession(const ASession: TRadCustomizeSession); static;
-    property Store: TRadPropertiesStore read FStore;
+    /// <summary>Rules every customizer of the application uses before its own Rules
+    /// (e.g. RAD_CUSTOMIZE_APPEARANCE); set once at startup.</summary>
+    class property DefaultRules: string read GetDefaultRules write SetDefaultRules;
     /// <summary>Component name -> {path: value} of the user's changes.</summary>
     property Diff: IDocDict read FDiff;
   published
+    /// <summary>Where the changes are saved (its Encrypted, StorageType...); empty: the owner's first store.</summary>
+    property Store: TRadPropertiesStore read FStore write SetStore;
+    /// <summary>'TControl: Left, Top' opens by class (descendants too), '-Edit1' or '-TPanel: Color'
+    /// closes; a closing line always wins, also over Allowed.</summary>
+    property Rules: TStrings read FRules write SetRules;
+    /// <summary>Exceptions for single components, added to what the rules open.</summary>
     property Allowed: TRadStateItems read FAllowed write SetAllowed;
     property Captions: TStrings read FCaptions write SetCaptions;
     property GridStep: Integer read FGridStep write FGridStep default 8;
@@ -117,7 +144,6 @@ const
   DEFAULT_GRID_STEP = 8;
   FIELD_PPI = 'ppi';
   FIELD_DIFF = 'diff';
-  FORBIDDEN_PATH = 'Name';
   MOVE_PATHS: array[0..1] of string = ('Left', 'Top');
   SIZE_PATHS: array[0..1] of string = ('Width', 'Height');
   BUILT_IN_CAPTIONS: array[0..23] of string = (
@@ -155,6 +181,8 @@ constructor TRadFormCustomizer.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
   FAllowed := TRadStateItems.Create(Self, TRadStateItem);
+  FRules := TStringList.Create;
+  TStringList(FRules).OnChange := RulesChanged;
   FCaptions := TStringList.Create;
   FGridStep := DEFAULT_GRID_STEP;
   FDiff := DocDict(mFastFloat);
@@ -165,32 +193,27 @@ destructor TRadFormCustomizer.Destroy;
 begin
   if (FStore <> nil) and not (csDestroying in FStore.ComponentState) then
     FStore.Detach(Self);
+  Invalidate;
   FAllowed.Free;
+  FRules.Free;
   FCaptions.Free;
   inherited;
 end;
 
 procedure TRadFormCustomizer.Loaded;
 var
-  I, J: Integer;
+  I: Integer;
 begin
   inherited;
   if (csDesigning in ComponentState) or (Owner = nil) then
     Exit;
-  // A renamed component would no longer match its saved changes or the code that names it.
-  for I := 0 to FAllowed.Count - 1 do
-    for J := FAllowed[I].Properties.Count - 1 downto 0 do
-      if SameText(Trim(FAllowed[I].Properties[J]), FORBIDDEN_PATH) then
-        FAllowed[I].Properties.Delete(J);
   for I := 0 to Owner.ComponentCount - 1 do
-    if Owner.Components[I] is TRadPropertiesStore then
-    begin
-      FStore := TRadPropertiesStore(Owner.Components[I]);
-      FStore.FreeNotification(Self);
-      FStore.Attach(Self);
-      Exit;
-    end;
-  TSynLog.Add.Log(sllWarning, StringToUtf8(SNoStore), [Name]);
+    if (FStore = nil) and (Owner.Components[I] is TRadPropertiesStore) then
+      SetStore(TRadPropertiesStore(Owner.Components[I]));
+  if FStore = nil then
+    TSynLog.Add.Log(sllWarning, StringToUtf8(SNoStore), [Name])
+  else
+    FStore.Attach(Self);
 end;
 
 procedure TRadFormCustomizer.Notification(AComponent: TComponent; AOperation: TOperation);
@@ -201,12 +224,126 @@ begin
   if AComponent = FStore then
     FStore := nil
   else if FAllowed <> nil then
+  begin
     FAllowed.ComponentRemoved(AComponent, not (csDestroying in ComponentState));
+    if FResolved <> nil then
+    begin
+      FResolved.Remove(AComponent);
+      FTargets.Remove(AComponent);
+    end;
+  end;
 end;
 
 procedure TRadFormCustomizer.SetAllowed(const AValue: TRadStateItems);
 begin
   FAllowed.Assign(AValue);
+  Invalidate;
+end;
+
+procedure TRadFormCustomizer.SetRules(const AValue: TStrings);
+begin
+  FRules.Assign(AValue);
+end;
+
+procedure TRadFormCustomizer.RulesChanged(Sender: TObject);
+begin
+  Invalidate;
+end;
+
+procedure TRadFormCustomizer.SetStore(AValue: TRadPropertiesStore);
+begin
+  if AValue = FStore then
+    Exit;
+  if FStore <> nil then
+  begin
+    FStore.RemoveFreeNotification(Self);
+    if ComponentState * [csLoading, csDesigning] = [] then
+      FStore.Detach(Self);
+  end;
+  FStore := AValue;
+  if FStore = nil then
+    Exit;
+  FStore.FreeNotification(Self);
+  if ComponentState * [csLoading, csDesigning] = [] then
+    FStore.Attach(Self); // after loading; Loaded attaches the DFM link
+end;
+
+class function TRadFormCustomizer.GetDefaultRules: string;
+begin
+  Result := FDefaultRules;
+end;
+
+class procedure TRadFormCustomizer.SetDefaultRules(const AValue: string);
+begin
+  FDefaultRules := AValue;
+  Inc(FRulesVersion); // live customizers resolve again on their next question
+end;
+
+procedure TRadFormCustomizer.Invalidate;
+begin
+  FreeAndNil(FResolved);
+  FreeAndNil(FTargets);
+end;
+
+procedure TRadFormCustomizer.Resolve;
+var
+  LRules: TRadCustomizeRules;
+  I: Integer;
+begin
+  Invalidate;
+  FResolved := TObjectDictionary<TComponent, TStringList>.Create([doOwnsValues]);
+  FTargets := TList<TComponent>.Create;
+  FResolvedVersion := FRulesVersion;
+  LRules := TRadCustomizeRules.Create;
+  try
+    LRules.Add(FDefaultRules);
+    LRules.Add(FRules.Text);
+    for I := 0 to LRules.Errors.Count - 1 do
+      TSynLog.Add.Log(sllWarning, 'rad.formstate %.Rules: %', [Name, LRules.Errors[I]]);
+    if Owner <> nil then
+      for I := 0 to Owner.ComponentCount - 1 do
+        ResolveComponent(Owner.Components[I], LRules);
+    for I := 0 to FAllowed.Count - 1 do // an Allowed component the owner does not own
+      if (FAllowed[I].Component <> nil) and not FResolved.ContainsKey(FAllowed[I].Component) then
+        ResolveComponent(FAllowed[I].Component, LRules);
+  finally
+    LRules.Free;
+  end;
+end;
+
+procedure TRadFormCustomizer.ResolveComponent(AComponent: TComponent; ARules: TRadCustomizeRules);
+var
+  LPaths: TStringList;
+  LItem: TRadStateItem;
+begin
+  if (AComponent.Name = '') or FResolved.ContainsKey(AComponent) then
+    Exit; // the changes are saved by name
+  LPaths := TStringList.Create; // case-insensitive, like the paths themselves
+  try
+    LItem := ItemOf(AComponent);
+    if LItem <> nil then
+      ARules.PathsFor(AComponent, LItem.Properties, LPaths)
+    else
+      ARules.PathsFor(AComponent, nil, LPaths);
+  except
+    LPaths.Free;
+    raise;
+  end;
+  if LPaths.Count = 0 then
+    LPaths.Free
+  else
+  begin
+    FResolved.Add(AComponent, LPaths);
+    FTargets.Add(AComponent);
+    AComponent.FreeNotification(Self);
+  end;
+end;
+
+function TRadFormCustomizer.Targets: TArray<TComponent>;
+begin
+  if (FResolved = nil) or (FResolvedVersion <> FRulesVersion) then
+    Resolve;
+  Result := FTargets.ToArray;
 end;
 
 procedure TRadFormCustomizer.SetCaptions(const AValue: TStrings);
@@ -226,13 +363,14 @@ end;
 
 function TRadFormCustomizer.AllowedPaths(AComponent: TComponent): TStrings;
 var
-  LItem: TRadStateItem;
+  LPaths: TStringList;
 begin
-  LItem := ItemOf(AComponent);
-  if LItem = nil then
-    Result := nil
+  if (FResolved = nil) or (FResolvedVersion <> FRulesVersion) then
+    Resolve;
+  if (AComponent <> nil) and FResolved.TryGetValue(AComponent, LPaths) then
+    Result := LPaths
   else
-    Result := LItem.Properties;
+    Result := nil;
 end;
 
 function TRadFormCustomizer.IsAllowed(AComponent: TComponent; const APath: string): Boolean;
@@ -299,12 +437,11 @@ end;
 
 function TRadFormCustomizer.SnapshotAll: IDocDict;
 var
-  I: Integer;
+  LComponent: TComponent;
 begin
   Result := DocDict(mFastFloat);
-  for I := 0 to FAllowed.Count - 1 do
-    if FAllowed[I].Component <> nil then
-      Result.D[StringToUtf8(FAllowed[I].Component.Name)] := Snapshot(FAllowed[I].Component);
+  for LComponent in Targets do
+    Result.D[StringToUtf8(LComponent.Name)] := Snapshot(LComponent);
 end;
 
 procedure TRadFormCustomizer.ApplyValues(AComponent: TComponent; const AValues: IDocDict);
@@ -333,18 +470,16 @@ end;
 
 procedure TRadFormCustomizer.ApplyDiff(const AScale: TRadStateScale);
 var
-  I: Integer;
   LComponent: TComponent;
   LValues: IDocDict;
   LResult: TRadStateApplyResult;
   LError: RawUtf8;
 begin
-  for I := 0 to FAllowed.Count - 1 do
+  for LComponent in Targets do
   begin
-    LComponent := FAllowed[I].Component;
-    if (LComponent = nil) or not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
+    if not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
       Continue;
-    LResult := TRadStatePaths.Apply(LComponent, FAllowed[I].Properties, LValues, AScale);
+    LResult := TRadStatePaths.Apply(LComponent, AllowedPaths(LComponent), LValues, AScale);
     for LError in LResult.Errors do
       TSynLog.Add.Log(sllWarning, 'rad.formstate %.%: %', [Name, LComponent.Name, LError]);
   end;
@@ -352,17 +487,15 @@ end;
 
 procedure TRadFormCustomizer.NormalizeDiff;
 var
-  I: Integer;
   LComponent: TComponent;
   LValues, LNow: IDocDict;
   LKey: RawUtf8;
   LValue: Variant;
 begin
   // Re-read the applied values so every saved pixel value is in the current PPI from now on.
-  for I := 0 to FAllowed.Count - 1 do
+  for LComponent in Targets do
   begin
-    LComponent := FAllowed[I].Component;
-    if (LComponent = nil) or not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
+    if not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
       Continue;
     LNow := Snapshot(LComponent);
     for LKey in KeysOf(LValues) do
@@ -374,17 +507,15 @@ end;
 
 procedure TRadFormCustomizer.TakeOverwrittenDefaults;
 var
-  I: Integer;
   LComponent: TComponent;
   LValues, LNow: IDocDict;
   LKey: RawUtf8;
   LNew: Variant;
 begin
   // Something applied after the first load (the company layout): what it wrote is the default now.
-  for I := 0 to FAllowed.Count - 1 do
+  for LComponent in Targets do
   begin
-    LComponent := FAllowed[I].Component;
-    if (LComponent = nil) or not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
+    if not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
       Continue;
     LNow := Snapshot(LComponent);
     for LKey in KeysOf(LValues) do
@@ -404,7 +535,6 @@ end;
 procedure TRadFormCustomizer.LoadState(const ADoc: IDocDict);
 var
   LDiff, LValues, LNow: IDocDict;
-  I: Integer;
   LComponent: TComponent;
   LKey: RawUtf8;
   LValue: Variant;
@@ -420,10 +550,9 @@ begin
     Exit;
   FDiff := LDiff.Copy;
   FPpi := ADoc.I[FIELD_PPI];
-  for I := 0 to FAllowed.Count - 1 do
+  for LComponent in Targets do
   begin
-    LComponent := FAllowed[I].Component;
-    if (LComponent = nil) or not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
+    if not FDiff.Get(StringToUtf8(LComponent.Name), LValues) then
       Continue;
     LNow := Snapshot(LComponent);
     for LKey in KeysOf(LValues) do
@@ -486,16 +615,14 @@ end;
 
 procedure TRadFormCustomizer.Commit(const ABefore: IDocDict);
 var
-  I: Integer;
   LComponent: TComponent;
   LBefore, LNow: IDocDict;
   LKey: RawUtf8;
   LOld, LNew: Variant;
 begin
-  for I := 0 to FAllowed.Count - 1 do
+  for LComponent in Targets do
   begin
-    LComponent := FAllowed[I].Component;
-    if (LComponent = nil) or not ABefore.Get(StringToUtf8(LComponent.Name), LBefore) then
+    if not ABefore.Get(StringToUtf8(LComponent.Name), LBefore) then
       Continue;
     LNow := Snapshot(LComponent);
     for LKey in KeysOf(LNow) do
@@ -533,15 +660,11 @@ end;
 
 procedure TRadFormCustomizer.ResetAll;
 var
-  I: Integer;
   LComponent: TComponent;
   LDefaults: IDocDict;
 begin
-  for I := 0 to FAllowed.Count - 1 do
+  for LComponent in Targets do
   begin
-    LComponent := FAllowed[I].Component;
-    if LComponent = nil then
-      Continue;
     LDefaults := ChildDoc(FDefaults, StringToUtf8(LComponent.Name), False);
     if LDefaults <> nil then
       ApplyValues(LComponent, LDefaults);
@@ -554,6 +677,7 @@ procedure TRadFormCustomizer.Customize;
 begin
   if not Assigned(FSession) then
     raise ERadFormState.Create(SNoSession);
+  Invalidate; // controls created at runtime since the last question get their rules too
   FSession(Self);
 end;
 

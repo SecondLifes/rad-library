@@ -17,6 +17,7 @@ uses
   rad.formstate.uni,
   rad.formstate.dev,
   rad.formstate.customizer,
+  rad.formstate.rules,
   Vcl.Forms,
   mormot.core.base;
 
@@ -40,6 +41,7 @@ type
   TRadLayoutStateProvider = rad.formstate.dev.TRadLayoutStateProvider;
   TRadFormCustomizer = rad.formstate.customizer.TRadFormCustomizer;
   TRadCustomizeSession = rad.formstate.customizer.TRadCustomizeSession;
+  TRadCustomizeRules = rad.formstate.rules.TRadCustomizeRules;
   IRadStateStore = rad.formstate.store.IRadStateStore;
   TRadStateEntry = rad.formstate.store.TRadStateEntry;
   TRadStateEntries = rad.formstate.store.TRadStateEntries;
@@ -53,6 +55,7 @@ type
 
 const
   RAD_STATE_DEFAULT_TABLE = rad.formstate.uni.RAD_STATE_DEFAULT_TABLE;
+  RAD_CUSTOMIZE_APPEARANCE = rad.formstate.rules.RAD_CUSTOMIZE_APPEARANCE;
   soPlacement = rad.formstate.component.soPlacement;
   soActiveControl = rad.formstate.component.soActiveControl;
   soProps = rad.formstate.component.soProps;
@@ -79,6 +82,9 @@ type
   TRadReopenProc = reference to procedure(AForm: TCustomForm);
 
   TRadFormState = class abstract
+  private
+    class function GetCustomizeRules: string; static;
+    class procedure SetCustomizeRules(const AValue: string); static;
   public
     /// <summary>Host hook for ResetForm: close AForm and open it again the same way.</summary>
     class var Reopen: TRadReopenProc;
@@ -117,6 +123,8 @@ type
     class procedure ResetForm(AForm: TCustomForm); static;
     /// <summary>Puts the user's layers back on top after a layer applied later (the company layout).</summary>
     class procedure Reapply(AOwner: TComponent); static;
+    /// <summary>Customizer rules for every form, before each form's own Rules; e.g. RAD_CUSTOMIZE_APPEARANCE.</summary>
+    class property CustomizeRules: string read GetCustomizeRules write SetCustomizeRules;
   end;
 
 implementation
@@ -182,6 +190,16 @@ end;
 class procedure TRadFormState.RegisterProvider(const AProvider: IRadStateProvider);
 begin
   TRadPropertiesStore.RegisterProvider(AProvider);
+end;
+
+class function TRadFormState.GetCustomizeRules: string;
+begin
+  Result := TRadFormCustomizer.DefaultRules;
+end;
+
+class procedure TRadFormState.SetCustomizeRules(const AValue: string);
+begin
+  TRadFormCustomizer.DefaultRules := AValue;
 end;
 
 class procedure TRadFormState.Reapply(AOwner: TComponent);

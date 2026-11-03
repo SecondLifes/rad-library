@@ -346,6 +346,118 @@ object RadFormStateEditorForm: TRadFormStateEditorForm
         TabOrder = 6
       end
     end
+    object tabRules: TTabSheet
+      Caption = 'Kurallar'
+      ImageIndex = 3
+      object splRules: TSplitter
+        Left = 469
+        Top = 0
+        Height = 486
+        Align = alRight
+      end
+      object pnlRules: TPanel
+        Left = 0
+        Top = 0
+        Width = 469
+        Height = 486
+        Align = alClient
+        BevelOuter = bvNone
+        TabOrder = 0
+        object lblRules: TLabel
+          AlignWithMargins = True
+          Left = 3
+          Top = 3
+          Width = 463
+          Height = 75
+          Align = alTop
+          AutoSize = False
+          Caption =
+            'Sat'#305'r ba'#351#305'na bir kural.  "TControl: Left, Top, Font" s'#305'n'#305'fa ' +
+            've t'#252'revlerine a'#231'ar.  "-Edit1", "-Edit1.Color" ya da "-TPanel: ' +
+            'Color" kapat'#305'r; kapatan sat'#305'r her zaman kazan'#305'r, '#214'zellikler ' +
+            'sekmesindeki se'#231'imleri de kapat'#305'r.  "*" her bile'#351'en, "//" yorum. ' +
+            'Name hi'#231' a'#231#305'lmaz.'
+          WordWrap = True
+        end
+        object memRules: TMemo
+          Left = 0
+          Top = 81
+          Width = 469
+          Height = 368
+          Align = alClient
+          Font.Charset = DEFAULT_CHARSET
+          Font.Color = clWindowText
+          Font.Height = -13
+          Font.Name = 'Consolas'
+          Font.Style = []
+          ParentFont = False
+          ScrollBars = ssBoth
+          TabOrder = 0
+          WordWrap = False
+          OnChange = memRulesChange
+        end
+        object pnlRulesTools: TPanel
+          Left = 0
+          Top = 449
+          Width = 469
+          Height = 37
+          Align = alBottom
+          BevelOuter = bvNone
+          TabOrder = 1
+          object btnRulesAppearance: TButton
+            Left = 0
+            Top = 5
+            Width = 180
+            Height = 27
+            Hint = 'Konum, boyut, ba'#351'l'#305'k, yaz'#305', renk ve ipucu (RAD_CUSTOMIZE_APPEARANCE)'
+            Caption = 'Haz'#305'r g'#246'r'#252'n'#252'm kurallar'#305
+            ParentShowHint = False
+            ShowHint = True
+            TabOrder = 0
+            OnClick = btnRulesAppearanceClick
+          end
+        end
+      end
+      object pnlPreview: TPanel
+        Left = 472
+        Top = 0
+        Width = 400
+        Height = 486
+        Align = alRight
+        BevelOuter = bvNone
+        TabOrder = 1
+        object lblPreview: TLabel
+          Left = 0
+          Top = 0
+          Width = 400
+          Height = 15
+          Align = alTop
+          Caption = #214'nizleme'
+        end
+        object lstPreview: TListBox
+          Left = 0
+          Top = 15
+          Width = 400
+          Height = 433
+          Align = alClient
+          ItemHeight = 15
+          TabOrder = 0
+        end
+        object lblPreviewNote: TLabel
+          AlignWithMargins = True
+          Left = 3
+          Top = 451
+          Width = 394
+          Height = 32
+          Align = alBottom
+          AutoSize = False
+          Caption =
+            'Uygulama a'#231#305'l'#305#351#305'nda verilen genel kurallar (TRadFormState.Custo' +
+            'mizeRules) burada g'#246'r'#252'nmez; '#231'al'#305#351'ma an'#305'nda bunlara eklenir.'
+          WordWrap = True
+        end
+      end
+    end
   end
   object pnlButtons: TPanel
     Left = 0

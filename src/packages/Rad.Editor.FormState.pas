@@ -27,6 +27,7 @@ uses
   cxTLdxBarBuiltInMenu,
   rad.formstate.component,
   rad.formstate.customizer,
+  rad.formstate.rules,
   Rad.Editor.FormState.Model;
 
 type
@@ -68,6 +69,17 @@ type
     edtVersion: TEdit;
     lblStorageName: TLabel;
     edtStorageName: TEdit;
+    tabRules: TTabSheet;
+    splRules: TSplitter;
+    pnlRules: TPanel;
+    lblRules: TLabel;
+    memRules: TMemo;
+    pnlRulesTools: TPanel;
+    btnRulesAppearance: TButton;
+    pnlPreview: TPanel;
+    lblPreview: TLabel;
+    lstPreview: TListBox;
+    lblPreviewNote: TLabel;
     pnlButtons: TPanel;
     btnOk: TButton;
     btnCancel: TButton;
@@ -83,9 +95,15 @@ type
     procedure btnUpClick(Sender: TObject);
     procedure btnDownClick(Sender: TObject);
     procedure btnRemoveClick(Sender: TObject);
+    procedure memRulesChange(Sender: TObject);
+    procedure btnRulesAppearanceClick(Sender: TObject);
   private
     FModel: TRadStateEditorModel;
+    FCustomizer: TRadFormCustomizer;
     FUpdating: Boolean;
+    procedure SelectedPathsOf(AComponent: TComponent; APaths: TStrings);
+    function PreviewComponent(ARules: TRadCustomizeRules; AComponent: TComponent): Integer;
+    procedure FillPreview;
     function ShowLeaf(const ALeaf: TRadStateLeaf): Boolean;
     function ChildNode(AParent: TcxTreeListNode; const ACaption: string): TcxTreeListNode;
     procedure AddLeafNode(AParent: TcxTreeListNode; const ACaption: string; ALeafIndex: Integer);
@@ -104,7 +122,8 @@ type
   public
     /// <summary>Loads the store into the form; nothing is written yet.</summary>
     procedure Prepare(AStore: TRadPropertiesStore); overload;
-    /// <summary>Customizer mode: only the allowed controls and paths; no values, options or presets.</summary>
+    /// <summary>Customizer mode: the rules with a preview, and the per-component Allowed list;
+    /// no values, options or presets.</summary>
     procedure Prepare(ACustomizer: TRadFormCustomizer); overload;
     /// <summary>Writes the form back into the store (what OK does).</summary>
     procedure Apply;
@@ -113,7 +132,7 @@ type
     property Model: TRadStateEditorModel read FModel;
     /// <summary>Shows the editor modally; True when the store was changed.</summary>
     class function Execute(AStore: TRadPropertiesStore): Boolean; overload; static;
-    /// <summary>Edits ACustomizer.Allowed; True when it was changed.</summary>
+    /// <summary>Edits ACustomizer.Rules and Allowed; True when it was changed.</summary>
     class function Execute(ACustomizer: TRadFormCustomizer): Boolean; overload; static;
   end;
 
@@ -126,7 +145,10 @@ uses
 
 resourcestring
   SCustomizerCaption = 'Kullanıcı Düzenleme İzinleri';
-  SAllowedCaption = 'Kullanıcının değiştirebilecekleri';
+  SAllowedCaption = 'Bileşene özel izinler (%d; kurallara eklenir)';
+  SSelectedCaption = 'Kaydedilecekler (%d, sırayla uygulanır)';
+  SPreviewCaption = 'Önizleme: %d bileşende %d özellik açık';
+  SRuleErrorMark = 'HATA ';
   SInvalidValue = '"%s" değeri türüne uymuyor ya da adı tekrar ediyor.';
 
 {$R *.dfm}
@@ -183,6 +205,7 @@ begin
   FModel.Build;
   FModel.LoadFromStore;
   Caption := Format('%s - %s', [Caption, AStore.Name]);
+  tabRules.TabVisible := False;
   FillTree;
   FillSelected;
   FillValues;
@@ -192,6 +215,7 @@ end;
 procedure TRadFormStateEditorForm.Prepare(ACustomizer: TRadFormCustomizer);
 begin
   FreeAndNil(FModel);
+  FCustomizer := ACustomizer;
   FModel := TRadStateEditorModel.CreateFor(ACustomizer.Owner, ACustomizer.Allowed, False);
   FModel.Build;
   FModel.LoadFromStore;
@@ -200,7 +224,9 @@ begin
   tabOptions.TabVisible := False;
   btnPresetPage.Visible := False;
   btnPresetSize.Visible := False;
-  lblSelected.Caption := SAllowedCaption;
+  tabRules.PageIndex := 0; // rules are the usual way; single components are the exception
+  pgcMain.ActivePage := tabRules;
+  memRules.Lines.Assign(ACustomizer.Rules); // OnChange fills the preview
   FillTree;
   FillSelected;
 end;
@@ -208,10 +234,88 @@ end;
 procedure TRadFormStateEditorForm.Apply;
 begin
   FModel.SaveToStore;
+  if FCustomizer <> nil then
+    FCustomizer.Rules.Assign(memRules.Lines);
   if FModel.Store = nil then
-    Exit; // customizer mode: the allowed list is all there is
+    Exit; // customizer mode: no values or options
   ApplyValues;
   ApplyOptions;
+end;
+
+{ rules }
+
+procedure TRadFormStateEditorForm.SelectedPathsOf(AComponent: TComponent; APaths: TStrings);
+var
+  LKey, LPrefix: string;
+begin
+  APaths.Clear;
+  LPrefix := AComponent.Name + PATH_SEPARATOR;
+  for LKey in FModel.Selection do
+    if LKey.StartsWith(LPrefix, True) then
+      APaths.Add(Copy(LKey, Length(LPrefix) + 1, MaxInt));
+end;
+
+function TRadFormStateEditorForm.PreviewComponent(ARules: TRadCustomizeRules; AComponent: TComponent): Integer;
+var
+  LExplicit, LPaths: TStringList;
+begin
+  LExplicit := TStringList.Create;
+  try
+    LPaths := TStringList.Create;
+    try
+      SelectedPathsOf(AComponent, LExplicit);
+      ARules.PathsFor(AComponent, LExplicit, LPaths); // the same core the customizer runs
+      Result := LPaths.Count;
+      if Result > 0 then
+        lstPreview.Items.Add(AComponent.Name + ': ' + string.Join(', ', LPaths.ToStringArray));
+    finally
+      LPaths.Free;
+    end;
+  finally
+    LExplicit.Free;
+  end;
+end;
+
+procedure TRadFormStateEditorForm.FillPreview;
+var
+  LRules: TRadCustomizeRules;
+  I, LCount, LComponents, LTotal: Integer;
+begin
+  if (FCustomizer = nil) or (FCustomizer.Owner = nil) or (FModel = nil) then
+    Exit;
+  LComponents := 0;
+  LTotal := 0;
+  LRules := TRadCustomizeRules.Create;
+  lstPreview.Items.BeginUpdate;
+  try
+    LRules.Add(memRules.Text);
+    lstPreview.Items.Clear;
+    for I := 0 to LRules.Errors.Count - 1 do
+      lstPreview.Items.Add(SRuleErrorMark + LRules.Errors[I]);
+    for I := 0 to FCustomizer.Owner.ComponentCount - 1 do
+      if FCustomizer.Owner.Components[I].Name <> '' then
+      begin
+        LCount := PreviewComponent(LRules, FCustomizer.Owner.Components[I]);
+        Inc(LComponents, Ord(LCount > 0));
+        Inc(LTotal, LCount);
+      end;
+  finally
+    lstPreview.Items.EndUpdate;
+    LRules.Free;
+  end;
+  lblPreview.Caption := Format(SPreviewCaption, [LComponents, LTotal]);
+end;
+
+procedure TRadFormStateEditorForm.memRulesChange(Sender: TObject);
+begin
+  FillPreview;
+end;
+
+procedure TRadFormStateEditorForm.btnRulesAppearanceClick(Sender: TObject);
+begin
+  if Trim(memRules.Text) <> '' then // Text is TCaption: the string helper does not reach it (E2671)
+    memRules.Lines.Add('');
+  memRules.Lines.Add(RAD_CUSTOMIZE_APPEARANCE);
 end;
 
 { tree }
@@ -338,7 +442,13 @@ begin
   if LIndex >= lstSelected.Count then
     LIndex := lstSelected.Count - 1;
   lstSelected.ItemIndex := LIndex;
-  lblSelected.Caption := Format('Kaydedilecekler (%d, sırayla uygulanır)', [lstSelected.Count]);
+  if FCustomizer <> nil then
+  begin
+    lblSelected.Caption := Format(SAllowedCaption, [lstSelected.Count]);
+    FillPreview;
+  end
+  else
+    lblSelected.Caption := Format(SSelectedCaption, [lstSelected.Count]);
 end;
 
 procedure TRadFormStateEditorForm.MoveSelected(ADelta: Integer);

@@ -45,6 +45,7 @@ type
       ADepth: Integer);
     procedure AddLeaf(AComponent: TComponent; const APath, ATypeName, AValue, AReason: string);
     function FindComponent(const AName: string): TComponent;
+    function Restorable(AComponent: TComponent; const APath: string): Boolean;
   public
     constructor Create(AStore: TRadPropertiesStore);
     /// <summary>Edits AItems over ARoot's components; AForStore adds the stateful rows and lists
@@ -53,7 +54,8 @@ type
     destructor Destroy; override;
     /// <summary>Lists every component of the store's owner and its paths.</summary>
     procedure Build;
-    /// <summary>Selection := the store's Items, in their order.</summary>
+    /// <summary>Selection := the store's Items, in their order; a listed path that cannot be restored is dropped.
+    /// Call Build first.</summary>
     procedure LoadFromStore;
     /// <summary>Items := the selection, one item per component in first-seen order.</summary>
     procedure SaveToStore;
@@ -279,7 +281,7 @@ begin
       SetSelected(LItem.Component, STATE_SELF_PATH, True); // any item of it saves its state
     if LItem.Component <> nil then
       for J := 0 to LItem.Properties.Count - 1 do
-        if Trim(LItem.Properties[J]) <> '' then
+        if (Trim(LItem.Properties[J]) <> '') and Restorable(LItem.Component, Trim(LItem.Properties[J])) then
           SetSelected(LItem.Component, Trim(LItem.Properties[J]), True);
   end;
 end;
@@ -337,6 +339,15 @@ begin
     (AIndex + ADelta < FSelection.Count);
   if Result then
     FSelection.Exchange(AIndex, AIndex + ADelta);
+end;
+
+function TRadStateEditorModel.Restorable(AComponent: TComponent; const APath: string): Boolean;
+var
+  LLeaf: TRadStateLeaf;
+begin
+  // Only a listed leaf that cannot be restored is dropped (Name saved by an older version); a path the
+  // list does not reach, like a collection item past the limit, stays as it was.
+  Result := not LeafOf(AComponent, APath, LLeaf) or LLeaf.Restorable;
 end;
 
 function TRadStateEditorModel.LeafOf(AComponent: TComponent; const APath: string; out ALeaf: TRadStateLeaf): Boolean;

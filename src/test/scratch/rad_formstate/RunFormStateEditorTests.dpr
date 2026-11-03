@@ -13,6 +13,7 @@ uses
   rad.formstate.core in '..\..\..\core\rad.formstate.core.pas',
   rad.formstate.store in '..\..\..\core\rad.formstate.store.pas',
   rad.formstate.component in '..\..\..\component\rad.formstate.component.pas',
+  rad.formstate.rules in '..\..\..\component\rad.formstate.rules.pas',
   rad.formstate.customizer in '..\..\..\component\rad.formstate.customizer.pas',
   rad.rtl in '..\..\..\component\rad.rtl.pas',
   Rad.Editor.FormState.Model in '..\..\..\packages\Rad.Editor.FormState.Model.pas',

@@ -290,6 +290,31 @@ Customizer1.Customize;             // "formu düzenle" komutu (RadScriptTmsDesig
    Editör testleri 19/19 Win32 + Win64; `Apply`'ın store'a dokunmaması mutasyonla doğrulandı. İlk
    tasarımdaki `AExclude` parametresi kaldırıldı: mutasyon onun hiçbir şeyi değiştirmediğini gösterdi
    (store sınıfıyla, customizer görsel olmadığı için zaten dışarıda).
+7. ✅ Kurallar ve store bağı (2026-11-03, kullanıcı isteği: yüzlerce bileşenli formda tek tek seçim
+   hataya açık; bir formda şifreli ve şifresiz iki store olabilir).
+   - `rad.formstate.rules`: satır başına kural. `Sınıf[, Sınıf]: yol[, yol]` açar (sınıf adı
+     kalıtımla eşleşir, bileşen adı ya da `*` da olur); `-Hedef`, `-Hedef.yol`, `-Hedef: yol` kapatır.
+     Kapatan satır her zaman kazanır, `Allowed`'a da. `Font` gibi nesne özelliği yazılabilir
+     yapraklara açılır (derinlik 3; `TFont`'ta `Height`/`Charset`/`Orientation`/`Pitch`/`Quality`
+     atlanır, `Size` yeter); olmayan özellik sessizce atlanır. TypInfo kullanır: tasarım anı önizlemesi
+     de çalıştırıyor, mORMot RTTI VMT'ye yama yapar.
+   - Sıra: `TRadFormState.CustomizeRules` (uygulama geneli, açılışta) → customizer `Rules` → `Allowed`
+     (tek bileşen istisnası) → kapatan satırlar → `Name` çıkar. Kurallar yalnız `TControl`'lere
+     uygulanır; `Allowed` her bileşene. Sonuç bileşen başına önbelleklenir; `Rules`/`Allowed`/genel
+     kural değişince ve her `Customize`'da yeniden hesaplanır (çalışma anında eklenen kontroller).
+   - Hazır set `RAD_CUSTOMIZE_APPEARANCE`: konum/boyut, ipucu, yazı, renk, etiket/düğme/grup başlığı,
+     cx editlerde `Style.Color`/`Style.Font`. Bilerek dışarıda: bir edit'in `Text`'i (veri, görünüm
+     değil; veri bağlı kontrolde veritabanı değerini ezer), `Visible`/`Enabled` (kullanıcı gerekli
+     düğmeyi gizleyebilir). Türe göre kural (`TCaption`) reddedildi: `TEdit.Text` de `TCaption`.
+   - `Store` yayınlandı: customizer'ın değişiklikleri o store'un kaydına (şifresi, yeri) gider; boşsa
+     sahibin ilk store'u (eski davranış).
+   - Editör: "Kurallar" sekmesi (ilk sekme), canlı önizleme ("N bileşende M özellik", hatalı satırlar),
+     "Hazır görünüm kuralları" düğmesi. Önizleme customizer ile aynı çekirdeği (`PathsFor`) çalıştırır;
+     uygulama geneli kurallar tasarım anında bilinmediği için önizlemede yoktur. `LoadFromStore`
+     listede olup geri yüklenemeyen yolu (eski sürümün kaydettiği `Edit1.Name`) atar.
+   - Testler: kural 6, editör +2; VCL 44/44, editör 22/22, oturum 19/19 Win32 + Win64. Altı mutasyon
+     (yasak, kalıtım, font süzgeci, DFM `Store` bağı, kural değişince yenileme, `Name` temizliği)
+     her biri en az bir testi kırdı.
 
 ## Riskler
 

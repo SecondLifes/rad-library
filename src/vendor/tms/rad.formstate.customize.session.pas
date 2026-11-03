@@ -354,14 +354,10 @@ end;
 
 procedure TRadFormCustomizeSession.ResetAll;
 var
-  I: Integer;
   LComponent: TComponent;
 begin
-  for I := 0 to FCustomizer.Allowed.Count - 1 do
+  for LComponent in FCustomizer.Targets do
   begin
-    LComponent := FCustomizer.Allowed[I].Component;
-    if LComponent = nil then
-      Continue;
     Select(LComponent);
     ResetSelected;
   end;
@@ -377,16 +373,12 @@ end;
 
 procedure TRadFormCustomizeSession.Cancel;
 var
-  I: Integer;
   LComponent: TComponent;
   LValues: IDocDict;
 begin
-  for I := 0 to FCustomizer.Allowed.Count - 1 do
-  begin
-    LComponent := FCustomizer.Allowed[I].Component;
-    if (LComponent <> nil) and FBefore.Get(StringToUtf8(LComponent.Name), LValues) then
+  for LComponent in FCustomizer.Targets do
+    if FBefore.Get(StringToUtf8(LComponent.Name), LValues) then
       FCustomizer.ApplyValues(LComponent, LValues);
-  end;
   Close;
 end;
 

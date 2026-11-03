@@ -121,7 +121,8 @@ TRadFormState.Kapat;                                    // saves forms still ope
 | `component/rad.formstate.component` | `TRadPropertiesStore` |
 | `component/rad.formstate` | entry unit: aliases and `TRadFormState` |
 | `component/rad.formstate.dev` | providers: user grid layouts (`cxgrid`) and layout controls (`dxlayout`) |
-| `component/rad.formstate.customizer` | `TRadFormCustomizer`: per-user visual changes on a whitelist |
+| `component/rad.formstate.customizer` | `TRadFormCustomizer`: per-user visual changes on what rules and `Allowed` open |
+| `component/rad.formstate.rules` | its permission rules (`TControl: Left, Font`, `-Edit1`) |
 | `vendor/tms/rad.formstate.customize.session/.tools` | its editing session (TMS designer + DevExpress inspector) |
 | `packages/Rad.Editor.FormState(.Model)` | design-time editor (right click: Durum Editörü... / Kullanıcı İzinleri...) |
 
@@ -132,8 +133,13 @@ bump drops the layout only. Layout providers are fingerprinted against the desig
 skipped once the developer changes the grid or layout. `TRadFormState.ResetForm` deletes the
 record and reopens the form through the host's `TRadFormState.Reopen`.
 
-`TRadFormCustomizer` lets the user move, resize and edit what the developer allowed
-(`Allowed`, Turkish `Captions`) on the live form: `Customizer1.Customize` opens the session.
+`TRadFormCustomizer` lets the user move, resize and edit what the developer allowed on the live
+form: `Customizer1.Customize` opens the session. Permissions are rules by class, one per line:
+`TControl: Left, Top, Font` opens (descendants too, `Font` gives its leaves), `-Edit1`,
+`-Edit1.Color` or `-TPanel: Color` closes and always wins. Application rules come first
+(`TRadFormState.CustomizeRules := RAD_CUSTOMIZE_APPEARANCE;`), then the form's `Rules`, then
+`Allowed` for single components; `Name` never opens. `Store` picks the store it saves into (and so
+encryption); empty means the owner's first store. Turkish labels: `Captions`.
 The session lives in `RadScriptTmsDesign` and registers itself when `rad.scripting` is linked,
 so the host must `uses rad.scripting` (with runtime packages, that package must be loaded). Only the user's changes are saved; the company layout
 (`TRadScriptDesigner`) is applied first and the user's changes go back on top of it.

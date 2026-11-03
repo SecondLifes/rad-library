@@ -7,13 +7,13 @@
             <Dependencies/>
         </Projects>
         <Projects Include="RadKonD.dproj">
-            <Dependencies/>
+            <Dependencies>RadKon.dproj</Dependencies>
         </Projects>
         <Projects Include="RadScriptTms.dproj">
-            <Dependencies/>
+            <Dependencies>RadKon.dproj</Dependencies>
         </Projects>
         <Projects Include="RadScriptTmsDesign.dproj">
-            <Dependencies/>
+            <Dependencies>RadKon.dproj;RadScriptTms.dproj</Dependencies>
         </Projects>
     </ItemGroup>
     <ProjectExtensions>
@@ -32,31 +32,31 @@
     <Target Name="RadKon:Make">
         <MSBuild Projects="RadKon.dproj" Targets="Make"/>
     </Target>
-    <Target Name="RadKonD">
+    <Target Name="RadKonD" DependsOnTargets="RadKon">
         <MSBuild Projects="RadKonD.dproj"/>
     </Target>
-    <Target Name="RadKonD:Clean">
+    <Target Name="RadKonD:Clean" DependsOnTargets="RadKon:Clean">
         <MSBuild Projects="RadKonD.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="RadKonD:Make">
+    <Target Name="RadKonD:Make" DependsOnTargets="RadKon:Make">
         <MSBuild Projects="RadKonD.dproj" Targets="Make"/>
     </Target>
-    <Target Name="RadScriptTms">
+    <Target Name="RadScriptTms" DependsOnTargets="RadKon">
         <MSBuild Projects="RadScriptTms.dproj"/>
     </Target>
-    <Target Name="RadScriptTms:Clean">
+    <Target Name="RadScriptTms:Clean" DependsOnTargets="RadKon:Clean">
         <MSBuild Projects="RadScriptTms.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="RadScriptTms:Make">
+    <Target Name="RadScriptTms:Make" DependsOnTargets="RadKon:Make">
         <MSBuild Projects="RadScriptTms.dproj" Targets="Make"/>
     </Target>
-    <Target Name="RadScriptTmsDesign">
+    <Target Name="RadScriptTmsDesign" DependsOnTargets="RadKon;RadScriptTms">
         <MSBuild Projects="RadScriptTmsDesign.dproj"/>
     </Target>
-    <Target Name="RadScriptTmsDesign:Clean">
+    <Target Name="RadScriptTmsDesign:Clean" DependsOnTargets="RadKon:Clean;RadScriptTms:Clean">
         <MSBuild Projects="RadScriptTmsDesign.dproj" Targets="Clean"/>
     </Target>
-    <Target Name="RadScriptTmsDesign:Make">
+    <Target Name="RadScriptTmsDesign:Make" DependsOnTargets="RadKon:Make;RadScriptTms:Make">
         <MSBuild Projects="RadScriptTmsDesign.dproj" Targets="Make"/>
     </Target>
     <Target Name="Build">

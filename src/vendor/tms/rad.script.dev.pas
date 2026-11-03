@@ -12,12 +12,20 @@ uses
   dxLayoutControl, dxLayoutContainer,
   rad.script.engine, rad.script.hooks;
 
-/// TcxButton, cx editörleri (DB'li ve DB'siz), grid, layout, sayfa denetimi; TdxLayoutControl yerleşim akışı.
-procedure RegisterDevExpressClasses;
+type
+  /// <summary>DevExpress classes for the script engine.</summary>
+  TRadScriptDev = class abstract
+  public
+    /// TcxButton, cx editörleri (DB'li ve DB'siz), grid, layout, sayfa denetimi; TdxLayoutControl yerleşim akışı.
+    class procedure RegisterAll; static;
+  end;
+
+procedure RegisterDevExpressClasses; deprecated 'Use TRadScriptDev.RegisterAll';
+
 
 implementation
 
-procedure RegisterDevExpressClasses;
+class procedure TRadScriptDev.RegisterAll;
 var
   LHandler: TRadLayoutHandler;
 begin
@@ -31,6 +39,13 @@ begin
   LHandler.Save := procedure(C: TComponent; S: TStream) begin TdxLayoutControl(C).SaveToStream(S); end;
   LHandler.Customize := procedure(C: TComponent; AOn: Boolean) begin TdxLayoutControl(C).Customization := AOn; end;
   TRadScriptBinder.RegisterLayoutClass(TdxLayoutControl, LHandler);
+end;
+
+{ Deprecated names }
+
+procedure RegisterDevExpressClasses;
+begin
+  TRadScriptDev.RegisterAll;
 end;
 
 end.

@@ -238,7 +238,15 @@ type
     property TimedOut    : Boolean  read GetTimedOut;
   end;
 
-function NewCancellationSource: IRadCancellationSource;
+type
+  /// <summary>Cancellation source factory.</summary>
+  TRadCancellation = class abstract
+  public
+    class function NewSource: IRadCancellationSource; static;
+  end;
+
+function NewCancellationSource: IRadCancellationSource; deprecated 'Use TRadCancellation.NewSource';
+
 
 implementation
 
@@ -857,9 +865,16 @@ end;
 
 { ── Factory ──────────────────────────────────────────────────────────────── }
 
-function NewCancellationSource: IRadCancellationSource;
+class function TRadCancellation.NewSource: IRadCancellationSource;
 begin
   Result := TRadCancellationImpl.Create;
+end;
+
+{ Deprecated names }
+
+function NewCancellationSource: IRadCancellationSource;
+begin
+  Result := TRadCancellation.NewSource;
 end;
 
 end.

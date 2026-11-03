@@ -87,7 +87,7 @@ var
   i: Integer;
   Olay: TOlcumOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   SetLength(PublishTick, N);
   SetLength(HandledTick, N);
   try
@@ -124,7 +124,7 @@ var
   Sayac: Integer;
   BittiOlay: TEvent;
 begin
-  Bus := CreateChannelBus(opBlockPublisher, 4096); // yayıncı hiç veri kaybetmesin
+  Bus := TChannelBus.New(opBlockPublisher, 4096); // yayıncı hiç veri kaybetmesin
   SetLength(PublishTick, N);
   SetLength(HandledTick, N);
   Sayac := 0;
@@ -179,7 +179,7 @@ var
   sw: TStopwatch;
   BittiOlay: TEvent;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   SetLength(PublishTick, N);
   SetLength(HandledTick, N);
   BittiOlay := TEvent.Create(nil, True, False, '');
@@ -233,7 +233,7 @@ var
   Olay: TOlcumOlayi;
   BittiOlay: TEvent;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   SetLength(PublishTick, N);
   SetLength(HandledTick, N);
   BittiOlay := TEvent.Create(nil, True, False, '');

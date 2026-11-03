@@ -185,16 +185,16 @@ begin
       for var c in [TComponent(LMarka), TComponent(LCol)] do
       begin
         Writeln('  ', c.ClassName, ' (', c.Name, ')');
-        var LOwn := _OwnProperties(c);
-        var LAct := _ActiveProperties(c);
+        var LOwn := TDev.OwnProperties(c);
+        var LAct := TDev.ActiveProperties(c);
         Writeln('    _OwnProperties    : ', BoolToStr(LOwn <> nil, True),
           '  CascadeField="', TRadComboBoxProperties(LOwn).ACascadeField, '"');
         Writeln('    _ActiveProperties : ', BoolToStr(LAct <> nil, True),
           '  = item.Properties mi: ', BoolToStr(Pointer(LAct) = Pointer(LItem.Properties), True));
-        Writeln('    _ValueOf          : ', VarToStr(_ValueOf(c)));
-        Writeln('    _CaptionOf        : ', _CaptionOf(c));
-        Writeln('    _DataSetOf        : ', BoolToStr(_DataSetOf(c) <> nil, True), ' (baglanti yok -> False beklenir)');
-        Writeln('    _FieldOf          : ', BoolToStr(_FieldOf(c) <> nil, True), ' (baglanti yok -> False beklenir)');
+        Writeln('    _ValueOf          : ', VarToStr(TDev.ValueOf(c)));
+        Writeln('    _CaptionOf        : ', TDev.CaptionOf(c));
+        Writeln('    _DataSetOf        : ', BoolToStr(TDev.DataSetOf(c) <> nil, True), ' (baglanti yok -> False beklenir)');
+        Writeln('    _FieldOf          : ', BoolToStr(TDev.FieldOf(c) <> nil, True), ' (baglanti yok -> False beklenir)');
       end;
     finally
       LForm.Free;

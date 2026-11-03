@@ -174,7 +174,7 @@ begin
     Exit;
   end;
   LAd := ASource.Name;
-  LOwn := _OwnProperties(ASource);
+  LOwn := TDev.OwnProperties(ASource);
   if LOwn is TRadLookupComboBoxProperties then
     LTur := TRadLookupComboBoxProperties(LOwn).ACascadeField
   else

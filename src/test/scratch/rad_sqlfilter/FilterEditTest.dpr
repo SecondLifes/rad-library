@@ -52,7 +52,7 @@ var
   P: TRadSqlParam;
 begin
   F := TRadSqlFilter.New;
-  _EditToFilter(F, 'a.x', AEdit);
+  TDev.EditToFilter(F, 'a.x', AEdit);
   Result := F.GetConditions;
   for P in F.Params do
     Result := Result + ' | ' + VarToStr(P.Value) + ':' + IntToStr(VarType(P.Value));
@@ -187,7 +187,7 @@ begin
       LK.Kayitlar[0].Degerler[0].Ilk := I.EditValue;
       LK.Kayitlar[0].Degerler[0].Son := Null;
       LK.Kayitlar[0].Degerler[1].Alan := 'b.doviz';
-      LK.Kayitlar[0].Degerler[1].Ilk := _EditGetValue(K);
+      LK.Kayitlar[0].Degerler[1].Ilk := TDev.EditGetValue(K);
       LK.Kayitlar[0].Degerler[2].Alan := 'h.tarih';
       LK.Kayitlar[0].Degerler[2].Ilk := D.EditValue;
       LK.Kayitlar[0].Degerler[3].Alan := 'h.tutar';
@@ -199,60 +199,60 @@ begin
       Esit('K01 ad', 'Pasif kasalar', LG.Kayitlar[0].Ad);
       Esit('K02 arama', '> 1', LG.Kayitlar[0].Arama);
       Esit('K03 satir sayisi', '5', IntToStr(Length(LG.Kayitlar[0].Degerler)));
-      Esit('K03b check combo dilden bagimsiz', '["TRY","USD"]', VarToStr(_EditGetValue(K)));
+      Esit('K03b check combo dilden bagimsiz', '["TRY","USD"]', VarToStr(TDev.EditGetValue(K)));
 
       I.Clear;
-      _EditSetValue(I, LG.Kayitlar[0].Degerler[0].Ilk);
+      TDev.EditSetValue(I, LG.Kayitlar[0].Degerler[0].Ilk);
       Esit('K04 boolean editor metni', 'Pasif', I.Text);
       Esit('K05 boolean kosul', '(a.x = :p1) | False:' + IntToStr(varBoolean), Sonuc(I));
 
       K.Clear;
       Esit('K06 check combo bosaldi', '', Sonuc(K));
-      _EditSetValue(K, LG.Kayitlar[0].Degerler[1].Ilk);
+      TDev.EditSetValue(K, LG.Kayitlar[0].Degerler[1].Ilk);
       Esit('K07 check combo geri', 'cbsChecked cbsChecked cbsUnchecked',
         Format('%s %s %s', [Durum(K.States[0]), Durum(K.States[1]), Durum(K.States[2])]));
       Esit('K07b check combo kosulu', True.ToString, (Pos('IN (:p1, :p2)', Sonuc(K)) > 0).ToString);
 
       D.Clear;
-      _EditSetValue(D, LG.Kayitlar[0].Degerler[2].Ilk);
+      TDev.EditSetValue(D, LG.Kayitlar[0].Degerler[2].Ilk);
       Esit('K08 tarih geri', DateToStr(EncodeDate(2026, 11, 2)), DateToStr(D.Date));
 
       C.Clear;
-      _EditSetValue(C, LG.Kayitlar[0].Degerler[3].Ilk);
+      TDev.EditSetValue(C, LG.Kayitlar[0].Degerler[3].Ilk);
       Esit('K09 sayi geri', '1234.5', FloatToStr(C.Value, TFormatSettings.Invariant));
 
       T.Clear;
-      _EditSetValue(T, LG.Kayitlar[0].Degerler[4].Ilk);
+      TDev.EditSetValue(T, LG.Kayitlar[0].Degerler[4].Ilk);
       Esit('K10 metin geri', 'Ali & Veli', T.Text);
 
       Writeln('=== Varsayilana donus (Temizle) ===');
       I.EditValue := True;
-      V := _EditGetValue(I);
+      V := TDev.EditGetValue(I);
       I.EditValue := False;
-      _EditSetValue(I, V);
+      TDev.EditSetValue(I, V);
       Esit('V01 varsayilan True geri', 'Aktif', I.Text);
       K.Clear;
       K.States[2] := cbsChecked;
-      V := _EditGetValue(K);
+      V := TDev.EditGetValue(K);
       K.States[2] := cbsUnchecked;
       K.States[0] := cbsChecked;
-      _EditSetValue(K, V);
+      TDev.EditSetValue(K, V);
       Esit('V02 check combo varsayilani geri', 'cbsUnchecked cbsUnchecked cbsChecked',
         Format('%s %s %s', [Durum(K.States[0]), Durum(K.States[1]), Durum(K.States[2])]));
       K.Clear;
-      V := _EditGetValue(K);
+      V := TDev.EditGetValue(K);
       K.States[1] := cbsChecked;
-      _EditSetValue(K, V);
+      TDev.EditSetValue(K, V);
       Esit('V03 bos check combo varsayilani', '', Sonuc(K));
       D.Clear;
-      V := _EditGetValue(D);
+      V := TDev.EditGetValue(D);
       D.Date := EncodeDate(2026, 1, 1);
-      _EditSetValue(D, V);
+      TDev.EditSetValue(D, V);
       Esit('V04 bos tarih varsayilani', '', Sonuc(D));
       D.Date := EncodeDate(2026, 1, 1);
-      V := _EditGetValue(D);
+      V := TDev.EditGetValue(D);
       D.Date := EncodeDate(2026, 2, 2);
-      _EditSetValue(D, V);
+      TDev.EditSetValue(D, V);
       Esit('V05 tarih varsayilani', DateToStr(EncodeDate(2026, 1, 1)), DateToStr(D.Date));
     except
       on Ex: Exception do

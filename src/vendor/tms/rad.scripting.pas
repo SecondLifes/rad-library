@@ -138,8 +138,8 @@ begin
   TRadScriptFacade.Bind(FContext);
   if not FClassesRegistered then
   begin
-    RegisterUniClasses;
-    RegisterDevExpressClasses;   // tipli kancalar (typedhooks) kendi initialization'ında kayıtlı
+    TRadScriptUni.RegisterAll;
+    TRadScriptDev.RegisterAll;   // tipli kancalar (typedhooks) kendi initialization'ında kayıtlı
     FClassesRegistered := True;
   end;
 end;

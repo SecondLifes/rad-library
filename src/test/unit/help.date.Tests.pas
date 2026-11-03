@@ -319,7 +319,7 @@ procedure THelperDateTestleri.AyinNinciGunuRadUtilsIleTutarliTesti;
 begin
   // help.date._DayOfMonth2Date, rad.utils.DayOfMonth2Date'e ince bir sarmalayıcıdır;
   // bu test o delegasyonun kırılmadığını doğrular (bkz. help.date.pas yorumu).
-  Assert.IsTrue(rad.utils.DayOfMonth2Date(2026, 12, 5, 1)._DateEQ(TDateTime._DayOfMonth2Date(2026, 12, 5, 1)),
+  Assert.IsTrue(TRadDate.DayOfMonth(2026, 12, 5, 1)._DateEQ(TDateTime._DayOfMonth2Date(2026, 12, 5, 1)),
     '_DayOfMonth2Date, rad.utils.DayOfMonth2Date ile tutarsız sonuç üretti');
 end;
 

@@ -148,7 +148,7 @@ begin
     LSehir := Combo(LForm, LRiSehir, LDs, 'sehir');
 
     Kontrol('F00 help.Dev: formdaki DB combo icin _DataSetOf kayit dataset''i',
-      _DataSetOf(LSehir) = LKayit);
+      TDev.DataSetOf(LSehir) = LKayit);
 
     AOlay.Sayac := 0;
     LSehir.ActiveProperties.FillItems(LSehir);
@@ -324,7 +324,7 @@ begin
     LCb.DataBinding.DataField := 'sehir';
     LCb.Properties.AEditorId := 'sehir';
     LCb.Properties.AMasterFields := 'ulke;olmayan';
-    LRapor := RadChainAudit(LForm);
+    LRapor := TRadChain.Audit(LForm);
     Writeln('  [BILGI] ', LRapor.Replace(sLineBreak, ' | '));
     Kontrol('A01 AOnFill eksigi bildiriliyor', Pos('AOnFill', LRapor) > 0);
     Kontrol('A02 kayitta olmayan AMasterFields alani bildiriliyor',

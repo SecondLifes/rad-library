@@ -9,18 +9,33 @@ uses
   Data.DB, Uni, DBAccess,
   rad.db, rad.script.engine;
 
-/// TDataSet, TField, TUniQuery, TRadQuery, TUniConnection (gizli: Password, Username, Server, Database,
-/// ConnectString, Port, ProviderName, SpecificOptions, Options).
-procedure RegisterUniClasses;
+type
+  /// <summary>UniDAC classes for the script engine.</summary>
+  TRadScriptUni = class abstract
+  public
+    /// TDataSet, TField, TUniQuery, TRadQuery, TUniConnection (gizli: Password, Username, Server, Database,
+    /// ConnectString, Port, ProviderName, SpecificOptions, Options).
+    class procedure RegisterAll; static;
+  end;
+
+procedure RegisterUniClasses; deprecated 'Use TRadScriptUni.RegisterAll';
+
 
 implementation
 
-procedure RegisterUniClasses;
+class procedure TRadScriptUni.RegisterAll;
 begin
   TRadScriptEngine.RegisterClasses([TDataSet, TField, TUniQuery, TRadQuery]);
   TRadScriptEngine.RegisterClassHidden(TUniConnection,
     ['Password', 'Username', 'Server', 'Database', 'ConnectString', 'Port', 'ProviderName', 'SpecificOptions',
      'Options', 'EncryptedPassword', 'LoginPrompt', 'Open', 'Connect', 'Close', 'Disconnect']);
+end;
+
+{ Deprecated names }
+
+procedure RegisterUniClasses;
+begin
+  TRadScriptUni.RegisterAll;
 end;
 
 end.

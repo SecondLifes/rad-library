@@ -24,8 +24,8 @@ zeka) **eline verilen dünyayı** tanımlar: hangi nesneler, hangi sınıflar, h
 | `src/vendor/tms/rad.script.facade.pas` | UniDAC (`Help.uni`), VCL (`Vcl.Dialogs`), `rad.script.engine` | `TRadScriptContext` (host'un doldurduğu bağlam), facade sınıfları `TRadScriptDb/Query/Msg/Kullanici/Sirket/Param/Log/Mail`, `TRadScriptFacade.Install(AEngine, AContext)` |
 | `src/vendor/tms/rad.script.commands.pas` | `rad.script.engine`, `rad.script.hooks` | `komut` türü: modüle menü komutu ekleme |
 | `src/vendor/tms/rad.script.typedhooks.pas` | DevExpress (`cxEdit`), VCL | var parametreli olaylar için adaptörler (`TCloseQueryEvent`, `TcxEditValidateEvent`) |
-| `src/vendor/tms/rad.script.dev.pas` | DevExpress | `RegisterDevExpressClasses` (hazır sınıf listesi) |
-| `src/vendor/tms/rad.script.uni.pas` | UniDAC | `RegisterUniClasses` (`TDataSet`, `TField`, `TUniQuery`, `TRadQuery`) |
+| `src/vendor/tms/rad.script.dev.pas` | DevExpress | `TRadScriptDev.RegisterAll` (hazır sınıf listesi) |
+| `src/vendor/tms/rad.script.uni.pas` | UniDAC | `TRadScriptUni.RegisterAll` (`TDataSet`, `TField`, `TUniQuery`, `TRadQuery`) |
 | `.agents/skills/rad-script/` | — | yapay zeka ve insan için script yazma skill'i + üretilen API referansı |
 
 Hepsi `RadScriptTms` paketine girer (`cxLibraryRS37`, `dac370` requires eklenir); çekirdek `rad.script`
@@ -119,11 +119,11 @@ bir `TRadTypedHook` alt sınıfı + `Registry.Add(TypeInfo(...), sınıf)`.
 
 ## Sınıf kayıt listeleri
 
-- `rad.script.uni.RegisterUniClasses`: `TDataSet, TField, TUniQuery, TRadQuery, TUniConnection`
+- `TRadScriptUni.RegisterAll`: `TDataSet, TField, TUniQuery, TRadQuery, TUniConnection`
   (bağlantı sınıfı yalnız `InTransaction/Connected` gibi masum üyeler için; `Password/Server`
   **görünmesin** → `DefineClassByRTTI` sonrası TMS sınıf tanımından `Password`, `Server`,
   `ConnectString`, `Username`, `Database` üyeleri silinir; test eder).
-- `rad.script.dev.RegisterDevExpressClasses`: `TcxButton, TcxTextEdit, TcxDBTextEdit, TcxMemo,
+- `TRadScriptDev.RegisterAll`: `TcxButton, TcxTextEdit, TcxDBTextEdit, TcxMemo,
   TcxDBMemo, TcxComboBox, TcxDBLookupComboBox, TcxDateEdit, TcxDBDateEdit, TcxCurrencyEdit,
   TcxDBCurrencyEdit, TcxCheckBox, TcxDBCheckBox, TcxGrid, TcxGridDBTableView, TcxGridLevel,
   TdxLayoutControl, TdxLayoutItem, TdxLayoutGroup, TcxLabel, TcxPageControl, TcxTabSheet` (RTTI ile
@@ -143,7 +143,7 @@ bağlanır (elle yazılmış kopya yok; drift olmaz).
 
 1. Başlangıç: `Context := TRadScriptContext.Create; Context.Connection := dmERP.cnSirketDB; Context.Store :=
    cnSirketDB._Scripts; Kullanici/Sirket alanları; TRadScriptBinder.Context := Context;
-   RegisterUniClasses; RegisterDevExpressClasses`.
+   TRadScriptUni.RegisterAll; TRadScriptDev.RegisterAll`.
 2. `Tbase_modul.Register` → `TRadScriptCommands.Attach`.
 3. KP: `TRadScriptJobs.Context := Context` (Mailer burada dolu; ConfirmProc nil).
 4. 3. aşamadaki maddeler (düğme adları, `Attach` çağrıları) hâlâ host tarafında bekliyor.
@@ -162,7 +162,7 @@ bağlanır (elle yazılmış kopya yok; drift olmaz).
 - `TcxEditValidateEvent` adaptörü `ErrorText`'i yalnız script `Msg.HataMetni` koyduysa değiştirir.
 - `TRadScriptBinder.LoadInto` (yükle + derle + facade) `Attach` ve `TRadScriptCommands.Attach`'ın ortak
   çekirdeği; `ClassChain` `TComponent`/`TDataModule`'e kadar yürür (modüller için).
-- `RegisterDevExpressClasses` 24 sınıf; `dxLayoutControl`/`cxPC` paketleri RS37'de `cxLibraryRS37` içinde,
+- `TRadScriptDev.RegisterAll` 24 sınıf; `dxLayoutControl`/`cxPC` paketleri RS37'de `cxLibraryRS37` içinde,
   `RadScriptTms` requires: `dxCoreRS37, cxLibraryRS37, cxGridRS37, dac370, unidac370, RadKon, TMSScripter`.
 - Script içinde `BoolToStr` yok (TMS `ap_SysUtils` kapsamı); skill'e yazıldı.
 
@@ -197,7 +197,7 @@ senaryolar), `TypedHookTest` (VCL + DevExpress), `CommandsTest`, Win32 + Win64 (
    orijinal `OnCloseQuery` çalışmaz; `True` dönerse sıra `Before, orijinal, After`.
 9. **WHEN** `edt_OnValidate_Before` `False` döner ve `Msg.HataMetni('x')` koymuşsa **THE SYSTEM SHALL**
    `Error := True`, `ErrorText = 'x'`.
-10. **WHEN** `RegisterUniClasses` çağrılır **THE SYSTEM SHALL** script `TUniConnection.Password`
+10. **WHEN** `TRadScriptUni.RegisterAll` çağrılır **THE SYSTEM SHALL** script `TUniConnection.Password`
     erişiminde derleme hatası alır ("Unknown member"), `Connected` okunur.
 11. **WHEN** `ExportReference` çağrılır **THE SYSTEM SHALL** kayıtlı her sınıf için `## TSınıf`
     başlığı ve üye imzaları olan Markdown üretir; `Db.Sorgu`, `Msg.Soru` listede.

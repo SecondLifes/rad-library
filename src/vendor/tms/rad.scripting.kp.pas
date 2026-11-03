@@ -94,7 +94,7 @@ begin
   FContext.OnConfirm := function(const AText: string): Boolean begin Result := False; end;   // KP'de soru yok
   if not FClassesRegistered then
   begin
-    RegisterUniClasses;
+    TRadScriptUni.RegisterAll;
     FClassesRegistered := True;
   end;
   FJobs := TRadScriptJobs.Create(LStore, ABus, AWorkers, ASetup.DeadlineMs);

@@ -145,7 +145,7 @@ var
   LHedef: TRadComboBoxProperties;
 begin
   Inc(KademeSayisi);
-  LHedef := TRadComboBoxProperties(_OwnProperties(ATarget));
+  LHedef := TRadComboBoxProperties(TDev.OwnProperties(ATarget));
   SonKey := LHedef.RadSetting.Key;
   SonTag := LHedef.RadSetting.Tag;
   Q.Close;

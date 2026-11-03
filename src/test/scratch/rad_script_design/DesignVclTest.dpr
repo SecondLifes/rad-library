@@ -639,7 +639,7 @@ begin
   try
     try
       System.Classes.RegisterClass(TButton);
-      RegisterDevExpressClasses;
+      TRadScriptDev.RegisterAll;
       TRadScriptEngine.RegisterClasses([TLogger, TButton, TForm]);
       Testler;
       OturumTestleri;

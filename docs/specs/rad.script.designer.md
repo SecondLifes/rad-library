@@ -150,7 +150,7 @@ end;
 
 1. Boş `TRadScriptForm` yaratılır; `<kod>.dfm` varsa `TIDEFormDesigner.LoadFromStream(dfmText)`.
 2. Aynı `TIDEEngine` + `TIDEFormDesigner` + `TIDEInspector`; bu kipte **palet açık**
-   (`TIDEPaletteToolbar`): sayfalar `Standart` (VCL), `DevExpress` (`RegisterDevExpressClasses`
+   (`TIDEPaletteToolbar`): sayfalar `Standart` (VCL), `DevExpress` (`TRadScriptDev.RegisterAll`
    listesindeki `TControl` türevleri), `Veri` (`TDataSource`, `TUniQuery`); `IDEEngine.RegisterComponent`.
    Ekleme/silme/taşıma serbest.
 3. Olay bağlama: `PreventDefaultEventCreation := True` (kod editörü 6. aşamada). Inspector olay

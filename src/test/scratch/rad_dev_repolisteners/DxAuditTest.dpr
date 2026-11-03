@@ -319,10 +319,10 @@ begin
 
     Kontrol('G00 detay gorunumu pattern', LGorD.IsPattern);
     Kontrol('G00b ust gorunum pattern degil', not LGorM.IsPattern);
-    Kontrol('G01 pattern kolonunun degeri okunamaz (Unassigned)', VarIsEmpty(_ValueOf(LKolD)),
-      VarTypeAsText(VarType(_ValueOf(LKolD))));
+    Kontrol('G01 pattern kolonunun degeri okunamaz (Unassigned)', VarIsEmpty(TDev.ValueOf(LKolD)),
+      VarTypeAsText(VarType(TDev.ValueOf(LKolD))));
     Kontrol('G02 odakli kayit yokken kolon degeri Unassigned, Null degil',
-      VarIsEmpty(_ValueOf(LKolM)), VarTypeAsText(VarType(_ValueOf(LKolM))));
+      VarIsEmpty(TDev.ValueOf(LKolM)), VarTypeAsText(VarType(TDev.ValueOf(LKolM))));
 
     LCombo := TRadLookupComboBox.Create(LForm);
     LCombo.Parent := LForm;

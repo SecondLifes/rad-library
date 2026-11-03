@@ -976,7 +976,7 @@ end;
 constructor TRadPermission.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FData := NewPermission;
+  FData := TRadPermissions.New;
   FDataBinding :=TcxDBDataBinding.Create(Self,Self);
   { published 'default psDfm' ile AYNI olmak ZORUNDA (kit kurali,
     component-patterns.md): ayrisirsa DFM'e yazilmayan bir deger, sonraki

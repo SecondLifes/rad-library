@@ -104,7 +104,7 @@ type
     bilesen formdaki bir EDITOR de olabilir, bir GRID KOLONU da. Asagidaki
     yordamlar ikisini de kabul eder ve ayirt etmeyi cagirandan alir.
 
-    _OwnProperties NEDEN ONEMLI: bir RepositoryItem'a bagli tum tuketiciler
+    TDev.OwnProperties NEDEN ONEMLI: bir RepositoryItem'a bagli tum tuketiciler
     Properties'in AYNI ornegini paylasir; ama her tuketici KENDI Properties
     nesnesini de korur ve o nesne DFM'e yazilir (olculdu, DfmRoundTripTest).
     Yani "ortak davranis = item, yere ozel yuk = kendi Properties" deseni
@@ -114,31 +114,57 @@ type
     ! Grid kolonunda kendi Properties nesnesi ancak PropertiesClass (ya da
       DFM'de PropertiesClassName) atanmissa OLUSUR; atanmamissa nil doner.  *)
 
-/// <summary>Tuketicinin KENDI Properties nesnesi (paylasilan degil).
-/// Kolonda PropertiesClass atanmamissa nil doner.</summary>
-function _OwnProperties(AConsumer: TComponent): TcxCustomEditProperties;
-/// <summary>Tuketicinin ETKIN Properties'i - repository item varsa onunki.</summary>
-function _ActiveProperties(AConsumer: TComponent): TcxCustomEditProperties;
-/// <summary>Editorun EditValue'su; kolonda odakli kaydin degeri.</summary>
-function _ValueOf(AConsumer: TComponent): Variant;
-/// <summary>Kolonun Caption'i; editorde bagli kolonunki, yoksa bilesen adi.</summary>
-function _CaptionOf(AConsumer: TComponent): string;
-/// <summary>Bagli TDataSet; cozulemezse nil.</summary>
-function _DataSetOf(AConsumer: TComponent): TDataSet;
-/// <summary>Bagli TField; cozulemezse nil.</summary>
-function _FieldOf(AConsumer: TComponent): TField;
-/// <summary>Odagin bulundugu editor; yoksa nil. Odak editorun IC denetimindedir (TcxCustomInnerTextEdit),
-/// bu yuzden 'ActiveControl is TcxCustomEdit' her zaman False'tur; bu islev yerine kullanilir.</summary>
-function _ActiveEdit: TcxCustomEdit;
-/// <summary>Editorun degerini filtre kosuluna cevirir; bos editor kosul yazmaz. TcxTextEdit, TcxMaskEdit,
-/// TcxButtonEdit: Contains (harf duyarsiz). TcxCheckComboBox: isaretli Description'lar InList. Digerleri: Equal.
-/// TcxCheckBox AllowGrayed olmali (gri = bos); yoksa isaretsiz durum False kosulu yazar.</summary>
-procedure _EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit);
-/// <summary>Editor degerini dilden bagimsiz saklanacak bicimde verir. TcxCheckComboBox: isaretli Description'lar
-/// JSON dizisi (["TRY","USD"]; EditValue DevExpress'e ozgu ";3:TRY3:USD" bicimindedir). Digerleri: EditValue.</summary>
-function _EditGetValue(AEdit: TcxCustomEdit): Variant;
-/// <summary>_EditGetValue degerini editore yazar; JSON'dan metin donen tarihi (yyyy-mm-dd...) TDate'e cevirir.</summary>
-procedure _EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant);
+type
+  /// <summary>DevExpress helpers that have no single type to extend.</summary>
+  TDev = class abstract
+  public
+    /// <summary>Tuketicinin KENDI Properties nesnesi (paylasilan degil).
+    /// Kolonda PropertiesClass atanmamissa nil doner.</summary>
+    class function OwnProperties(AConsumer: TComponent): TcxCustomEditProperties; static;
+    /// <summary>Tuketicinin ETKIN Properties'i - repository item varsa onunki.</summary>
+    class function ActiveProperties(AConsumer: TComponent): TcxCustomEditProperties; static;
+    /// <summary>Editorun EditValue'su; kolonda odakli kaydin degeri.</summary>
+    class function ValueOf(AConsumer: TComponent): Variant; static;
+    /// <summary>Kolonun Caption'i; editorde bagli kolonunki, yoksa bilesen adi.</summary>
+    class function CaptionOf(AConsumer: TComponent): string; static;
+    /// <summary>Bagli TDataSet; cozulemezse nil.</summary>
+    class function DataSetOf(AConsumer: TComponent): TDataSet; static;
+    /// <summary>Bagli TField; cozulemezse nil.</summary>
+    class function FieldOf(AConsumer: TComponent): TField; static;
+    /// <summary>Odagin bulundugu editor; yoksa nil. Odak editorun IC denetimindedir (TcxCustomInnerTextEdit),
+    /// bu yuzden 'ActiveControl is TcxCustomEdit' her zaman False'tur; bu islev yerine kullanilir.</summary>
+    class function ActiveEdit: TcxCustomEdit; static;
+    /// <summary>Editorun degerini filtre kosuluna cevirir; bos editor kosul yazmaz. TcxTextEdit, TcxMaskEdit,
+    /// TcxButtonEdit: Contains (harf duyarsiz). TcxCheckComboBox: isaretli Description'lar InList. Digerleri: Equal.
+    /// TcxCheckBox AllowGrayed olmali (gri = bos); yoksa isaretsiz durum False kosulu yazar.</summary>
+    class procedure EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit); static;
+    /// <summary>Editor degerini dilden bagimsiz saklanacak bicimde verir. TcxCheckComboBox: isaretli Description'lar
+    /// JSON dizisi (["TRY","USD"]; EditValue DevExpress'e ozgu ";3:TRY3:USD" bicimindedir). Digerleri: EditValue.</summary>
+    class function EditGetValue(AEdit: TcxCustomEdit): Variant; static;
+    /// <summary>_EditGetValue degerini editore yazar; JSON'dan metin donen tarihi (yyyy-mm-dd...) TDate'e cevirir.</summary>
+    class procedure EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant); static;
+  end;
+
+function _OwnProperties(AConsumer: TComponent): TcxCustomEditProperties; deprecated 'Use TDev.OwnProperties';
+function _ActiveProperties(AConsumer: TComponent): TcxCustomEditProperties; deprecated 'Use TDev.ActiveProperties';
+function _ValueOf(AConsumer: TComponent): Variant; deprecated 'Use TDev.ValueOf';
+function _CaptionOf(AConsumer: TComponent): string; deprecated 'Use TDev.CaptionOf';
+function _DataSetOf(AConsumer: TComponent): TDataSet; deprecated 'Use TDev.DataSetOf';
+function _FieldOf(AConsumer: TComponent): TField; deprecated 'Use TDev.FieldOf';
+function _ActiveEdit: TcxCustomEdit; deprecated 'Use TDev.ActiveEdit';
+procedure _EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit); deprecated 'Use TDev.EditToFilter';
+function _EditGetValue(AEdit: TcxCustomEdit): Variant; deprecated 'Use TDev.EditGetValue';
+procedure _EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant); deprecated 'Use TDev.EditSetValue';
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -205,12 +231,12 @@ end;
 
 procedure TcxRootLookAndFeelhelp._Load;
 begin
- _FromVariant(Config.GetValue('skin',varNull));
+ _FromVariant(TRadApp.Config.GetValue('skin',varNull));
 end;
 
 procedure TcxRootLookAndFeelhelp._Save;
 begin
-   Config.SetValue('skin',_AsVariant);
+   TRadApp.Config.SetValue('skin',_AsVariant);
 end;
 
 { TcxNavigatorControlButtonsHelper }
@@ -379,7 +405,7 @@ end;
 
 { Tuketici erisimcileri }
 
-function _OwnProperties(AConsumer: TComponent): TcxCustomEditProperties;
+class function TDev.OwnProperties(AConsumer: TComponent): TcxCustomEditProperties;
 begin
   Result := nil;
   if AConsumer is TcxCustomEdit then
@@ -390,7 +416,7 @@ begin
     Result := TcxCustomGridTableItem(AConsumer).Properties;
 end;
 
-function _ActiveProperties(AConsumer: TComponent): TcxCustomEditProperties;
+class function TDev.ActiveProperties(AConsumer: TComponent): TcxCustomEditProperties;
 begin
   Result := nil;
   if AConsumer is TcxCustomEdit then
@@ -399,7 +425,7 @@ begin
     Result := TcxCustomGridTableItem(AConsumer).GetProperties;
 end;
 
-function _ValueOf(AConsumer: TComponent): Variant;
+class function TDev.ValueOf(AConsumer: TComponent): Variant;
 begin
   Result := Null;
   if AConsumer is TcxCustomEdit then
@@ -408,7 +434,7 @@ begin
     Result := TcxCustomGridTableItem(AConsumer).EditValue;
 end;
 
-function _CaptionOf(AConsumer: TComponent): string;
+class function TDev.CaptionOf(AConsumer: TComponent): string;
 var
   LItem: TcxCustomGridTableItem;
 begin
@@ -427,7 +453,7 @@ begin
   Result := AConsumer.Name;
 end;
 
-function _DataSetOf(AConsumer: TComponent): TDataSet;
+class function TDev.DataSetOf(AConsumer: TComponent): TDataSet;
 var
   LCol: TcxGridDBColumn;
 begin
@@ -443,7 +469,7 @@ begin
   end;
 end;
 
-function _ActiveEdit: TcxCustomEdit;
+class function TDev.ActiveEdit: TcxCustomEdit;
 var
   LControl: TWinControl;
 begin
@@ -463,7 +489,7 @@ begin
       Result := Result + [Variant(AEdit.ActiveProperties.Items[i].Description)];
 end;
 
-procedure _EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit);
+class procedure TDev.EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit);
 begin
   if AEdit is TcxCustomCheckComboBox then
     AFilter.InList(AField, CheckedDescriptions(TcxCustomCheckComboBox(AEdit)))
@@ -473,7 +499,7 @@ begin
     AFilter.Equal(AField, AEdit.EditValue);
 end;
 
-function _EditGetValue(AEdit: TcxCustomEdit): Variant;
+class function TDev.EditGetValue(AEdit: TcxCustomEdit): Variant;
 var
   V: Variant;
 begin
@@ -506,7 +532,7 @@ begin
   end;
 end;
 
-procedure _EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant);
+class procedure TDev.EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant);
 var
   LFormat: TFormatSettings;
 begin
@@ -523,7 +549,7 @@ begin
     AEdit.EditValue := AValue;
 end;
 
-function _FieldOf(AConsumer: TComponent): TField;
+class function TDev.FieldOf(AConsumer: TComponent): TField;
 begin
   Result := nil;
   if AConsumer is TcxCustomTextEdit then
@@ -727,6 +753,58 @@ begin
  OptionsData.Deleting:=IsEdit;
  OptionsData.Editing:=IsEdit;
  OptionsData.Inserting:=IsEdit;
+end;
+
+{ Deprecated names }
+
+function _OwnProperties(AConsumer: TComponent): TcxCustomEditProperties;
+begin
+  Result := TDev.OwnProperties(AConsumer);
+end;
+
+function _ActiveProperties(AConsumer: TComponent): TcxCustomEditProperties;
+begin
+  Result := TDev.ActiveProperties(AConsumer);
+end;
+
+function _ValueOf(AConsumer: TComponent): Variant;
+begin
+  Result := TDev.ValueOf(AConsumer);
+end;
+
+function _CaptionOf(AConsumer: TComponent): string;
+begin
+  Result := TDev.CaptionOf(AConsumer);
+end;
+
+function _DataSetOf(AConsumer: TComponent): TDataSet;
+begin
+  Result := TDev.DataSetOf(AConsumer);
+end;
+
+function _FieldOf(AConsumer: TComponent): TField;
+begin
+  Result := TDev.FieldOf(AConsumer);
+end;
+
+function _ActiveEdit: TcxCustomEdit;
+begin
+  Result := TDev.ActiveEdit;
+end;
+
+procedure _EditToFilter(const AFilter: IRadSqlFilter; const AField: string; AEdit: TcxCustomEdit);
+begin
+  TDev.EditToFilter(AFilter, AField, AEdit);
+end;
+
+function _EditGetValue(AEdit: TcxCustomEdit): Variant;
+begin
+  Result := TDev.EditGetValue(AEdit);
+end;
+
+procedure _EditSetValue(AEdit: TcxCustomEdit; const AValue: Variant);
+begin
+  TDev.EditSetValue(AEdit, AValue);
 end;
 
 initialization

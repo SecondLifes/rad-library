@@ -205,7 +205,7 @@ var
   E: TRadScriptEngine;
 begin
   Writeln('--- D: DevExpress kayit');
-  RegisterDevExpressClasses;
+  TRadScriptDev.RegisterAll;
   SW := TStopwatch.StartNew;
   E := TRadScriptEngine.Create;
   try

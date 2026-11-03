@@ -50,7 +50,7 @@ var
   Impl: IDumanArayuzu;
   Tam: Integer;
 begin
-  Cache := NewSmartCache; // ARC — Free yok
+  Cache := TSmartCache.New; // ARC — Free yok
 
   Kontrol(Cache.AddOrSet('sayi', 10), 'interface üzerinden AddOrSet');
   Kontrol(Cache.Get('sayi', 0) = 10, 'interface üzerinden Get(Integer)');

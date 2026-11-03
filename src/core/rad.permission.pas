@@ -18,7 +18,15 @@ type
     procedure Clear;
   end;
 
-function NewPermission(const AJson: RawUtf8 = '[]'): IPermission;
+type
+  /// <summary>Permission set factory.</summary>
+  TRadPermissions = class abstract
+  public
+    class function New(const AJson: RawUtf8 = '[]'): IPermission; static;
+  end;
+
+function NewPermission(const AJson: RawUtf8 = '[]'): IPermission; deprecated 'Use TRadPermissions.New';
+
 
 implementation
 
@@ -151,9 +159,16 @@ end;
 
 { Factory }
 
-function NewPermission(const AJson: RawUtf8): IPermission;
+class function TRadPermissions.New(const AJson: RawUtf8): IPermission;
 begin
   Result := TRadPermissionImpl.Create(AJson);
+end;
+
+{ Deprecated names }
+
+function NewPermission(const AJson: RawUtf8 = '[]'): IPermission;
+begin
+  Result := TRadPermissions.New(AJson);
 end;
 
 end.

@@ -146,7 +146,7 @@ end;
 procedure TGenerateFluentCodeTestleri.NilClassVerilirseExceptionFirlatir;
 begin
   Assert.WillRaise(
-    procedure begin GenerateFluentCode(TClass(nil)); end,
+    procedure begin TRadFluent.GenerateCode(TClass(nil)); end,
     Exception,
     'AClass=nil için anlamlı bir exception bekleniyordu');
 end;
@@ -155,7 +155,7 @@ procedure TGenerateFluentCodeTestleri.InterfaceAdiTOnekiDusurulupIEklenerekUreti
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('IDenemeSinifi = interface'),
     'Interface adı "T"siz + "I" önekiyle üretilmemiş: ' + Kod);
 end;
@@ -164,7 +164,7 @@ procedure TGenerateFluentCodeTestleri.ImplementasyonClassAdiFluentEkiyleUretilir
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('TDenemeSinifiFluent = class(TInterfacedObject, IDenemeSinifi)'),
     'İmplementasyon class adı ClassName+Fluent olarak üretilmemiş: ' + Kod);
 end;
@@ -173,7 +173,7 @@ procedure TGenerateFluentCodeTestleri.BasitPropertyIcinSetVeGetFluentImzasiUreti
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('function SetAdi(const aAdi: string): IDenemeSinifi;'),
     'SetAdi fluent imzası beklenen şekilde üretilmemiş: ' + Kod);
   Assert.IsTrue(Kod.Contains('function GetAdi: string;'),
@@ -190,7 +190,7 @@ var
 begin
   // Yasi: private GetYasi/SetYasi accessor'ları ile yazılmış (Adi gibi doğrudan field'a
   // bağlı DEĞİL).
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('function SetYasi(const aYasi: Integer): IDenemeSinifi;'),
     'Accessor metodlu (Yasi) property için Set üretilmemiş: ' + Kod);
   Assert.IsTrue(Kod.Contains('function GetYasi: Integer;'),
@@ -201,7 +201,7 @@ procedure TGenerateFluentCodeTestleri.EventPropertyIcinDeSetVeGetUretilir;
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('function SetOnTikla(const aOnTikla: TNotifyEvent): IDenemeSinifi;'),
     'Event property (OnTikla) için Set üretilmemiş: ' + Kod);
   Assert.IsTrue(Kod.Contains('function GetOnTikla: TNotifyEvent;'),
@@ -212,7 +212,7 @@ procedure TGenerateFluentCodeTestleri.PublicMetodAyniImzaIlePassThroughUretilir;
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('procedure Calistir(const aParam: string);'),
     'Calistir pass-through imzası üretilmemiş: ' + Kod);
   Assert.IsTrue(Kod.Contains('FInstance.Calistir(aParam);'),
@@ -230,7 +230,7 @@ begin
   // Kullanıcının orijinal DegerAl(arg:TArray<TValue>):Tvalue örneğiyle aynı desen —
   // RTTI'nin TArray<TValue>/TValue için ürettiği tip adının gerçekten DERLENEBİLİR
   // olup olmadığını (bu testin kendisinin derlenmiş/geçmiş olması) doğrular.
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('DegerAlGenerik'),
     'DegerAlGenerik hiç üretilmemiş: ' + Kod);
   // RTTI, TArray<TValue> için TAM NİTELİKLİ adı üretiyor (System.Rtti.TValue) — bu hâlâ
@@ -246,7 +246,7 @@ var
   Kod: string;
   SayimIndex, Bulunan: Integer;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
 
   Bulunan := 0;
   SayimIndex := Kod.IndexOf('procedure Coklu(');
@@ -268,7 +268,7 @@ procedure TGenerateFluentCodeTestleri.AsInstanceHerZamanUretilir;
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('function AsInstance: TDenemeSinifi;'),
     'AsInstance imzası üretilmemiş: ' + Kod);
   Assert.IsTrue(Kod.Contains('Result := FInstance;'),
@@ -279,7 +279,7 @@ procedure TGenerateFluentCodeTestleri.AutoFreeParametresiVeDestructorUretilir;
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TDenemeSinifi);
+  Kod := TRadFluent.GenerateCode(TDenemeSinifi);
   Assert.IsTrue(Kod.Contains('constructor Create(AInstance: TDenemeSinifi; AAutoFree: Boolean = False);'),
     'Constructor''a AAutoFree parametresi eklenmemiş: ' + Kod);
   Assert.IsTrue(Kod.Contains('destructor Destroy; override;'),
@@ -292,7 +292,7 @@ procedure TGenerateFluentCodeTestleri.IndeksliPropertyIcinIndexParametreliSetGet
 var
   Kod: string;
 begin
-  Kod := GenerateFluentCode(TSalYaziciSinifi);
+  Kod := TRadFluent.GenerateCode(TSalYaziciSinifi);
   Assert.IsTrue(Kod.Contains('function SetOge(Index: Integer; const aValue: string): ISalYaziciSinifi;'),
     'İndeksli property (Oge) için index parametreli Set üretilmemiş: ' + Kod);
   Assert.IsTrue(Kod.Contains('function GetOge(Index: Integer): string;'),

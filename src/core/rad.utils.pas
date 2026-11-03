@@ -25,18 +25,20 @@ type
     class procedure InUI(AProc: TProc); static;
   end;
 
-  /// GenerateFluentCode'un kendi hata tipi — generic Exception yerine.
+  /// TRadFluent.GenerateCode'un kendi hata tipi — generic Exception yerine.
   EFluentCodeGen = class(Exception);
 
-  /// GenerateFluentCode üretim seçenekleri.
+  /// TRadFluent.GenerateCode üretim seçenekleri.
   ///   fgoInterfaceGuid       — üretilen interface'e gerçek bir ['{...}'] GUID koyar
   ///                            (Supports()/as çalışsın diye). Her çağrıda YENİ GUID
   ///                            üretilir; kodu yeniden üretirsen GUID değişir.
   ///   fgoPascalCaseAccessors — accessor adlarının ilk harfini büyütür
   ///                            (keyLength -> SetKeyLength). Gövdedeki üye referansı
   ///                            orijinal yazımıyla kalır.
-  ///   fgoCollisionMarkers    — aynı ada iki farklı üye üretilecekse üretilen koda
-  ///                            "// ÇAKIŞMA" yorumu düşer ve raporda listelenir.
+  ///   fgoCollisionMarkers    — bir üye çakışma yüzünden yeniden adlandırıldıysa
+  ///                            üretilen koda "// ÇAKIŞMA" yorumu düşer. Ad çözümü
+  ///                            seçenekten bağımsızdır: gerçek metot adını korur,
+  ///                            property erişimcisi Prop soneki alır (GetTextProp).
   ///   fgoHeaderReport        — üretilen kodun başına kapsam/atlama raporu ekler.
   ///   fgoNewFactory          — implementasyon class'ına bir
   ///                            "class function New(AInstance; AAutoFree): I<Isim>"
@@ -48,21 +50,30 @@ type
   ///                            (CryptoConst.TAESKeyLength). Kısa ad, hedef unit'te
   ///                            aynı adı taşıyan başka bir tiple çakışırsa üretilen
   ///                            kod SESSİZCE yanlış tipe bağlanır; bu seçenek onu
-  ///                            önler. Varsayılan KAPALI: çıktı belirgin biçimde
-  ///                            uzar ve nitelenmiş ad yalnızca bir unit'in interface
+  ///                            önler. TRadFluent.GenerateCode'da varsayılan KAPALI,
+  ///                            TRadFluent.GenerateUnit'te AÇIK (CFluentUnitDefaultOptions).
+  ///                            Nitelenmiş ad yalnızca bir unit'in interface
   ///                            bölümünde bildirilmiş tipler için elde edilebilir
   ///                            (diğerlerinde kısa ada düşülür).
+  ///   fgoIncludeInherited    — atalardan gelen public/published üyeleri de üretir
+  ///                            (TObject, TPersistent ve TInterfacedObject hariç).
+  ///                            Her ad için en türemiş sınıftaki bildirimler alınır:
+  ///                            aynı adlı ata overload'ları dışarıdan çağrılamaz.
+  ///                            Varsayılan KAPALI: çıktı birkaç yüz üyeye çıkabilir.
+  ///                            Kaynak taraması yalnızca AClass'a bakar; atadaki
+  ///                            RTTI körlükleri raporlanmaz.
   TFluentGenOption = (
     fgoInterfaceGuid,
     fgoPascalCaseAccessors,
     fgoCollisionMarkers,
     fgoHeaderReport,
     fgoNewFactory,
-    fgoQualifiedTypeNames);
+    fgoQualifiedTypeNames,
+    fgoIncludeInherited);
 
   TFluentGenOptions = set of TFluentGenOption;
 
-  /// GenerateFluentUnit'in hedef dosya ZATEN VARKEN ne yapacağı.
+  /// TRadFluent.GenerateUnit'in hedef dosya ZATEN VARKEN ne yapacağı.
   ///   fumFailIfExists — dosya varsa hiçbir şey yazmaz, EFluentCodeGen fırlatır.
   ///                     Varsayılan: diske yazan bir fonksiyonda kayıp riski
   ///                     taşıyan her davranış açık istek olmalıdır.
@@ -76,172 +87,226 @@ type
   TFluentUnitWriteMode = (fumFailIfExists, fumMergeRegions, fumReplaceFile);
 
 const
-  /// GenerateFluentCode'un varsayılan seçenekleri (hepsi açık).
+  /// TRadFluent.GenerateCode'un varsayılan seçenekleri (hepsi açık).
   CFluentGenDefaultOptions = [fgoInterfaceGuid, fgoPascalCaseAccessors,
     fgoCollisionMarkers, fgoHeaderReport, fgoNewFactory];
 
+  /// TRadFluent.GenerateUnit'in varsayılanı: birim derlenmek içindir ve kısa ad uses
+  /// sırasına göre başka tipe bağlanabilir (TBitmap: Vcl.Graphics <-> Winapi.Windows).
+  CFluentUnitDefaultOptions = CFluentGenDefaultOptions + [fgoQualifiedTypeNames];
 
 
 
-/// Verilen bir class'ı RTTI ile inceleyip, onu fluent/interface tabanlı bir sisteme
-/// çevirecek HAZIR PASCAL KAYNAK KODUNU (string olarak) üretir. Üretilen kod
-/// ÇALIŞTIRILMAZ/derlenmez — yalnızca metindir; gözden geçirip projeye elle eklemen gerekir.
-///
-/// Kurallar:
-///   - Interface adı: class adı 'T' ile başlıyorsa 'I' + (T'siz hali), değilse 'I' + ad.
-///   - İmplementasyon class adı: class adı + 'Fluent'.
-///   - Her zaman bir "AsInstance: <ClassName>" eklenir — sarmalanan ham örneğe kaçış kapısı.
-///   - Class'ta DOĞRUDAN tanımlı (kalıtılmamış), public/published her BASİT property için:
-///       function Set<Prop>(const a<Prop>: <Tip>): I<Isim>;  (fluent, zincire devam eder)
-///       function Get<Prop>: <Tip>;
-///     Event property'ler (TNotifyEvent gibi method-type) de aynı kurala tabidir.
-///   - İNDEKSLİ (array) property'ler (ör. property Items[Index: Integer]: T) için:
-///       function Set<Prop>(<index parametreleri>; const aValue: <Tip>): I<Isim>;
-///       function Get<Prop>(<index parametreleri>): <Tip>;
-///   - DOĞRUDAN tanımlı her public method (property accessor'ları hariç, onlar zaten
-///     private/protected olduğu için otomatik elenir) AYNI isim ve imzayla pass-through
-///     olarak eklenir (fluent DEĞİLDİR, orijinal dönüş tipini korur). Aynı isimde birden
-///     fazla (overload) metod varsa üretilen kodda 'overload;' otomatik eklenir.
-///   - Constructor'a AAutoFree: Boolean = False parametresi eklenir; True verilirse
-///     wrapper'ın destructor'ı FInstance.Free çağırır (varsayılan False — sarmalanan
-///     örneğin ömrü hâlâ çağıranın sorumluluğundadır).
-///
-/// DİKKAT — Parametre/dönüş tipi adları: RTTI (TRttiType.Name) tabanlıdır ve TEST EDİLDİ
-/// (bkz. rad.utils.Tests.pas → GenerikArrayParametreliMetodDaUretilir): ör. TArray<TValue>
-/// gibi generic bir tip TAM NİTELİKLİ olarak üretilir (TArray<System.Rtti.TValue>) — bu
-/// hâlâ geçerli/derlenebilir Pascal'dır, sadece kısaltılmamıştır.
-///
-/// DİKKAT — Class helper sızıntısı (RTTI seviyesinde DÜZELTİLEMEZ): AClass'ın DECLARE
-/// EDİLDİĞİ unit'te o an AKTİF olan bir class helper (ör. "TObjectHelper = class helper
-/// for TObject") varsa, derleyici o helper'ın metodlarını AClass'ın RTTI'sine SANKİ
-/// DOĞRUDAN TANIMLIYMIŞ GİBİ gömer — Meth.Parent bile AClass'ı gösterir, ayırt edilemez
-/// (gerçek derleme/testte doğrulandı: DUnitX.Utils.TObjectHelper.Log/Status/WriteLn,
-/// TDenemeSinifi hiç tanımlamadığı hâlde üretilen koda karıştı). Bu, üretici fonksiyonun
-/// bir kusuru değil, Delphi'nin derleme zamanında RTTI'ye "o anki görünür" tüm üyeleri
-/// gömmesinin doğal sonucu — çalışma zamanı RTTI'sinden ayıklanamaz. ÜRETİLEN KODU HER
-/// ZAMAN GÖZDEN GEÇİR; beklenmeyen fazladan metod görürsen elle çıkar.
-///
-/// NOT: Record desteği (GenerateFluentCode(ATypeInfo: PTypeInfo)) denendi ve KALDIRILDI —
-/// gerçek derleme/testte (bkz. rad.utils.Tests.pas geçmişi) Delphi 13.1 Athens'in
-/// System.Rtti'sinde record property'lerinin TRttiProperty olarak HİÇ yansıtılmadığı
-/// (GetDeclaredProperties boş döndüğü) tespit edildi — en geniş {$RTTI} direktifiyle bile
-/// değişmedi. Yalnızca class destekleniyor.
-///
-/// ===========================================================================
-/// DİKKAT — RTTI KÖRLÜĞÜ: enumeratorlarına AÇIK DEĞER atanmış enum tipleri
-/// ===========================================================================
-/// Delphi, şu şekildeki bir enum için HİÇ RTTI üretmez:
-///
-///   TAESKeyLength = (kl128 = 128, kl192 = 192, kl256 = 256);
-///
-/// Derleyici bu tipte bir published property'yi KABUL EDER, ama o property için
-/// RTTI kaydı EMIT ETMEZ. Sonuç: property çalışma zamanında tamamen görünmezdir —
-/// ne GetDeclaredProperties, ne GetProperties, ne de TypInfo.GetPropList onu döndürür.
-/// Delphi 37.0 (Athens) ile derlenip ÇALIŞTIRILARAK doğrulanmıştır.
-///
-/// Aynı kör nokta metodları da vurur:
-///   - RTTI'siz tipte PARAMETRE alan metodun parametre listesi boş görünür
-///     (üretilen kod derlenmez);
-///   - RTTI'siz tip DÖNDÜREN fonksiyon mkProcedure + ReturnType=nil olarak görünür
-///     (üretilen kod dönüş değerini sessizce düşürür).
-///
-/// ÇÖZÜM: AUnitSourcePath ver — sınıfın bildirildiği .pas dosyasının yolu. O zaman
-/// üretici, RTTI'nin gördüğüyle kaynaktaki bildirimleri karşılaştırır, RTTI'nin
-/// göremediği public/published property'leri kaynaktan okuyup üretir ve üretilen
-/// koda "// [KAYNAK]" işaretiyle koyar. Parametre listesi şüpheli metodları da
-/// başlık raporunda listeler. Kaynak tarayıcı basit bir metin tarayıcıdır: iç içe
-/// tip bildirimi barındıran sınıflarda eksik/fazla okuyabilir — raporu oku.
-///
-/// Parametreler:
-///   AClass          — sarmalanacak sınıf (nil verilemez).
-///   AUnitSourcePath — opsiyonel; sınıfın bildirildiği .pas dosyası. Boş bırakılırsa
-///                     yalnızca RTTI kullanılır (eski davranış birebir korunur).
-///   AOptions        — üretim seçenekleri; bkz. TFluentGenOption.
+
+type
+  /// <summary>Fluent wrapper generator.</summary>
+  TRadFluent = class abstract
+  public
+    /// Verilen bir class'ı RTTI ile inceleyip, onu fluent/interface tabanlı bir sisteme
+    /// çevirecek HAZIR PASCAL KAYNAK KODUNU (string olarak) üretir. Üretilen kod
+    /// ÇALIŞTIRILMAZ/derlenmez — yalnızca metindir; gözden geçirip projeye elle eklemen gerekir.
+    ///
+    /// Kurallar:
+    ///   - Interface adı: class adı 'T' ile başlıyorsa 'I' + (T'siz hali), değilse 'I' + ad.
+    ///   - İmplementasyon class adı: class adı + 'Fluent'.
+    ///   - Her zaman bir "AsInstance: <ClassName>" eklenir — sarmalanan ham örneğe kaçış kapısı.
+    ///   - Class'ta DOĞRUDAN tanımlı (kalıtılmamış), public/published her BASİT property için:
+    ///       function Set<Prop>(const a<Prop>: <Tip>): I<Isim>;  (fluent, zincire devam eder)
+    ///       function Get<Prop>: <Tip>;
+    ///     Event property'ler (TNotifyEvent gibi method-type) de aynı kurala tabidir.
+    ///   - İNDEKSLİ (array) property'ler (ör. property Items[Index: Integer]: T) için:
+    ///       function Set<Prop>(<index parametreleri>; const aValue: <Tip>): I<Isim>;
+    ///       function Get<Prop>(<index parametreleri>): <Tip>;
+    ///   - DOĞRUDAN tanımlı her public method (property accessor'ları hariç, onlar zaten
+    ///     private/protected olduğu için otomatik elenir) AYNI isim ve imzayla pass-through
+    ///     olarak eklenir (fluent DEĞİLDİR, orijinal dönüş tipini korur). Aynı isimde birden
+    ///     fazla (overload) metod varsa üretilen kodda 'overload;' otomatik eklenir.
+    ///   - Constructor'a AAutoFree: Boolean = False parametresi eklenir; True verilirse
+    ///     wrapper'ın destructor'ı FInstance.Free çağırır (varsayılan False — sarmalanan
+    ///     örneğin ömrü hâlâ çağıranın sorumluluğundadır).
+    ///
+    /// DİKKAT — Parametre/dönüş tipi adları: RTTI (TRttiType.Name) tabanlıdır ve TEST EDİLDİ
+    /// (bkz. rad.utils.Tests.pas → GenerikArrayParametreliMetodDaUretilir): ör. TArray<TValue>
+    /// gibi generic bir tip TAM NİTELİKLİ olarak üretilir (TArray<System.Rtti.TValue>) — bu
+    /// hâlâ geçerli/derlenebilir Pascal'dır, sadece kısaltılmamıştır.
+    ///
+    /// DİKKAT — Private iç tip: public bir üye sınıfın private iç tipini kullanıyorsa
+    /// (TStringBuilder.GetEnumerator) üretilen kod E2361 verir. RTTI bunu ayırt edemiyor:
+    /// IsPublicType bu tipler için de True döner (ölçüldü). O üyeyi elle çıkar.
+    ///
+    /// DİKKAT — Class helper sızıntısı (RTTI seviyesinde DÜZELTİLEMEZ): AClass'ın DECLARE
+    /// EDİLDİĞİ unit'te o an AKTİF olan bir class helper (ör. "TObjectHelper = class helper
+    /// for TObject") varsa, derleyici o helper'ın metodlarını AClass'ın RTTI'sine SANKİ
+    /// DOĞRUDAN TANIMLIYMIŞ GİBİ gömer — Meth.Parent bile AClass'ı gösterir, ayırt edilemez
+    /// (gerçek derleme/testte doğrulandı: DUnitX.Utils.TObjectHelper.Log/Status/WriteLn,
+    /// TDenemeSinifi hiç tanımlamadığı hâlde üretilen koda karıştı). Bu, üretici fonksiyonun
+    /// bir kusuru değil, Delphi'nin derleme zamanında RTTI'ye "o anki görünür" tüm üyeleri
+    /// gömmesinin doğal sonucu — çalışma zamanı RTTI'sinden ayıklanamaz. ÜRETİLEN KODU HER
+    /// ZAMAN GÖZDEN GEÇİR; beklenmeyen fazladan metod görürsen elle çıkar.
+    ///
+    /// NOT: Record desteği (GenerateFluentCode(ATypeInfo: PTypeInfo)) denendi ve KALDIRILDI —
+    /// gerçek derleme/testte (bkz. rad.utils.Tests.pas geçmişi) Delphi 13.1 Athens'in
+    /// System.Rtti'sinde record property'lerinin TRttiProperty olarak HİÇ yansıtılmadığı
+    /// (GetDeclaredProperties boş döndüğü) tespit edildi — en geniş {$RTTI} direktifiyle bile
+    /// değişmedi. Yalnızca class destekleniyor.
+    ///
+    /// ===========================================================================
+    /// DİKKAT — RTTI KÖRLÜĞÜ: enumeratorlarına AÇIK DEĞER atanmış enum tipleri
+    /// ===========================================================================
+    /// Delphi, şu şekildeki bir enum için HİÇ RTTI üretmez:
+    ///
+    ///   TAESKeyLength = (kl128 = 128, kl192 = 192, kl256 = 256);
+    ///
+    /// Derleyici bu tipte bir published property'yi KABUL EDER, ama o property için
+    /// RTTI kaydı EMIT ETMEZ. Sonuç: property çalışma zamanında tamamen görünmezdir —
+    /// ne GetDeclaredProperties, ne GetProperties, ne de TypInfo.GetPropList onu döndürür.
+    /// Delphi 37.0 (Athens) ile derlenip ÇALIŞTIRILARAK doğrulanmıştır.
+    ///
+    /// Aynı kör nokta metodları da vurur:
+    ///   - RTTI'siz tipte PARAMETRE alan metodun parametre listesi boş görünür
+    ///     (üretilen kod derlenmez);
+    ///   - RTTI'siz tip DÖNDÜREN fonksiyon mkProcedure + ReturnType=nil olarak görünür
+    ///     (üretilen kod dönüş değerini sessizce düşürür).
+    ///
+    /// ÇÖZÜM: AUnitSourcePath ver — sınıfın bildirildiği .pas dosyasının yolu. O zaman
+    /// üretici, RTTI'nin gördüğüyle kaynaktaki bildirimleri karşılaştırır, RTTI'nin
+    /// göremediği public/published property'leri kaynaktan okuyup üretir ve üretilen
+    /// koda "// [KAYNAK]" işaretiyle koyar. Parametre listesi şüpheli metodları da
+    /// başlık raporunda listeler. Kaynak tarayıcı basit bir metin tarayıcıdır: iç içe
+    /// tip bildirimi barındıran sınıflarda eksik/fazla okuyabilir — raporu oku.
+    ///
+    /// Parametreler:
+    ///   AClass          — sarmalanacak sınıf (nil verilemez).
+    ///   AUnitSourcePath — opsiyonel; sınıfın bildirildiği .pas dosyası. Boş bırakılırsa
+    ///                     yalnızca RTTI kullanılır (eski davranış birebir korunur).
+    ///   AOptions        — üretim seçenekleri; bkz. TFluentGenOption.
+    class function GenerateCode(AClass: TClass; const AUnitSourcePath: string = '';
+    AOptions: TFluentGenOptions = CFluentGenDefaultOptions): string; static;
+    /// GenerateFluentCode ile AYNI üretimi yapar, ama sonucu elle yapıştırılacak bir
+    /// parça olarak değil, DERLENMEYE HAZIR TAM BİR UNIT olarak AOutputPath'e yazar
+    /// (UTF-8 + BOM — kitin delphi-encoding kuralı). Yazılan dosyanın yolunu döndürür.
+    ///
+    /// Unit adı DOSYA ADINDAN türetilir (Delphi'de ikisi aynı olmak zorundadır):
+    /// "...\MyLib.AES.Fluent.pas" -> "unit MyLib.AES.Fluent;".
+    ///
+    /// BAĞIMLILIKLAR (uses) nasıl çözülür:
+    ///   1. Sarmalanan sınıfın kendi unit'i — RTTI'nin QualifiedName'inden.
+    ///   2. Üretilen her property/parametre/dönüş tipinin unit'i — aynı yoldan.
+    ///      Generic tiplerin İÇİNDEKİ nitelenmiş adlar da taranır
+    ///      (TArray<System.Rtti.TValue> -> System.Rtti).
+    ///   3. RTTI'nin GÖREMEDİĞİ tipler (açık değer atanmış enum'lar) için unit bilgisi
+    ///      RTTI'de YOKTUR. Bu durumda AUnitSourcePath verilmişse, sarmalanan sınıfın
+    ///      kendi interface uses listesi olduğu gibi eklenir ve üretilen dosyaya bunun
+    ///      neden yapıldığı yorum olarak yazılır. Bir kısmı gereksiz olabilir; derleyip
+    ///      kullanılmayanları silmek çağırana kalır.
+    ///      Kaynak taraması {$IFDEF} dallarını değerlendiremez; o yüzden yalnızca süreçte
+    ///      gerçekten bağlı olan unit'ler alınır (Posix.* gibi etkin olmayan dallar elenir).
+    ///   'System' örtük olduğu için hiçbir zaman listeye yazılmaz.
+    ///
+    /// ÜRETİLEN İÇERİK HER ZAMAN {$REGION} İÇİNDEDİR — taze dosyada da, birleştirmede
+    /// de. İki blok üretilir ve sınıf adıyla anahtarlanır:
+    ///   {$REGION 'RAD-FLUENT:<Sinif>:TYPES ...'}   -> interface, tip bildirimleri
+    ///   {$REGION 'RAD-FLUENT:<Sinif>:IMPL ...'}    -> implementation, gövdeler
+    /// fumMergeRegions modunda bu anahtarlar aranır: varsa İÇERİĞİ DEĞİŞTİRİLİR, yoksa
+    /// TYPES bloğu 'implementation' satırından hemen önce, IMPL bloğu son 'end.'
+    /// satırından hemen önce eklenir. Eksik uses girdileri mevcut uses cümlesinin
+    /// sonuna eklenir. Yalnızca implementation uses'ta bulunan bir unit interface'e
+    /// TAŞINIR (ikisinde birden E2004 verir); başka hiçbir şey silinmez.
+    ///
+    /// DİKKAT: bir bloğun İÇİNE elle yazdığın kod, yeniden üretimde KAYBOLUR — blok
+    /// bütünüyle değiştirilir. Elle eklemelerini blokların DIŞINA yaz.
+    ///
+    /// Birleştirmede mevcut bloktaki GUID YENİDEN KULLANILIR; yeni GUID üretilmez.
+    /// Aksi hâlde her çalıştırma GUID'i değiştirir (idempotent olmaz) ve o interface'i
+    /// Supports()/as ile kullanan kod sessizce bozulur.
+    ///
+    /// Parametreler:
+    ///   AOutputPath — yazılacak .pas dosyasının tam yolu. Klasör yoksa oluşturulur.
+    ///   AWriteMode  — dosya zaten varsa ne yapılacağı; bkz. TFluentUnitWriteMode.
+    class function GenerateUnit(AClass: TClass; const AOutputPath: string;
+    const AUnitSourcePath: string = '';
+    AOptions: TFluentGenOptions = CFluentUnitDefaultOptions;
+    AWriteMode: TFluentUnitWriteMode = fumFailIfExists): string; static;
+    /// Sınıf için üretilecek üye sayısı; çıktının ne kadar büyüyeceğini önceden göstermek için.
+    class function CountMembers(AClass: TClass; AIncludeInherited: Boolean): Integer; static;
+    /// Bir unit dosyasındaki TÜM RAD-FLUENT bölgelerinin ait olduğu sınıf adlarını
+    /// döndürür (her sınıf bir kez, dosyadaki sırayla). Dosyaya dokunmaz.
+    class function ListRegions(const AUnitPath: string): TArray<string>; static;
+    /// ÖKSÜZ BÖLGE TEMİZLİĞİ: AKeepClassNames listesinde OLMAYAN her RAD-FLUENT
+    /// bölgesini (TYPES + IMPL) siler. Kaynaktan kaldırılmış bir sınıfın sarmalayıcısı
+    /// dosyada sonsuza kadar kalmasın diye; GenerateFluentUnit tek seferde yalnızca
+    /// KENDİ sınıfının bölgesine baktığı için bunu fark edemez.
+    ///
+    /// ADryRun VARSAYILAN True — dosyaya HİÇBİR ŞEY yazılmaz, yalnızca silinecek sınıf
+    /// adları döner. Gerçekten silmek için açıkça False ver: bu işlem geri alınamaz.
+    ///
+    /// uses cümlesine DOKUNULMAZ: silinen bölgenin getirdiği unit'ler listede kalır
+    /// (hangi unit'in yalnızca o bölge için eklendiği güvenilir biçimde bilinemez).
+    /// Derleyicinin "unit gereksiz" ipuçlarına bakıp elle temizle.
+    class function PruneRegions(const AUnitPath: string;
+    const AKeepClassNames: array of string; ADryRun: Boolean = True): TArray<string>; static;
+  end;
+
 function GenerateFluentCode(AClass: TClass; const AUnitSourcePath: string = '';
-  AOptions: TFluentGenOptions = CFluentGenDefaultOptions): string;
-
-/// GenerateFluentCode ile AYNI üretimi yapar, ama sonucu elle yapıştırılacak bir
-/// parça olarak değil, DERLENMEYE HAZIR TAM BİR UNIT olarak AOutputPath'e yazar
-/// (UTF-8 + BOM — kitin delphi-encoding kuralı). Yazılan dosyanın yolunu döndürür.
-///
-/// Unit adı DOSYA ADINDAN türetilir (Delphi'de ikisi aynı olmak zorundadır):
-/// "...\MyLib.AES.Fluent.pas" -> "unit MyLib.AES.Fluent;".
-///
-/// BAĞIMLILIKLAR (uses) nasıl çözülür:
-///   1. Sarmalanan sınıfın kendi unit'i — RTTI'nin QualifiedName'inden.
-///   2. Üretilen her property/parametre/dönüş tipinin unit'i — aynı yoldan.
-///      Generic tiplerin İÇİNDEKİ nitelenmiş adlar da taranır
-///      (TArray<System.Rtti.TValue> -> System.Rtti).
-///   3. RTTI'nin GÖREMEDİĞİ tipler (açık değer atanmış enum'lar) için unit bilgisi
-///      RTTI'de YOKTUR. Bu durumda AUnitSourcePath verilmişse, sarmalanan sınıfın
-///      kendi interface uses listesi olduğu gibi eklenir ve üretilen dosyaya bunun
-///      neden yapıldığı yorum olarak yazılır. Bir kısmı gereksiz olabilir; derleyip
-///      kullanılmayanları silmek çağırana kalır.
-///   'System' örtük olduğu için hiçbir zaman listeye yazılmaz.
-///
-/// ÜRETİLEN İÇERİK HER ZAMAN {$REGION} İÇİNDEDİR — taze dosyada da, birleştirmede
-/// de. İki blok üretilir ve sınıf adıyla anahtarlanır:
-///   {$REGION 'RAD-FLUENT:<Sinif>:TYPES ...'}   -> interface, tip bildirimleri
-///   {$REGION 'RAD-FLUENT:<Sinif>:IMPL ...'}    -> implementation, gövdeler
-/// fumMergeRegions modunda bu anahtarlar aranır: varsa İÇERİĞİ DEĞİŞTİRİLİR, yoksa
-/// TYPES bloğu 'implementation' satırından hemen önce, IMPL bloğu son 'end.'
-/// satırından hemen önce eklenir. Eksik uses girdileri mevcut uses cümlesinin
-/// sonuna eklenir; hiçbir şey silinmez.
-///
-/// DİKKAT: bir bloğun İÇİNE elle yazdığın kod, yeniden üretimde KAYBOLUR — blok
-/// bütünüyle değiştirilir. Elle eklemelerini blokların DIŞINA yaz.
-///
-/// Birleştirmede mevcut bloktaki GUID YENİDEN KULLANILIR; yeni GUID üretilmez.
-/// Aksi hâlde her çalıştırma GUID'i değiştirir (idempotent olmaz) ve o interface'i
-/// Supports()/as ile kullanan kod sessizce bozulur.
-///
-/// Parametreler:
-///   AOutputPath — yazılacak .pas dosyasının tam yolu. Klasör yoksa oluşturulur.
-///   AWriteMode  — dosya zaten varsa ne yapılacağı; bkz. TFluentUnitWriteMode.
+  AOptions: TFluentGenOptions = CFluentGenDefaultOptions): string; deprecated 'Use TRadFluent.GenerateCode';
 function GenerateFluentUnit(AClass: TClass; const AOutputPath: string;
   const AUnitSourcePath: string = '';
-  AOptions: TFluentGenOptions = CFluentGenDefaultOptions;
-  AWriteMode: TFluentUnitWriteMode = fumFailIfExists): string;
-
-/// Bir unit dosyasındaki TÜM RAD-FLUENT bölgelerinin ait olduğu sınıf adlarını
-/// döndürür (her sınıf bir kez, dosyadaki sırayla). Dosyaya dokunmaz.
-function ListFluentRegions(const AUnitPath: string): TArray<string>;
-
-/// ÖKSÜZ BÖLGE TEMİZLİĞİ: AKeepClassNames listesinde OLMAYAN her RAD-FLUENT
-/// bölgesini (TYPES + IMPL) siler. Kaynaktan kaldırılmış bir sınıfın sarmalayıcısı
-/// dosyada sonsuza kadar kalmasın diye; GenerateFluentUnit tek seferde yalnızca
-/// KENDİ sınıfının bölgesine baktığı için bunu fark edemez.
-///
-/// ADryRun VARSAYILAN True — dosyaya HİÇBİR ŞEY yazılmaz, yalnızca silinecek sınıf
-/// adları döner. Gerçekten silmek için açıkça False ver: bu işlem geri alınamaz.
-///
-/// uses cümlesine DOKUNULMAZ: silinen bölgenin getirdiği unit'ler listede kalır
-/// (hangi unit'in yalnızca o bölge için eklendiği güvenilir biçimde bilinemez).
-/// Derleyicinin "unit gereksiz" ipuçlarına bakıp elle temizle.
+  AOptions: TFluentGenOptions = CFluentUnitDefaultOptions;
+  AWriteMode: TFluentUnitWriteMode = fumFailIfExists): string; deprecated 'Use TRadFluent.GenerateUnit';
+function ListFluentRegions(const AUnitPath: string): TArray<string>; deprecated 'Use TRadFluent.ListRegions';
 function PruneFluentRegions(const AUnitPath: string;
-  const AKeepClassNames: array of string; ADryRun: Boolean = True): TArray<string>;
+  const AKeepClassNames: array of string; ADryRun: Boolean = True): TArray<string>; deprecated 'Use TRadFluent.PruneRegions';
 
-/// 1/10 ms toleranslı TDateTime karşılaştırma (float yuvarlama hatalarına karşı)
-/// Kaynak: vendor\gabr42\GpDelphiUnits\src\GpTimezone.pas (DateEQ/DateLT/.../DateGE)
-function DateEQ(const ADate1, ADate2: TDateTime): Boolean;
-function DateLT(const ADate1, ADate2: TDateTime): Boolean;
-function DateLE(const ADate1, ADate2: TDateTime): Boolean;
-function DateGT(const ADate1, ADate2: TDateTime): Boolean;
-function DateGE(const ADate1, ADate2: TDateTime): Boolean;
 
-/// float yuvarlama hatalarını düzeltir (Trunc/Frac öncesi çağrılır)
-/// ör. FixDT(36463.99999999999) = 36464
-function FixDT(const ADate: TDateTime): TDateTime;
 
-/// "ayın N'inci X günü" tarihini hesaplar (ör. DayOfMonth2Date(2026,12,5,1) = Aralık'ın son Pazarı)
-/// AWeekInMonth: 1-4 (o ayın kaçıncı haftası) veya 5 (son hafta); ADayInWeek: 1=Pazar..7=Cumartesi
-function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
+
+
+
+
+
+
+
+type
+  /// <summary>TDateTime comparison with a tolerance.</summary>
+  TRadDate = class abstract
+  public
+    /// 1/10 ms toleranslı TDateTime karşılaştırma (float yuvarlama hatalarına karşı)
+    /// Kaynak: vendor\gabr42\GpDelphiUnits\src\GpTimezone.pas (DateEQ/DateLT/.../DateGE)
+    class function EQ(const ADate1, ADate2: TDateTime): Boolean; static;
+    class function LT(const ADate1, ADate2: TDateTime): Boolean; static;
+    class function LE(const ADate1, ADate2: TDateTime): Boolean; static;
+    class function GT(const ADate1, ADate2: TDateTime): Boolean; static;
+    class function GE(const ADate1, ADate2: TDateTime): Boolean; static;
+    /// float yuvarlama hatalarını düzeltir (Trunc/Frac öncesi çağrılır)
+    /// ör. FixDT(36463.99999999999) = 36464
+    class function Fix(const ADate: TDateTime): TDateTime; static;
+    /// "ayın N'inci X günü" tarihini hesaplar (ör. DayOfMonth2Date(2026,12,5,1) = Aralık'ın son Pazarı)
+    /// AWeekInMonth: 1-4 (o ayın kaçıncı haftası) veya 5 (son hafta); ADayInWeek: 1=Pazar..7=Cumartesi
+    class function DayOfMonth(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime; static;
+  end;
+
+function DateEQ(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.EQ';
+function DateLT(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.LT';
+function DateLE(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.LE';
+function DateGT(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.GT';
+function DateGE(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.GE';
+function FixDT(const ADate: TDateTime): TDateTime; deprecated 'Use TRadDate.Fix';
+function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime; deprecated 'Use TRadDate.DayOfMonth';
+
+
+
+
+
+
+
+
+
 
 
 implementation
 uses
 System.Rtti, System.Generics.Collections,
-System.DateUtils
+System.DateUtils, System.IOUtils
 ,mormot.core.text, mormot.core.unicode , mormot.core.datetime, mormot.core.json
 ;
 
@@ -254,7 +319,7 @@ System.DateUtils
 // etkileyeceğinden bilinçli olarak dokunulmadı.
 
 { ============================================================================
-  GenerateFluentCode — uygulama
+  TRadFluent.GenerateCode — uygulama
   ============================================================================ }
 
 type
@@ -278,6 +343,9 @@ type
     FSourcePath: string;
     FCtx: TRttiContext;
     FType: TRttiInstanceType;
+    FLevels: TArray<TRttiInstanceType>;
+    FMethods: TList<TRttiMethod>;
+    FEmittedProps: TDictionary<string, Byte>;
     FInstanceTypeName: string;
     FInterfaceName: string;
     FImplName: string;
@@ -304,15 +372,17 @@ type
 
     procedure Note(const AText: string);
     function AccessorName(const AName: string): string;
+    function UniqueAccessor(const AName: string): string;
     function ClaimName(const AName, AKind: string): string;
     function TypeNameOf(AType: TRttiType): string;
-    function IsEligibleMethod(const AMeth: TRttiMethod): Boolean;
+    function IsEligibleMethod(const AMeth: TRttiMethod; ALevel: TRttiInstanceType): Boolean;
     function TryParamList(const AParams: TArray<TRttiParameter>;
       out AText: string; out AReason: string): Boolean;
     function ArgListFor(const AParams: TArray<TRttiParameter>): string;
     function IndexParamsOf(const AIdxProp: TRttiIndexedProperty): TArray<TRttiParameter>;
 
     procedure ResolveNames;
+    procedure ResolveLevels;
     procedure DetectConstructor;
     procedure CollectRttiInventory;
     procedure EmitPrologue;
@@ -326,6 +396,7 @@ type
     function ReadSourceLines: string;
     function ExtractClassBody(const ASource: string): string;
     function ParseSourceProperties(const ABody: string): TArray<TSourceProperty>;
+    procedure MarkSuspect(const AName, ANote: string);
     procedure CheckSourceMethods(const ABody: string);
     procedure ScanSource;
 
@@ -360,6 +431,8 @@ type
     function ImplRegionText: string;
     /// Uretimin gerektirdigi unit'ler (Prepare sonrasi dolar).
     property UsedUnits: TStringList read FUsedUnits;
+    /// Uretilen property + indeksli property + metod sayisi (Prepare sonrasi).
+    function MemberCount: Integer;
     /// Bos degilse yeni GUID uretilmez, bu deger kullanilir (idempotent birlestirme).
     property PresetGuid: string read FGuidText write FGuidText;
   end;
@@ -369,10 +442,22 @@ type
   -------------------------------------------------------------------------- }
 
 /// Pascal yorumlarını (// ... , { ... }, (* ... *)) siler; satır yapısını korur.
-function StripPascalComments(const ASource: string): string;
+/// ABlank True ise yorumlar ve metin sabitleri silinmez, boşlukla örtülür: konumlar
+/// değişmediği için sonuçtaki bir indis kaynak metinde de aynı yere denk gelir.
+function StripPascalComments(const ASource: string; ABlank: Boolean = False): string;
 var
   LSb: TStringBuilder;
   I, LLen: Integer;
+
+  procedure Take(AKeep: Boolean);
+  begin
+    if AKeep or CharInSet(ASource[I], [#10, #13]) then
+      LSb.Append(ASource[I])
+    else if ABlank then
+      LSb.Append(' ');
+    Inc(I);
+  end;
+
 begin
   LSb := TStringBuilder.Create(Length(ASource));
   try
@@ -381,36 +466,175 @@ begin
     while I <= LLen do
     begin
       if (ASource[I] = '/') and (I < LLen) and (ASource[I + 1] = '/') then
-        while (I <= LLen) and not CharInSet(ASource[I], [#10, #13]) do Inc(I)
+        while (I <= LLen) and not CharInSet(ASource[I], [#10, #13]) do Take(False)
       else if ASource[I] = '{' then
       begin
-        while (I <= LLen) and (ASource[I] <> '}') do
-        begin
-          if CharInSet(ASource[I], [#10, #13]) then LSb.Append(ASource[I]);
-          Inc(I);
-        end;
-        Inc(I);
+        while (I <= LLen) and (ASource[I] <> '}') do Take(False);
+        if I <= LLen then Take(False);
       end
       else if (ASource[I] = '(') and (I < LLen) and (ASource[I + 1] = '*') then
       begin
-        Inc(I, 2);
-        while (I < LLen) and not ((ASource[I] = '*') and (ASource[I + 1] = ')')) do
-        begin
-          if CharInSet(ASource[I], [#10, #13]) then LSb.Append(ASource[I]);
-          Inc(I);
-        end;
-        Inc(I, 2);
+        Take(False);
+        Take(False);
+        while (I < LLen) and not ((ASource[I] = '*') and (ASource[I + 1] = ')')) do Take(False);
+        if I <= LLen then Take(False);
+        if I <= LLen then Take(False);
+      end
+      else if ASource[I] = '''' then
+      begin
+        // Metin sabitindeki { ya da // yorum başlatmaz.
+        Take(not ABlank);
+        while (I <= LLen) and not CharInSet(ASource[I], ['''', #10, #13]) do Take(not ABlank);
+        if (I <= LLen) and (ASource[I] = '''') then Take(not ABlank);
       end
       else
-      begin
-        LSb.Append(ASource[I]);
-        Inc(I);
-      end;
+        Take(True);
     end;
     Result := LSb.ToString;
   finally
     LSb.Free;
   end;
+end;
+
+/// .pas dosyasını okur. BOM yoksa TStrings ANSI varsayar; BOM'suz UTF-8 dosyada bu,
+/// yeniden kaydedince Türkçe metni kalıcı olarak bozar. O yüzden önce baytlara bakılır.
+procedure LoadPascalLines(ALines: TStrings; const AFileName: string);
+var
+  LBytes: TBytes;
+  LEncoding: TEncoding;
+begin
+  LBytes := TFile.ReadAllBytes(AFileName);
+  LEncoding := nil;
+  if (TEncoding.GetBufferEncoding(LBytes, LEncoding) = 0) and (Length(LBytes) > 0) and
+     (Winapi.Windows.MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, PAnsiChar(@LBytes[0]),
+       Length(LBytes), nil, 0) > 0) then
+    LEncoding := TEncoding.UTF8;
+  ALines.LoadFromFile(AFileName, LEncoding);
+end;
+
+type
+  // Kaynak tarayıcının gördüğü bir koşullu derleme zinciri. Known False: değerlendirilemedi.
+  // Taken: zincirde etkin bir dal geçildi, geri kalan dallar etkin değildir.
+  TDirectiveBranch = record
+    Known, Active, Taken: Boolean;
+  end;
+
+/// Tek sembollü açılış yönergesini değerlendirir; sonucu kesin değilse False döner.
+/// Liste bilerek dar: yanlış bir "tanımsız" kararı gerçek üyeleri siler, oysa bilinmeyen
+/// sembolde iki dalı da okumak en fazla raporda fazla bir satır demektir.
+function EvalDirective(const ALower: string; out AActive: Boolean): Boolean;
+const
+  CDefined = ' mswindows ';
+  CUndefined = ' clr posix macos macos32 macos64 linux linux64 android android32 android64 ' +
+    'ios ios32 ios64 iosdevice iossimulator nextgen autorefcount ';
+var
+  LBody, LSymbol: string;
+  LNegate: Boolean;
+begin
+  AActive := False;
+  LBody := Copy(ALower, 3, System.Pos('}', ALower) - 3).Trim;
+  LNegate := LBody.StartsWith('ifndef ') or LBody.StartsWith('if not defined(');
+  if LBody.StartsWith('ifdef ') or LBody.StartsWith('ifndef ') then
+    LSymbol := Copy(LBody, System.Pos(' ', LBody) + 1, MaxInt)
+  else if LBody.StartsWith('if defined(') or LBody.StartsWith('if not defined(') then
+    LSymbol := Copy(LBody, System.Pos('(', LBody) + 1, System.Pos(')', LBody) - System.Pos('(', LBody) - 1)
+  else
+    Exit(False);
+  LSymbol := ' ' + LSymbol.Trim + ' ';
+  AActive := System.Pos(LSymbol, CDefined) > 0;
+  Result := AActive or (System.Pos(LSymbol, CUndefined) > 0);
+  if LNegate then AActive := not AActive;
+end;
+
+/// {$ELSE} ya da {$ELSEIF} satırında zinciri bir sonraki dala geçirir.
+procedure NextBranch(var ABranch: TDirectiveBranch; const ALower: string);
+begin
+  if ABranch.Known and ABranch.Taken then
+    ABranch.Active := False
+  else if ALower.StartsWith('{$elseif') then
+    ABranch.Known := ABranch.Known and
+      EvalDirective('{$if' + Copy(ALower, Length('{$elseif') + 1, MaxInt), ABranch.Active)
+  else
+    ABranch.Active := True;
+  ABranch.Taken := ABranch.Taken or ABranch.Active;
+end;
+
+/// Kesin etkin olmayan {$IF} dallarındaki satırları boşaltır. VCL kaynağında .NET'ten kalan
+/// {$IF DEFINED(CLR)} blokları var; okunursa olmayan üyeler üretilir (TControl.Color,
+/// TBitmap.ImageFormat ölçüldü). Satır başındaki yönergeler işlenir, satır içi olanlar değil.
+procedure BlankInactiveBranches(ALines: TStrings);
+var
+  LStack: TStack<TDirectiveBranch>;
+  LBranch: TDirectiveBranch;
+  LLow: string;
+  I, LInactive: Integer;
+begin
+  LStack := TStack<TDirectiveBranch>.Create;
+  try
+    LInactive := 0;
+    for I := 0 to ALines.Count - 1 do
+    begin
+      LLow := System.SysUtils.LowerCase(System.SysUtils.Trim(ALines[I]));
+      if LLow.StartsWith('{$endif') or LLow.StartsWith('{$ifend') then
+      begin
+        if LStack.Count > 0 then
+        begin
+          LBranch := LStack.Pop;
+          if LBranch.Known and not LBranch.Active then Dec(LInactive);
+        end;
+      end
+      else if LLow.StartsWith('{$if') and (System.Pos('{$endif', LLow) = 0) then
+      begin
+        LBranch.Known := EvalDirective(LLow, LBranch.Active);
+        LBranch.Taken := LBranch.Active;
+        if LBranch.Known and not LBranch.Active then Inc(LInactive);
+        LStack.Push(LBranch);
+      end
+      else if LLow.StartsWith('{$else') and (LStack.Count > 0) then
+      begin
+        LBranch := LStack.Pop;
+        if LBranch.Known and not LBranch.Active then Dec(LInactive);
+        NextBranch(LBranch, LLow);
+        if LBranch.Known and not LBranch.Active then Inc(LInactive);
+        LStack.Push(LBranch);
+      end
+      else if LInactive > 0 then
+        ALines[I] := '';
+    end;
+  finally
+    LStack.Free;
+  end;
+end;
+
+/// Delphi ayrılmış sözcükleri; bu adlardaki üyeler kaynakta & ile yazılır, RTTI ise
+/// & olmadan döndürür.
+function EscapeIdent(const AName: string): string;
+const
+  CReserved = ' and array as asm begin case class const constructor destructor ' +
+    'dispinterface div do downto else end except exports file finalization finally ' +
+    'for function goto if implementation in inherited initialization inline interface ' +
+    'is label library mod nil not object of or packed procedure program property raise ' +
+    'record repeat resourcestring set shl shr string then threadvar to try type unit ' +
+    'until uses var while with xor ';
+begin
+  Result := AName;
+  if System.Pos(' ' + System.SysUtils.LowerCase(AName) + ' ', CReserved) > 0 then
+    Result := '&' + AName;
+end;
+
+/// Generic ve iç içe sınıf adını (TGen<System.Integer>, TDis.TIc) tanımlayıcıya indirir.
+function FluentIdent(const ATypeName: string): string;
+var
+  C: Char;
+begin
+  Result := '';
+  for C in ATypeName do
+    if CharInSet(C, ['A'..'Z', 'a'..'z', '0'..'9', '_']) then
+      Result := Result + C
+    else if (Result <> '') and (Result[Length(Result)] <> '_') then
+      Result := Result + '_';
+  if (Result <> '') and (Result[Length(Result)] = '_') then
+    SetLength(Result, Length(Result) - 1);
 end;
 
 /// Parantez/köşeli parantez derinliği — çok satırlı bildirimin bittiğini anlamak için.
@@ -482,30 +706,75 @@ begin
     if LRoot = CRoots[I] then Exit(True);
 end;
 
+/// İki ad aynı unit mi — nitelenmiş/niteliksiz ikizler AYNI sayılır.
+function SameUnitName(const AUnit1, AUnit2: string): Boolean;
+var
+  LBare: string;
+begin
+  Result := SameText(AUnit1, AUnit2) or
+    (IsRtlNamespaced(AUnit1, LBare) and SameText(LBare, AUnit2)) or
+    (IsRtlNamespaced(AUnit2, LBare) and SameText(LBare, AUnit1));
+end;
+
 /// AUnitName listede var mı — nitelenmiş/niteliksiz ikizler AYNI sayılır.
 function UnitListHas(AList: TStrings; const AUnitName: string): Boolean;
 var
   I: Integer;
-  LBare, LOtherBare: string;
-  LIsNs: Boolean;
 begin
-  if AList.IndexOf(AUnitName) >= 0 then Exit(True);
-  LIsNs := IsRtlNamespaced(AUnitName, LBare);
   for I := 0 to AList.Count - 1 do
-  begin
-    if LIsNs and SameText(AList[I], LBare) then Exit(True);
-    if IsRtlNamespaced(AList[I], LOtherBare) and SameText(LOtherBare, AUnitName) then Exit(True);
-  end;
+    if SameUnitName(AList[I], AUnitName) then Exit(True);
   Result := False;
+end;
+
+function SkipBlanks(const AText: string; AFrom: Integer): Integer;
+begin
+  Result := AFrom;
+  while (Result <= Length(AText)) and CharInSet(AText[Result], [' ', #9, #13, #10]) do Inc(Result);
+end;
+
+/// "class" sözcüğünden sonrası gerçek bir bildirim mi? "TX = class;" ileri bildirim,
+/// "TX = class of TY" metasınıftır; ikisinde de okunacak gövde yoktur.
+function IsClassDeclaration(const ALowerSource: string; AAfterClass: Integer): Boolean;
+var
+  LNext: Integer;
+begin
+  Result := False;
+  if (AAfterClass <= Length(ALowerSource)) and
+     CharInSet(ALowerSource[AAfterClass], ['a'..'z', '0'..'9', '_']) then Exit;
+  LNext := SkipBlanks(ALowerSource, AAfterClass);
+  if Copy(ALowerSource, LNext, 1) = ';' then Exit;
+  Result := not ((Copy(ALowerSource, LNext, 2) = 'of') and (SkipBlanks(ALowerSource, LNext + 2) > LNext + 2));
+end;
+
+/// Küçük harfli, kırpılmış sınıf gövdesi satırı iç içe bir tip bloğu açıyor mu?
+/// "TIc = class;" ya da "TIc = class(TX);" blok açmaz.
+function OpensNestedType(const ALine: string): Boolean;
+var
+  LEqual: Integer;
+  LValue: string;
+begin
+  Result := False;
+  LEqual := System.Pos('=', ALine);
+  if (LEqual = 0) or ALine.EndsWith(';') then Exit;
+  LValue := Copy(ALine, LEqual + 1, MaxInt).Trim;
+  Result := LValue.StartsWith('class') or LValue.StartsWith('record') or
+    LValue.StartsWith('packed record') or LValue.StartsWith('interface');
+end;
+
+/// Sınıf ya da iç tip gövdesini kapatan satır mı? Yönerge silinince
+/// "end {$IFDEF X} deprecated {$ENDIF};" satırı "end ;" olarak kalır.
+function ClosesBlock(const ALine: string): Boolean;
+begin
+  Result := ALine.StartsWith('end') and ALine.EndsWith(';') and
+    not CharInSet(ALine[Length('end') + 1], ['a'..'z', '0'..'9', '_']);
 end;
 
 /// Kaynak metinde "<SinifAdi> = class" başlığının konumunu bulur (0 = yok).
 function FindClassHeaderPos(const ALowerSource, ALowerClassName: string): Integer;
 var
-  LIdx, LScan, LLen: Integer;
+  LIdx, LScan: Integer;
 begin
   Result := 0;
-  LLen := Length(ALowerSource);
   LIdx := 1;
   while True do
   begin
@@ -513,18 +782,37 @@ begin
     if LIdx = 0 then Exit;
     if (LIdx = 1) or not CharInSet(ALowerSource[LIdx - 1], ['a'..'z', '0'..'9', '_']) then
     begin
-      LScan := LIdx + Length(ALowerClassName);
-      while (LScan <= LLen) and CharInSet(ALowerSource[LScan], [' ', #9, #13, #10]) do Inc(LScan);
-      if (LScan <= LLen) and (ALowerSource[LScan] = '=') then
+      LScan := SkipBlanks(ALowerSource, LIdx + Length(ALowerClassName));
+      if Copy(ALowerSource, LScan, 1) = '<' then  // generic: TGen<T> = class
+        LScan := SkipBlanks(ALowerSource, System.Pos('>', ALowerSource, LScan) + 1);
+      if Copy(ALowerSource, LScan, 1) = '=' then
       begin
-        Inc(LScan);
-        while (LScan <= LLen) and CharInSet(ALowerSource[LScan], [' ', #9, #13, #10]) do Inc(LScan);
-        if Copy(ALowerSource, LScan, 5) = 'class' then
+        LScan := SkipBlanks(ALowerSource, LScan + 1);
+        if (Copy(ALowerSource, LScan, 5) = 'class') and IsClassDeclaration(ALowerSource, LScan + 5) then
           Exit(LIdx);
       end;
     end;
     Inc(LIdx, Length(ALowerClassName));
   end;
+end;
+
+procedure CollectLinkedUnit(const AName: string; ANameType: TNameType; AFlags: Byte; AParam: Pointer);
+var
+  LBare: string;
+begin
+  if ANameType <> ntContainsUnit then Exit;
+  TStrings(AParam).Add(AName);
+  if IsRtlNamespaced(AName, LBare) then
+    TStrings(AParam).Add(LBare);
+end;
+
+function CollectModuleUnits(AModule: THandle; AData: Pointer): Boolean;
+var
+  LFlags: Integer;
+begin
+  Result := True;
+  if Winapi.Windows.FindResource(AModule, 'PACKAGEINFO', RT_RCDATA) <> 0 then
+    GetPackageInfo(AModule, AData, LFlags, CollectLinkedUnit);
 end;
 
 { TFluentCodeGenerator }
@@ -545,6 +833,8 @@ begin
   FRttiProps := TDictionary<string, Byte>.Create;
   FRttiMethods := TDictionary<string, Integer>.Create;
   FRttiFunctions := TDictionary<string, Byte>.Create;
+  FMethods := TList<TRttiMethod>.Create;
+  FEmittedProps := TDictionary<string, Byte>.Create;
   FUsedUnits := TStringList.Create;
   FUsedUnits.CaseSensitive := False;   // IndexOf ile büyük/küçük harf duyarsız tekilleştirme
   FUnresolvedTypes := TStringList.Create;
@@ -558,6 +848,8 @@ begin
   FSuspectMethods.Free;
   FUnresolvedTypes.Free;
   FUsedUnits.Free;
+  FEmittedProps.Free;
+  FMethods.Free;
   FRttiFunctions.Free;
   FRttiMethods.Free;
   FRttiProps.Free;
@@ -594,12 +886,26 @@ begin
   if FEmitted.TryGetValue(UpperCase(AName), LPrev) then
   begin
     if LPrev = AKind then Exit;
-    Result := Format('    // ÇAKIŞMA: "%s" hem %s hem %s olarak üretiliyor — birini elle yeniden adlandır.',
+    Result := Format('    // ÇAKIŞMA: "%s" hem %s hem %s; bu üye yeniden adlandırıldı.',
       [AName, LPrev, AKind]);
     Note(Format('ÇAKIŞMA: %s (%s <-> %s)', [AName, LPrev, AKind]));
   end
   else
     FEmitted.Add(UpperCase(AName), AKind);
+end;
+
+/// Erişimci adı gerçek bir metotla çakışıyorsa metot korunur, erişimci Prop soneki alır.
+/// Yalnızca yorum düşmek yetmez: iki üye birden E2252 verir (TStrings.GetText ölçüldü).
+function TFluentCodeGenerator.UniqueAccessor(const AName: string): string;
+const
+  CAccessorClashSuffix = 'Prop';
+begin
+  Result := AName;
+  if not FOverloads.ContainsKey(UpperCase(AName)) then Exit;
+  Result := AName + CAccessorClashSuffix;
+  Note(Format('ÇAKIŞMA: %s metodu korundu, property erişimcisi %s adıyla üretildi.', [AName, Result]));
+  if fgoCollisionMarkers in FOptions then
+    FDecls.AppendLine(Format('    // ÇAKIŞMA: %s metodu korundu, erişimci %s oldu.', [AName, Result]));
 end;
 
 /// nil-güvenli tip adı. RTTI'si olmayan tip için '' döner (çağıran atlar).
@@ -615,15 +921,18 @@ begin
   if not (fgoQualifiedTypeNames in FOptions) then Exit;
   try
     LQualified := AType.QualifiedName;
-    if LQualified <> '' then Result := LQualified;
+    // System örtüktür; System.Integer yazmak yalnızca gürültü olur.
+    if (LQualified <> '') and not SameText(LQualified, 'System.' + AType.Name) then
+      Result := LQualified;
   except
     on ENonPublicType do ; // nitelenmiş ad elde edilemez; kısa adla devam
   end;
 end;
 
-function TFluentCodeGenerator.IsEligibleMethod(const AMeth: TRttiMethod): Boolean;
+function TFluentCodeGenerator.IsEligibleMethod(const AMeth: TRttiMethod;
+  ALevel: TRttiInstanceType): Boolean;
 begin
-  Result := (AMeth.Parent = FType) and (AMeth.Visibility >= mvPublic) and
+  Result := (AMeth.Parent = ALevel) and (AMeth.Visibility >= mvPublic) and
     (AMeth.MethodKind in [mkProcedure, mkFunction]);
 end;
 
@@ -661,7 +970,7 @@ begin
     else
       LTypeText := TypeNameOf(P.ParamType);
     if AText <> '' then AText := AText + '; ';
-    AText := AText + LPrefix + P.Name + ': ' + LTypeText;
+    AText := AText + LPrefix + EscapeIdent(P.Name) + ': ' + LTypeText;
   end;
   Result := True;
 end;
@@ -674,7 +983,7 @@ begin
   for P in AParams do
   begin
     if Result <> '' then Result := Result + ', ';
-    Result := Result + P.Name;
+    Result := Result + EscapeIdent(P.Name);
   end;
 end;
 
@@ -696,23 +1005,44 @@ end;
 procedure TFluentCodeGenerator.ResolveNames;
 var
   LRtti: TRttiType;
+  LIdent: string;
 begin
   LRtti := FCtx.GetType(FClass);
   if not (LRtti is TRttiInstanceType) then
     raise EFluentCodeGen.CreateFmt(
-      'GenerateFluentCode: "%s" için kullanılabilir RTTI bulunamadı.', [FClass.ClassName]);
+      'TRadFluent.GenerateCode: "%s" için kullanılabilir RTTI bulunamadı.', [FClass.ClassName]);
   FType := TRttiInstanceType(LRtti);
-  FInstanceTypeName := FType.Name;
-  if (Length(FInstanceTypeName) > 1) and (FInstanceTypeName[1] = 'T') then
-    FInterfaceName := 'I' + Copy(FInstanceTypeName, 2, MaxInt)
+  FInstanceTypeName := TypeNameOf(FType);
+  LIdent := FluentIdent(FType.Name);
+  if (Length(LIdent) > 1) and (LIdent[1] = 'T') then
+    FInterfaceName := 'I' + Copy(LIdent, 2, MaxInt)
   else
-    FInterfaceName := 'I' + FInstanceTypeName;
-  FImplName := FInstanceTypeName + 'Fluent';
+    FInterfaceName := 'I' + LIdent;
+  FImplName := LIdent + 'Fluent';
+  // Generic örneğin nitelenmiş adı RTTI'den alınamıyor; unit'i sınıftan gelir.
+  if System.Pos('<', FType.Name) > 0 then
+    AddUsedUnit(FClass.UnitName);
   // PresetGuid verilmişse (birleştirme: dosyadaki mevcut GUID) onu KORU — yeniden
   // üretimde GUID değişirse Supports()/as kullanan kod sessizce bozulur.
   if FGuidText = '' then
     FGuidText := TGUID.NewGuid.ToString;
   RegisterUnitOf(FType);               // sarmalanan sınıfın kendi unit'i her zaman gerekli
+end;
+
+/// Üye toplanacak sınıflar, en türemişten başlayarak.
+procedure TFluentCodeGenerator.ResolveLevels;
+var
+  LLevel: TRttiInstanceType;
+begin
+  FLevels := [FType];
+  if not (fgoIncludeInherited in FOptions) then Exit;
+  LLevel := FType.BaseType;
+  while (LLevel <> nil) and (LLevel.MetaclassType <> TObject) and
+        (LLevel.MetaclassType <> TPersistent) and (LLevel.MetaclassType <> TInterfacedObject) do
+  begin
+    FLevels := FLevels + [LLevel];
+    LLevel := LLevel.BaseType;
+  end;
 end;
 
 procedure TFluentCodeGenerator.AddUsedUnit(const AUnitName: string);
@@ -747,6 +1077,7 @@ end;
 procedure TFluentCodeGenerator.RegisterUnitOf(AType: TRttiType);
 var
   LQualified, LUnit: string;
+  LGeneric: Integer;
 begin
   if AType = nil then Exit;
   // QualifiedName, bir unit'in INTERFACE bölümünde bildirilmemiş tipler için
@@ -773,8 +1104,11 @@ begin
     AddUsedUnit(LUnit);
   end;
   // Generic tiplerde iç tipler yalnızca ADIN İÇİNDE geçer
-  // (ör. TArray<System.Rtti.TValue> -> System.Rtti da gerekir).
-  RegisterUnitsInTypeName(AType.Name);
+  // (ör. TArray<System.Rtti.TValue> -> System.Rtti da gerekir). '<' öncesindeki
+  // noktalı ad Dış.TIc iç tipidir (TCustomButton.TButtonStyle), unit değil.
+  LGeneric := System.Pos('<', AType.Name);
+  if LGeneric > 0 then
+    RegisterUnitsInTypeName(Copy(AType.Name, LGeneric, MaxInt));
 end;
 
 /// Tip adı METNİNDEKİ nitelenmiş adlardan unit'leri toplar.
@@ -888,28 +1222,51 @@ end;
 /// Overload sayımı + kaynak taramasıyla karşılaştırmak için RTTI envanteri.
 procedure TFluentCodeGenerator.CollectRttiInventory;
 var
+  LLevel: TRttiInstanceType;
   LMeth: TRttiMethod;
   LProp: TRttiProperty;
   LIdx: TRttiIndexedProperty;
+  LThisLevel: TDictionary<string, Byte>;
+  LKey: string;
   LCount: Integer;
 begin
-  for LProp in FType.GetDeclaredProperties do
-    if (LProp.Parent = FType) and (LProp.Visibility >= mvPublic) then
-      FRttiProps.AddOrSetValue(UpperCase(LProp.Name), 0);
-  for LIdx in FType.GetIndexedProperties do
-    if (LIdx.Parent = FType) and (LIdx.Visibility >= mvPublic) then
-      FRttiProps.AddOrSetValue(UpperCase(LIdx.Name), 1);
+  LThisLevel := TDictionary<string, Byte>.Create;
+  try
+    for LLevel in FLevels do
+    begin
+      for LProp in LLevel.GetDeclaredProperties do
+        if (LProp.Parent = LLevel) and (LProp.Visibility >= mvPublic) then
+          FRttiProps.AddOrSetValue(UpperCase(LProp.Name), 0);
+      for LIdx in LLevel.GetDeclaredIndexedProperties do
+        if (LIdx.Parent = LLevel) and (LIdx.Visibility >= mvPublic) then
+          FRttiProps.AddOrSetValue(UpperCase(LIdx.Name), 1);
 
-  for LMeth in FType.GetDeclaredMethods do
-  begin
-    if not IsEligibleMethod(LMeth) then Continue;
-    if FOverloads.TryGetValue(UpperCase(LMeth.Name), LCount) then
-      FOverloads[UpperCase(LMeth.Name)] := LCount + 1
-    else
-      FOverloads.Add(UpperCase(LMeth.Name), 1);
-    FRttiMethods.AddOrSetValue(UpperCase(LMeth.Name), Length(LMeth.GetParameters));
-    if LMeth.MethodKind = mkFunction then
-      FRttiFunctions.AddOrSetValue(UpperCase(LMeth.Name), 0);
+      LThisLevel.Clear;
+      for LMeth in LLevel.GetDeclaredMethods do
+      begin
+        if not IsEligibleMethod(LMeth, LLevel) then Continue;
+        LKey := UpperCase(LMeth.Name);
+        // Aynı ad daha türemiş bir sınıfta bildirilmişse atadaki üye gizlenmiştir: override
+        // tek üye olur, overload'lar ise dışarıdan çağrılamaz. RTTI ikisini ayırt etmez.
+        // Property de metodu gizler (TRadConnection.InTransaction ölçüldü).
+        if FRttiProps.ContainsKey(LKey) then Continue;
+        if FOverloads.ContainsKey(LKey) and not LThisLevel.ContainsKey(LKey) then Continue;
+        LThisLevel.AddOrSetValue(LKey, 0);
+        FMethods.Add(LMeth);
+        if FOverloads.TryGetValue(LKey, LCount) then
+          FOverloads[LKey] := LCount + 1
+        else
+          FOverloads.Add(LKey, 1);
+        // Değer: bu adın parametre taşıyan overload sayısı (bkz. CheckSourceMethods).
+        FRttiMethods.TryGetValue(LKey, LCount);
+        if Length(LMeth.GetParameters) > 0 then Inc(LCount);
+        FRttiMethods.AddOrSetValue(LKey, LCount);
+        if LMeth.MethodKind = mkFunction then
+          FRttiFunctions.AddOrSetValue(LKey, 0);
+      end;
+    end;
+  finally
+    LThisLevel.Free;
   end;
 end;
 
@@ -966,7 +1323,7 @@ end;
 procedure TFluentCodeGenerator.EmitAccessorPair(const AName, ATypeName, AIndexParams,
   AIndexArgs, AValueIdent, ATag: string; AReadable, AWritable: Boolean);
 var
-  LAcc, LSetParams, LGetParams, LTarget, LClash: string;
+  LAcc, LSetParams, LGetParams, LTarget, LClash, LName: string;
 begin
   if ATypeName = '' then
   begin
@@ -976,22 +1333,23 @@ begin
   end;
   LAcc := AccessorName(AName);
   if AIndexArgs <> '' then
-    LTarget := Format('FInstance.%s[%s]', [AName, AIndexArgs])
+    LTarget := Format('FInstance.%s[%s]', [EscapeIdent(AName), AIndexArgs])
   else
-    LTarget := 'FInstance.' + AName;
+    LTarget := 'FInstance.' + EscapeIdent(AName);
 
   if AWritable then
   begin
     LSetParams := Format('const %s: %s', [AValueIdent, ATypeName]);
     if AIndexParams <> '' then
       LSetParams := AIndexParams + '; ' + LSetParams;
-    LClash := ClaimName('Set' + LAcc, 'property accessor');
+    LName := UniqueAccessor('Set' + LAcc);
+    LClash := ClaimName(LName, 'property accessor');
     if (LClash <> '') and (fgoCollisionMarkers in FOptions) then FDecls.AppendLine(LClash);
     if ATag <> '' then FDecls.AppendLine('    ' + ATag);
-    FDecls.AppendLine(Format('    function Set%s(%s): %s;', [LAcc, LSetParams, FInterfaceName]));
+    FDecls.AppendLine(Format('    function %s(%s): %s;', [LName, LSetParams, FInterfaceName]));
 
-    FBodies.AppendLine(Format('function %s.Set%s(%s): %s;',
-      [FImplName, LAcc, LSetParams, FInterfaceName]));
+    FBodies.AppendLine(Format('function %s.%s(%s): %s;',
+      [FImplName, LName, LSetParams, FInterfaceName]));
     FBodies.AppendLine('begin');
     FBodies.AppendLine(Format('  %s := %s;', [LTarget, AValueIdent]));
     FBodies.AppendLine('  Result := Self;');
@@ -1002,13 +1360,14 @@ begin
   if AReadable then
   begin
     if AIndexParams <> '' then LGetParams := '(' + AIndexParams + ')' else LGetParams := '';
-    LClash := ClaimName('Get' + LAcc, 'property accessor');
+    LName := UniqueAccessor('Get' + LAcc);
+    LClash := ClaimName(LName, 'property accessor');
     if (LClash <> '') and (fgoCollisionMarkers in FOptions) then FDecls.AppendLine(LClash);
     if ATag <> '' then FDecls.AppendLine('    ' + ATag);
-    FDecls.AppendLine(Format('    function Get%s%s: %s;', [LAcc, LGetParams, ATypeName]));
+    FDecls.AppendLine(Format('    function %s%s: %s;', [LName, LGetParams, ATypeName]));
 
-    FBodies.AppendLine(Format('function %s.Get%s%s: %s;',
-      [FImplName, LAcc, LGetParams, ATypeName]));
+    FBodies.AppendLine(Format('function %s.%s%s: %s;',
+      [FImplName, LName, LGetParams, ATypeName]));
     FBodies.AppendLine('begin');
     FBodies.AppendLine(Format('  Result := %s;', [LTarget]));
     FBodies.AppendLine('end;');
@@ -1018,49 +1377,59 @@ end;
 
 procedure TFluentCodeGenerator.EmitProperties;
 var
+  LLevel: TRttiInstanceType;
   LProp: TRttiProperty;
 begin
-  for LProp in FType.GetDeclaredProperties do
-  begin
-    if LProp.Parent <> FType then Continue; // class helper property'lerini dışarıda bırak
-    if LProp.Visibility < mvPublic then Continue;
-    Inc(FPropCount);
-    RegisterUnitOf(LProp.PropertyType);
-    EmitAccessorPair(LProp.Name, TypeNameOf(LProp.PropertyType), '', '',
-      'a' + AccessorName(LProp.Name), '', LProp.IsReadable, LProp.IsWritable);
-  end;
+  for LLevel in FLevels do
+    for LProp in LLevel.GetDeclaredProperties do
+    begin
+      if LProp.Parent <> LLevel then Continue; // class helper property'lerini dışarıda bırak
+      if LProp.Visibility < mvPublic then Continue;
+      if FOverloads.ContainsKey(UpperCase(LProp.Name)) then Continue; // alt sınıftaki metot gizliyor
+      if not FEmittedProps.TryAdd(UpperCase(LProp.Name), 0) then Continue; // alt sınıfta yeniden bildirilmiş
+      Inc(FPropCount);
+      RegisterUnitOf(LProp.PropertyType);
+      EmitAccessorPair(LProp.Name, TypeNameOf(LProp.PropertyType), '', '',
+        'a' + AccessorName(LProp.Name), '', LProp.IsReadable, LProp.IsWritable);
+    end;
 end;
 
 procedure TFluentCodeGenerator.EmitIndexedProperties;
 var
+  LLevel: TRttiInstanceType;
   LIdx: TRttiIndexedProperty;
   LArr: TArray<TRttiParameter>;
   LPar: TRttiParameter;
   LParams, LReason: string;
 begin
-  for LIdx in FType.GetIndexedProperties do
-  begin
-    if LIdx.Parent <> FType then Continue;
-    if LIdx.Visibility < mvPublic then Continue;
-    LArr := IndexParamsOf(LIdx);
-    if not TryParamList(LArr, LParams, LReason) then
+  for LLevel in FLevels do
+    for LIdx in LLevel.GetDeclaredIndexedProperties do
     begin
-      Inc(FSkipCount);
-      Note(Format('ATLANDI: indeksli property %s — %s', [LIdx.Name, LReason]));
-      Continue;
+      if LIdx.Parent <> LLevel then Continue;
+      if LIdx.Visibility < mvPublic then Continue;
+      if FOverloads.ContainsKey(UpperCase(LIdx.Name)) then Continue;
+      if not FEmittedProps.TryAdd(UpperCase(LIdx.Name), 0) then Continue;
+      LArr := IndexParamsOf(LIdx);
+      if not TryParamList(LArr, LParams, LReason) then
+      begin
+        Inc(FSkipCount);
+        Note(Format('ATLANDI: indeksli property %s — %s', [LIdx.Name, LReason]));
+        Continue;
+      end;
+      Inc(FIdxCount);
+      RegisterUnitOf(LIdx.PropertyType);
+      for LPar in LArr do
+        RegisterUnitOf(LPar.ParamType);
+      EmitAccessorPair(LIdx.Name, TypeNameOf(LIdx.PropertyType), LParams,
+        ArgListFor(LArr), 'aValue', '', LIdx.IsReadable, LIdx.IsWritable);
     end;
-    Inc(FIdxCount);
-    RegisterUnitOf(LIdx.PropertyType);
-    for LPar in LArr do
-      RegisterUnitOf(LPar.ParamType);
-    EmitAccessorPair(LIdx.Name, TypeNameOf(LIdx.PropertyType), LParams,
-      ArgListFor(LArr), 'aValue', '', LIdx.IsReadable, LIdx.IsWritable);
-  end;
 end;
 
 procedure TFluentCodeGenerator.EmitMethod(const AMeth: TRttiMethod);
+const
+  CMethodClashSuffix = 'Method';
 var
-  LParams, LArgs, LReason, LRet, LSig, LClash: string;
+  LParams, LArgs, LReason, LRet, LSig, LClash, LName: string;
   LPar: TRttiParameter;
   LCount: Integer;
   LIsFunc: Boolean;
@@ -1092,27 +1461,31 @@ begin
   if LParams <> '' then LParams := '(' + LParams + ')';
   if LArgs <> '' then LArgs := '(' + LArgs + ')';
 
-  if LIsFunc then
-    LSig := Format('function %s%s: %s;', [AMeth.Name, LParams, LRet])
-  else
-    LSig := Format('procedure %s%s;', [AMeth.Name, LParams]);
-
+  // AsInstance ve New sarmalayıcının kendi üyeleridir; onlarla çakışan metot ad değiştirir.
+  LName := EscapeIdent(AMeth.Name);
   LClash := ClaimName(AMeth.Name, 'metod');
+  if LClash <> '' then LName := AMeth.Name + CMethodClashSuffix;
   if (LClash <> '') and (fgoCollisionMarkers in FOptions) then FDecls.AppendLine(LClash);
+
+  if LIsFunc then
+    LSig := Format('function %s%s: %s;', [LName, LParams, LRet])
+  else
+    LSig := Format('procedure %s%s;', [LName, LParams]);
+
   if FOverloads.TryGetValue(UpperCase(AMeth.Name), LCount) and (LCount > 1) then
     FDecls.AppendLine('    ' + LSig + ' overload;')
   else
     FDecls.AppendLine('    ' + LSig);
 
   if LIsFunc then
-    FBodies.AppendLine(Format('function %s.%s%s: %s;', [FImplName, AMeth.Name, LParams, LRet]))
+    FBodies.AppendLine(Format('function %s.%s%s: %s;', [FImplName, LName, LParams, LRet]))
   else
-    FBodies.AppendLine(Format('procedure %s.%s%s;', [FImplName, AMeth.Name, LParams]));
+    FBodies.AppendLine(Format('procedure %s.%s%s;', [FImplName, LName, LParams]));
   FBodies.AppendLine('begin');
   if LIsFunc then
-    FBodies.AppendLine(Format('  Result := FInstance.%s%s;', [AMeth.Name, LArgs]))
+    FBodies.AppendLine(Format('  Result := FInstance.%s%s;', [EscapeIdent(AMeth.Name), LArgs]))
   else
-    FBodies.AppendLine(Format('  FInstance.%s%s;', [AMeth.Name, LArgs]));
+    FBodies.AppendLine(Format('  FInstance.%s%s;', [EscapeIdent(AMeth.Name), LArgs]));
   FBodies.AppendLine('end;');
   FBodies.AppendLine('');
 end;
@@ -1122,9 +1495,8 @@ var
   LMeth: TRttiMethod;
 begin
   FDecls.AppendLine('');
-  for LMeth in FType.GetDeclaredMethods do
+  for LMeth in FMethods do
   begin
-    if not IsEligibleMethod(LMeth) then Continue;
     // Kaynak taraması bu metodun RTTI imzasının YANLIŞ olduğunu kanıtladıysa üretme:
     // yanlış imza ya derlenmez ya da sessizce dönüş değeri düşürür. Rapora yazıldı.
     if FSuspectMethods.IndexOf(LMeth.Name) >= 0 then
@@ -1144,7 +1516,8 @@ begin
   LSl := TStringList.Create;
   try
     try
-      LSl.LoadFromFile(FSourcePath);
+      LoadPascalLines(LSl, FSourcePath);
+      BlankInactiveBranches(LSl);
       Result := LSl.Text;
     except
       on E: Exception do
@@ -1158,14 +1531,19 @@ end;
 
 function TFluentCodeGenerator.ExtractClassBody(const ASource: string): string;
 var
-  LClean: string;
-  LPos, I: Integer;
+  LClean, LName, LLine: string;
+  LPos, I, LNested: Integer;
   LSl: TStringList;
   LSb: TStringBuilder;
 begin
   Result := '';
+  LNested := 0;
   LClean := StripPascalComments(ASource);
-  LPos := FindClassHeaderPos(LowerCase(LClean), LowerCase(FInstanceTypeName));
+  // Kaynakta sınıfın yalın adı geçer: iç içe olsa da generic olsa da.
+  LName := FClass.ClassName;
+  LPos := System.Pos('<', LName);
+  if LPos > 0 then SetLength(LName, LPos - 1);
+  LPos := FindClassHeaderPos(LowerCase(LClean), LowerCase(LName));
   if LPos = 0 then Exit;
 
   LSl := TStringList.Create;
@@ -1174,8 +1552,23 @@ begin
     LSl.Text := Copy(LClean, LPos, MaxInt);
     for I := 0 to LSl.Count - 1 do
     begin
-      if LowerCase(System.SysUtils.Trim(LSl[I])) = 'end;' then Break;
+      LLine := LowerCase(System.SysUtils.Trim(LSl[I]));
+      // İç içe tiplerin üyeleri bu sınıfın değildir; görünürlükleri de sınıfı bozar.
+      if (I > 0) and OpensNestedType(LLine) then
+      begin
+        Inc(LNested);
+        Continue;
+      end;
+      if ClosesBlock(LLine) then
+      begin
+        if LNested = 0 then Break;
+        Dec(LNested);
+        Continue;
+      end;
+      if LNested > 0 then Continue;
       LSb.AppendLine(LSl[I]);
+      // "TX = class(TY);" gövdesizdir; devam edilirse sonraki sınıf okunur.
+      if (I = 0) and LLine.EndsWith(';') then Break;
     end;
     Result := LSb.ToString;
   finally
@@ -1271,14 +1664,25 @@ begin
   end;
 end;
 
+procedure TFluentCodeGenerator.MarkSuspect(const AName, ANote: string);
+begin
+  if FSuspectMethods.IndexOf(AName) >= 0 then Exit;
+  Note(ANote);
+  FSuspectMethods.Add(AName);
+end;
+
 /// Kaynakta bildirilen ama RTTI'de hiç/eksik görünen metodları rapora yazar.
+/// Overload'lar ada göre karşılaştırılır: kaynakta parametreli bildirim sayısı RTTI'deki
+/// parametreli overload sayısını aşıyorsa bir parametre tipi RTTI'de görünmüyor demektir.
 procedure TFluentCodeGenerator.CheckSourceMethods(const ABody: string);
 var
   LSl: TStringList;
   LTrim, LLow, LName: string;
   LVisible, LIsFunc: Boolean;
-  I, J, LParamCount: Integer;
+  I, J, LParamCount, LSourceCount, LParen: Integer;
+  LSourceParams: TDictionary<string, Integer>;
 begin
+  LSourceParams := TDictionary<string, Integer>.Create;
   LSl := TStringList.Create;
   try
     LSl.Text := ABody;
@@ -1307,24 +1711,26 @@ begin
         Note(Format('RTTI GÖREMEDİ: metod %s kaynakta var ama RTTI''de yok — elle ekle.', [LName]))
       else
       begin
-        if (System.Pos('(', LTrim) > 0) and (LParamCount = 0) then
+        LParen := System.Pos('(', LTrim);
+        if (LParen > 0) and (Copy(LTrim, SkipBlanks(LTrim, LParen + 1), 1) <> ')') then
         begin
-          Note(Format('ÜRETİLMEDİ: metod %s kaynakta parametreli, RTTI''de parametresiz görünüyor ' +
-            '(bir parametre tipinin RTTI''si yok) — doğru imza RTTI''den kurulamaz, elle ekle.', [LName]));
-          if FSuspectMethods.IndexOf(LName) < 0 then FSuspectMethods.Add(LName);
+          LSourceParams.TryGetValue(UpperCase(LName), LSourceCount);
+          Inc(LSourceCount);
+          LSourceParams.AddOrSetValue(UpperCase(LName), LSourceCount);
+          if LSourceCount > LParamCount then
+            MarkSuspect(LName, Format('ÜRETİLMEDİ: metod %s kaynakta parametreli, RTTI''de parametresiz ' +
+              'görünüyor (bir parametre tipinin RTTI''si yok) — doğru imza RTTI''den kurulamaz, elle ekle.', [LName]));
         end;
         // Kaynakta function, RTTI'de procedure => dönüş tipinin RTTI'si yok; üretilen
         // pass-through dönüş değerini SESSİZCE düşürür. Bu, AV'den daha sinsi bir hata.
         if LIsFunc and not FRttiFunctions.ContainsKey(UpperCase(LName)) then
-        begin
-          Note(Format('ÜRETİLMEDİ: %s kaynakta function, RTTI''de procedure görünüyor ' +
+          MarkSuspect(LName, Format('ÜRETİLMEDİ: %s kaynakta function, RTTI''de procedure görünüyor ' +
             '(dönüş tipinin RTTI''si yok) — üretilseydi dönüş değeri sessizce düşerdi, elle ekle.', [LName]));
-          if FSuspectMethods.IndexOf(LName) < 0 then FSuspectMethods.Add(LName);
-        end;
       end;
     end;
   finally
     LSl.Free;
+    LSourceParams.Free;
   end;
 end;
 
@@ -1377,10 +1783,13 @@ begin
   LSb := TStringBuilder.Create;
   try
     LSb.AppendLine('// ===========================================================================');
-    LSb.AppendLine(Format('// GenerateFluentCode raporu — %s', [FInstanceTypeName]));
+    LSb.AppendLine(Format('// TRadFluent.GenerateCode raporu — %s', [FInstanceTypeName]));
     LSb.AppendLine('// ===========================================================================');
     LSb.AppendLine(Format('// Üretilen: %d property, %d indeksli property, %d metod, %d kaynaktan.',
       [FPropCount, FIdxCount, FMethCount, FSourceCount]));
+    if Length(FLevels) > 1 then
+      LSb.AppendLine(Format('// Kalıtılan üyeler dahil: %d sınıf. Kaynak taraması yalnızca %s bildirimine bakar.',
+        [Length(FLevels), FInstanceTypeName]));
     if FSourcePath = '' then
       LSb.AppendLine('// Kaynak taraması YAPILMADI (AUnitSourcePath verilmedi). Açık değer atanmış')
     else
@@ -1468,13 +1877,25 @@ end;
 procedure TFluentCodeGenerator.ResolveSourceUses;
 var
   LOne: string;
+  LLinked: TStringList;
 begin
   FUsesFromSource := False;
   if (FUnresolvedTypes.Count = 0) or (FSourcePath = '') then Exit;
-  for LOne in ParseSourceUses(ReadSourceLines) do
-  begin
-    if FUsedUnits.IndexOf(LOne) < 0 then FUsesFromSource := True;
-    AddUsedUnit(LOne);
+  LLinked := TStringList.Create;
+  try
+    LLinked.CaseSensitive := False;
+    LLinked.Sorted := True;
+    LLinked.Duplicates := dupIgnore;
+    EnumModules(CollectModuleUnits, LLinked);
+    for LOne in ParseSourceUses(ReadSourceLines) do
+    begin
+      // {$IFDEF}'ler değerlendirilemez, ama sınıf yüklüyse etkin daldaki unit'ler de yüklüdür.
+      if (LLinked.Count > 0) and (LLinked.IndexOf(LOne) < 0) then Continue;
+      if FUsedUnits.IndexOf(LOne) < 0 then FUsesFromSource := True;
+      AddUsedUnit(LOne);
+    end;
+  finally
+    LLinked.Free;
   end;
 end;
 
@@ -1491,7 +1912,7 @@ begin
   LSb := TStringBuilder.Create;
   try
     LSb.AppendLine(Format('{$REGION ''%s — ÜRETİLMİŞTİR; bu bloğu elle düzenleme, yeniden üretimde kaybolur''}',
-      [RegionKeyFor(FInstanceTypeName, 'TYPES')]));
+      [RegionKeyFor(FClass.ClassName, 'TYPES')]));
     if fgoHeaderReport in FOptions then
       LSb.Append(BuildHeaderReport);
     // Kendi 'type' anahtarını taşır: böylece interface'in HERHANGİ bir yerine
@@ -1512,7 +1933,7 @@ begin
   LSb := TStringBuilder.Create;
   try
     LSb.AppendLine(Format('{$REGION ''%s — ÜRETİLMİŞTİR; bu bloğu elle düzenleme, yeniden üretimde kaybolur''}',
-      [RegionKeyFor(FInstanceTypeName, 'IMPL')]));
+      [RegionKeyFor(FClass.ClassName, 'IMPL')]));
     LSb.Append(FBodies.ToString);
     LSb.AppendLine('{$ENDREGION}');
     Result := LSb.ToString;
@@ -1578,6 +1999,7 @@ end;
 procedure TFluentCodeGenerator.Build;
 begin
   ResolveNames;
+  ResolveLevels;
   DetectConstructor;
   CollectRttiInventory;
   EmitPrologue;
@@ -1593,6 +2015,11 @@ begin
   Build;
 end;
 
+function TFluentCodeGenerator.MemberCount: Integer;
+begin
+  Result := FPropCount + FIdxCount + FMethCount;
+end;
+
 function TFluentCodeGenerator.Execute: string;
 begin
   Build;
@@ -1605,15 +2032,15 @@ begin
   Result := AssembleUnit(AUnitName);
 end;
 
-{ GenerateFluentCode — public API (ince sarmalayıcı) }
+{ TRadFluent.GenerateCode — public API (ince sarmalayıcı) }
 
-function GenerateFluentCode(AClass: TClass; const AUnitSourcePath: string;
+class function TRadFluent.GenerateCode(AClass: TClass; const AUnitSourcePath: string;
   AOptions: TFluentGenOptions): string;
 var
   LGen: TFluentCodeGenerator;
 begin
   if AClass = nil then
-    raise EFluentCodeGen.Create('GenerateFluentCode: AClass nil olamaz.');
+    raise EFluentCodeGen.Create('TRadFluent.GenerateCode: AClass nil olamaz.');
 
   LGen := TFluentCodeGenerator.Create(AClass, AUnitSourcePath, AOptions);
   try
@@ -1623,7 +2050,26 @@ begin
   end;
 end;
 
-{ GenerateFluentUnit — public API }
+class function TRadFluent.CountMembers(AClass: TClass; AIncludeInherited: Boolean): Integer;
+var
+  LGen: TFluentCodeGenerator;
+  LOptions: TFluentGenOptions;
+begin
+  if AClass = nil then
+    raise EFluentCodeGen.Create('TRadFluent.CountMembers: AClass nil olamaz.');
+  LOptions := CFluentUnitDefaultOptions;
+  if AIncludeInherited then
+    Include(LOptions, fgoIncludeInherited);
+  LGen := TFluentCodeGenerator.Create(AClass, '', LOptions);
+  try
+    LGen.Prepare;
+    Result := LGen.MemberCount;
+  finally
+    LGen.Free;
+  end;
+end;
+
+{ TRadFluent.GenerateUnit — public API }
 
 /// Pascal unit adı olarak geçerli mi (harf/alt çizgi ile başlar, noktalı namespace
 /// adlarına izin verir, ardışık/sonda nokta olamaz).
@@ -1644,6 +2090,13 @@ begin
 end;
 
 type
+  { Bir uses girdisi. Konumlar kaynak metindedir: First girdinin başı, Last onu
+    bitiren ',' ya da ';'. }
+  TUsesItem = record
+    Name: string;
+    First, Last: Integer;
+  end;
+
   { Mevcut bir unit dosyasına REGION bloklarını ekler/günceller. Dosyanın geri
     kalanına DOKUNMAZ — başka sınıfların blokları, elle yazılmış kod ve uses'taki
     fazladan unit'ler olduğu gibi kalır. }
@@ -1651,10 +2104,13 @@ type
   strict private
     FLines: TStringList;
     function LowerAt(AIndex: Integer): string;
+    function FindCodeLine(const AWord: string; AFromEnd: Boolean): Integer;
     function FindStandalone(const AWord: string): Integer;
     function FindLast(const AWord: string): Integer;
     function FindRegion(const AKey: string; out AStart, AEnd: Integer): Boolean;
+    function OffsetAfterLine(ALine: Integer): Integer;
     procedure PutBlock(AIndex: Integer; const ABlock: string);
+    procedure RemoveImplementationUse(var ASource, ACode: string; const AUnit: string);
   public
     constructor Create(const AFileName: string);
     destructor Destroy; override;
@@ -1670,14 +2126,14 @@ constructor TFluentUnitMerger.Create(const AFileName: string);
 begin
   inherited Create;
   FLines := TStringList.Create;
-  FLines.LoadFromFile(AFileName);
+  LoadPascalLines(FLines, AFileName);
   if FindStandalone('interface') < 0 then
     raise EFluentCodeGen.CreateFmt(
-      'GenerateFluentUnit: "%s" bir Pascal unit''i gibi görünmüyor (tek başına "interface" satırı yok).',
+      'TRadFluent.GenerateUnit: "%s" bir Pascal unit''i gibi görünmüyor (tek başına "interface" satırı yok).',
       [AFileName]);
   if FindLast('end.') < 0 then
     raise EFluentCodeGen.CreateFmt(
-      'GenerateFluentUnit: "%s" içinde kapanış "end." satırı bulunamadı.', [AFileName]);
+      'TRadFluent.GenerateUnit: "%s" içinde kapanış "end." satırı bulunamadı.', [AFileName]);
 end;
 
 destructor TFluentUnitMerger.Destroy;
@@ -1691,22 +2147,57 @@ begin
   Result := LowerCase(System.SysUtils.Trim(FLines[AIndex]));
 end;
 
-function TFluentUnitMerger.FindStandalone(const AWord: string): Integer;
+/// AWord'ün tek başına durduğu satırı arar. Yorumlar örtülür: blok yorumundaki bir
+/// "implementation" yanıltmaz, satır sonu yorumu da eşleşmeyi engellemez.
+function TFluentUnitMerger.FindCodeLine(const AWord: string; AFromEnd: Boolean): Integer;
 var
-  I: Integer;
+  LCode: TStringList;
+  I, LStep, LStop: Integer;
 begin
-  for I := 0 to FLines.Count - 1 do
-    if LowerAt(I) = AWord then Exit(I);
   Result := -1;
+  LCode := TStringList.Create;
+  try
+    LCode.Text := StripPascalComments(FLines.Text, True);
+    if AFromEnd then
+    begin
+      I := LCode.Count - 1;
+      LStep := -1;
+      LStop := -1;
+    end
+    else
+    begin
+      I := 0;
+      LStep := 1;
+      LStop := LCode.Count;
+    end;
+    while I <> LStop do
+    begin
+      if System.SysUtils.LowerCase(System.SysUtils.Trim(LCode[I])) = AWord then Exit(I);
+      Inc(I, LStep);
+    end;
+  finally
+    LCode.Free;
+  end;
+end;
+
+function TFluentUnitMerger.FindStandalone(const AWord: string): Integer;
+begin
+  Result := FindCodeLine(AWord, False);
 end;
 
 function TFluentUnitMerger.FindLast(const AWord: string): Integer;
+begin
+  Result := FindCodeLine(AWord, True);
+end;
+
+/// FLines.Text içinde ALine satırından hemen sonraki konum.
+function TFluentUnitMerger.OffsetAfterLine(ALine: Integer): Integer;
 var
   I: Integer;
 begin
-  for I := FLines.Count - 1 downto 0 do
-    if LowerAt(I) = AWord then Exit(I);
-  Result := -1;
+  Result := 1;
+  for I := 0 to ALine do
+    Inc(Result, Length(FLines[I]) + Length(FLines.LineBreak));
 end;
 
 /// Anahtarı taşıyan {$REGION} satırını ve EŞLEŞEN {$ENDREGION}'ı bulur (iç içe
@@ -1745,7 +2236,7 @@ begin
     end;
   end;
   raise EFluentCodeGen.CreateFmt(
-    'GenerateFluentUnit: "%s" bölgesinin {$ENDREGION} karşılığı bulunamadı.', [AKey]);
+    'TRadFluent.GenerateUnit: "%s" bölgesinin {$ENDREGION} karşılığı bulunamadı.', [AKey]);
 end;
 
 function TFluentUnitMerger.ExistingGuid(const AKey: string): string;
@@ -1800,79 +2291,134 @@ begin
     LAt := FindStandalone('implementation');
   if LAt < 0 then
     raise EFluentCodeGen.CreateFmt(
-      'GenerateFluentUnit: "%s" bloğu için ekleme noktası bulunamadı.', [AKey]);
+      'TRadFluent.GenerateUnit: "%s" bloğu için ekleme noktası bulunamadı.', [AKey]);
   FLines.Insert(LAt, '');
   PutBlock(LAt, ABlock);
 end;
 
-/// Eksik unit'leri MEVCUT interface uses cümlesinin sonuna ekler. Hiçbir şey silinmez,
-/// mevcut biçimlendirme bozulmaz. uses yoksa 'interface'ten sonra yeni bir tane açar.
-procedure TFluentUnitMerger.MergeUses(AUnits: TStrings);
+/// ACode'da AFrom'dan sonraki ilk sözcük uses ise cümlenin sınırlarını verir. uses,
+/// bölümün ilk öğesi olmak zorundadır; "UsesTls: Boolean" gibi bir alan cümle sayılmaz.
+function FindUsesClause(const ACode: string; AFrom: Integer; out AStart, ASemi: Integer): Boolean;
 var
-  LIface, LImpl, LStart, LTerm, I, LSemi: Integer;
-  LJoined, LOne, LAdd: string;
-  LHave: TStringList;
+  LWord: Integer;
 begin
-  if AUnits.Count = 0 then Exit;
-  LIface := FindStandalone('interface');
-  LImpl := FindStandalone('implementation');
-  if LImpl < 0 then LImpl := FLines.Count;
+  LWord := SkipBlanks(ACode, AFrom);
+  AStart := LWord + Length('uses');
+  ASemi := 0;
+  Result := SameText(Copy(ACode, LWord, Length('uses')), 'uses') and
+    ((AStart > Length(ACode)) or not CharInSet(ACode[AStart], ['A'..'Z', 'a'..'z', '0'..'9', '_']));
+  if not Result then Exit;
+  ASemi := System.Pos(';', ACode, AStart);
+  if ASemi = 0 then
+    raise EFluentCodeGen.Create(
+      'TRadFluent.GenerateUnit: uses cümlesi '';'' ile kapanmıyor, birleştirilemedi.');
+end;
 
-  LStart := -1;
-  for I := LIface + 1 to LImpl - 1 do
-    if LowerAt(I).StartsWith('uses') then
-    begin
-      LStart := I;
-      Break;
-    end;
-
-  LHave := TStringList.Create;
+/// Yorumları örtülmüş kodda uses girdilerini ayırır; "Ad in 'dosya.pas'" adına iner.
+function ParseUsesItems(const ACode: string; AStart, ASemi: Integer): TArray<TUsesItem>;
+var
+  LList: TList<TUsesItem>;
+  LItem: TUsesItem;
+  LFrom, LStop, LNameEnd: Integer;
+begin
+  LList := TList<TUsesItem>.Create;
   try
-    LHave.CaseSensitive := False;
-    if LStart >= 0 then
+    LFrom := AStart;
+    while LFrom <= ASemi do
     begin
-      LTerm := -1;
-      LJoined := '';
-      for I := LStart to LImpl - 1 do
-      begin
-        LJoined := LJoined + ' ' + FLines[I];
-        if System.Pos(';', FLines[I]) > 0 then
-        begin
-          LTerm := I;
-          Break;
-        end;
-      end;
-      if LTerm < 0 then
-        raise EFluentCodeGen.Create(
-          'GenerateFluentUnit: interface uses cümlesi '';'' ile kapanmıyor, birleştirilemedi.');
+      LStop := System.Pos(',', ACode, LFrom);
+      if (LStop = 0) or (LStop > ASemi) then LStop := ASemi;
+      LItem.First := SkipBlanks(ACode, LFrom);
+      LItem.Last := LStop;
+      LNameEnd := LItem.First;
+      while (LNameEnd < LStop) and (ACode[LNameEnd] > ' ') do Inc(LNameEnd);
+      LItem.Name := Copy(ACode, LItem.First, LNameEnd - LItem.First);
+      if LItem.Name <> '' then LList.Add(LItem);
+      LFrom := LStop + 1;
+    end;
+    Result := LList.ToArray;
+  finally
+    LList.Free;
+  end;
+end;
 
-      LJoined := System.SysUtils.Trim(Copy(LJoined, System.Pos('uses', LowerCase(LJoined)) + 4, MaxInt));
-      LSemi := System.Pos(';', LJoined);
-      if LSemi > 0 then LJoined := Copy(LJoined, 1, LSemi - 1);
-      for LOne in LJoined.Split([',']) do
-        if System.SysUtils.Trim(LOne) <> '' then
-          LHave.Add(System.SysUtils.Trim(LOne));
-
-      LAdd := '';
-      for I := 0 to AUnits.Count - 1 do
-        // Nitelenmiş/niteliksiz ikizler aynı unit'tir; ikisini birden yazmak E2004 verir.
-        if not UnitListHas(LHave, AUnits[I]) then
-          LAdd := LAdd + ', ' + AUnits[I];
-      if LAdd = '' then Exit;
-
-      // Kapanış ';' yerine ", Yeni1, Yeni2;" yaz — biçimlendirmenin gerisi bozulmaz.
-      LSemi := System.Pos(';', FLines[LTerm]);
-      FLines[LTerm] := Copy(FLines[LTerm], 1, LSemi - 1) + LAdd + ';' +
-        Copy(FLines[LTerm], LSemi + 1, MaxInt);
+/// AUnit'i implementation uses'tan çıkarır: aynı unit iki cümlede birden E2004 verir.
+/// ASource ve ACode aynı uzunlukta tutulur, konumlar birlikte geçerli kalır.
+procedure TFluentUnitMerger.RemoveImplementationUse(var ASource, ACode: string; const AUnit: string);
+var
+  LImpl, LStart, LSemi, LFrom, LCount, I: Integer;
+  LItems: TArray<TUsesItem>;
+begin
+  LImpl := FindStandalone('implementation');
+  if (LImpl < 0) or not FindUsesClause(ACode, OffsetAfterLine(LImpl), LStart, LSemi) then Exit;
+  LItems := ParseUsesItems(ACode, LStart, LSemi);
+  for I := 0 to High(LItems) do
+  begin
+    if not SameUnitName(LItems[I].Name, AUnit) then Continue;
+    if Length(LItems) = 1 then
+    begin
+      LFrom := LStart - Length('uses');
+      LCount := LSemi - LFrom + 1;
+    end
+    else if I < High(LItems) then
+    begin
+      LFrom := LItems[I].First;
+      LCount := LItems[I + 1].First - LFrom;
     end
     else
     begin
-      LAdd := '';
-      for I := 0 to AUnits.Count - 1 do
-        if LAdd = '' then LAdd := AUnits[I] else LAdd := LAdd + ', ' + AUnits[I];
+      LFrom := LItems[I - 1].Last;
+      LCount := LItems[I].Last - LFrom;
+    end;
+    Delete(ASource, LFrom, LCount);
+    Delete(ACode, LFrom, LCount);
+    Exit;
+  end;
+end;
+
+/// Eksik unit'leri MEVCUT interface uses cümlesinin sonuna ekler; biçimlendirme ve
+/// yorumlar bozulmaz. uses yoksa 'interface'ten sonra yeni bir tane açar.
+procedure TFluentUnitMerger.MergeUses(AUnits: TStrings);
+var
+  LIface, LStart, LSemi, I: Integer;
+  LSource, LCode, LAdd: string;
+  LHave: TStringList;
+  LItem: TUsesItem;
+  LHasClause: Boolean;
+begin
+  if AUnits.Count = 0 then Exit;
+  LHave := TStringList.Create;
+  try
+    LSource := FLines.Text;
+    LCode := StripPascalComments(LSource, True);
+    LHasClause := FindUsesClause(LCode, OffsetAfterLine(FindStandalone('interface')), LStart, LSemi);
+    if LHasClause then
+      for LItem in ParseUsesItems(LCode, LStart, LSemi) do
+        LHave.Add(LItem.Name);
+
+    LAdd := '';
+    for I := 0 to AUnits.Count - 1 do
+      // Nitelenmiş/niteliksiz ikizler aynı unit'tir; ikisini birden yazmak E2004 verir.
+      if not UnitListHas(LHave, AUnits[I]) then
+      begin
+        RemoveImplementationUse(LSource, LCode, AUnits[I]);
+        LAdd := LAdd + ', ' + AUnits[I];
+      end;
+    if LAdd = '' then Exit;
+
+    if LHasClause then
+    begin
+      // Kapanış ';' yerine ", Yeni1, Yeni2;" yaz — biçimlendirmenin gerisi bozulmaz.
+      Insert(LAdd, LSource, LSemi);
+      FLines.Text := LSource;
+    end
+    else
+    begin
+      FLines.Text := LSource;
+      LIface := FindStandalone('interface');
       FLines.Insert(LIface + 1, '');
       FLines.Insert(LIface + 2, 'uses');
-      FLines.Insert(LIface + 3, '  ' + LAdd + ';');
+      FLines.Insert(LIface + 3, '  ' + Copy(LAdd, Length(', ') + 1, MaxInt) + ';');
     end;
   finally
     LHave.Free;
@@ -1937,12 +2483,12 @@ begin
   FLines.SaveToFile(AFileName, TEncoding.UTF8);
 end;
 
-function ListFluentRegions(const AUnitPath: string): TArray<string>;
+class function TRadFluent.ListRegions(const AUnitPath: string): TArray<string>;
 var
   LMerger: TFluentUnitMerger;
 begin
   if not FileExists(AUnitPath) then
-    raise EFluentCodeGen.CreateFmt('ListFluentRegions: "%s" bulunamadı.', [AUnitPath]);
+    raise EFluentCodeGen.CreateFmt('TRadFluent.ListRegions: "%s" bulunamadı.', [AUnitPath]);
   LMerger := TFluentUnitMerger.Create(AUnitPath);
   try
     Result := LMerger.RegionClassNames;
@@ -1951,7 +2497,7 @@ begin
   end;
 end;
 
-function PruneFluentRegions(const AUnitPath: string;
+class function TRadFluent.PruneRegions(const AUnitPath: string;
   const AKeepClassNames: array of string; ADryRun: Boolean): TArray<string>;
 var
   LMerger: TFluentUnitMerger;
@@ -1960,7 +2506,7 @@ var
   LChanged: Boolean;
 begin
   if not FileExists(AUnitPath) then
-    raise EFluentCodeGen.CreateFmt('PruneFluentRegions: "%s" bulunamadı.', [AUnitPath]);
+    raise EFluentCodeGen.CreateFmt('TRadFluent.PruneRegions: "%s" bulunamadı.', [AUnitPath]);
 
   LMerger := TFluentUnitMerger.Create(AUnitPath);
   LKeepList := TStringList.Create;
@@ -1994,7 +2540,7 @@ begin
   end;
 end;
 
-function GenerateFluentUnit(AClass: TClass; const AOutputPath: string;
+class function TRadFluent.GenerateUnit(AClass: TClass; const AOutputPath: string;
   const AUnitSourcePath: string; AOptions: TFluentGenOptions;
   AWriteMode: TFluentUnitWriteMode): string;
 var
@@ -2004,22 +2550,22 @@ var
   LSl: TStringList;
 begin
   if AClass = nil then
-    raise EFluentCodeGen.Create('GenerateFluentUnit: AClass nil olamaz.');
+    raise EFluentCodeGen.Create('TRadFluent.GenerateUnit: AClass nil olamaz.');
   if System.SysUtils.Trim(AOutputPath) = '' then
-    raise EFluentCodeGen.Create('GenerateFluentUnit: AOutputPath boş olamaz.');
+    raise EFluentCodeGen.Create('TRadFluent.GenerateUnit: AOutputPath boş olamaz.');
 
   // Delphi'de unit adı DOSYA ADIYLA aynı olmak ZORUNDA — adı yoldan türetiyoruz.
   LUnitName := ChangeFileExt(ExtractFileName(AOutputPath), '');
   if not IsValidUnitName(LUnitName) then
     raise EFluentCodeGen.CreateFmt(
-      'GenerateFluentUnit: "%s" geçerli bir Pascal unit adı değil (dosya adından türetildi).',
+      'TRadFluent.GenerateUnit: "%s" geçerli bir Pascal unit adı değil (dosya adından türetildi).',
       [LUnitName]);
 
   if FileExists(AOutputPath) then
   begin
     if AWriteMode = fumFailIfExists then
       raise EFluentCodeGen.CreateFmt(
-        'GenerateFluentUnit: "%s" zaten var. İçine eklemek için fumMergeRegions, ' +
+        'TRadFluent.GenerateUnit: "%s" zaten var. İçine eklemek için fumMergeRegions, ' +
         'baştan yazmak için fumReplaceFile ver.', [AOutputPath]);
 
     if AWriteMode = fumMergeRegions then
@@ -2058,7 +2604,7 @@ begin
   LDir := ExtractFilePath(AOutputPath);
   if (LDir <> '') and not DirectoryExists(LDir) then
     if not ForceDirectories(LDir) then
-      raise EFluentCodeGen.CreateFmt('GenerateFluentUnit: "%s" klasörü oluşturulamadı.', [LDir]);
+      raise EFluentCodeGen.CreateFmt('TRadFluent.GenerateUnit: "%s" klasörü oluşturulamadı.', [LDir]);
 
   LSl := TStringList.Create;
   try
@@ -2076,37 +2622,37 @@ end;
 const
   CDateTolerance: Double = 1.157407407407407E-9; // ~0.1 ms, TDateTime gün biriminde
 
-function DateEQ(const ADate1, ADate2: TDateTime): Boolean;
+class function TRadDate.EQ(const ADate1, ADate2: TDateTime): Boolean;
 begin
   Result := Abs(ADate1 - ADate2) < CDateTolerance;
 end;
 
-function DateLT(const ADate1, ADate2: TDateTime): Boolean;
+class function TRadDate.LT(const ADate1, ADate2: TDateTime): Boolean;
 begin
   Result := (ADate2 - ADate1) >= CDateTolerance;
 end;
 
-function DateLE(const ADate1, ADate2: TDateTime): Boolean;
+class function TRadDate.LE(const ADate1, ADate2: TDateTime): Boolean;
 begin
-  Result := not DateGT(ADate1, ADate2);
+  Result := not TRadDate.GT(ADate1, ADate2);
 end;
 
-function DateGT(const ADate1, ADate2: TDateTime): Boolean;
+class function TRadDate.GT(const ADate1, ADate2: TDateTime): Boolean;
 begin
   Result := (ADate1 - ADate2) >= CDateTolerance;
 end;
 
-function DateGE(const ADate1, ADate2: TDateTime): Boolean;
+class function TRadDate.GE(const ADate1, ADate2: TDateTime): Boolean;
 begin
-  Result := not DateLT(ADate1, ADate2);
+  Result := not TRadDate.LT(ADate1, ADate2);
 end;
 
-function FixDT(const ADate: TDateTime): TDateTime;
+class function TRadDate.Fix(const ADate: TDateTime): TDateTime;
 begin
   Result := Round(ADate * MSecsPerDay) / MSecsPerDay;
 end;
 
-function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
+class function TRadDate.DayOfMonth(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
 var
   LFirstOfMonth, LLastOfMonth, LResult: TDateTime;
   LFirstDow: Word;
@@ -2144,6 +2690,68 @@ end;
 
 
 
+
+{ Deprecated names }
+
+function GenerateFluentCode(AClass: TClass; const AUnitSourcePath: string = '';
+  AOptions: TFluentGenOptions = CFluentGenDefaultOptions): string;
+begin
+  Result := TRadFluent.GenerateCode(AClass, AUnitSourcePath, AOptions);
+end;
+
+function GenerateFluentUnit(AClass: TClass; const AOutputPath: string;
+  const AUnitSourcePath: string = '';
+  AOptions: TFluentGenOptions = CFluentUnitDefaultOptions;
+  AWriteMode: TFluentUnitWriteMode = fumFailIfExists): string;
+begin
+  Result := TRadFluent.GenerateUnit(AClass, AOutputPath, AUnitSourcePath, AOptions, AWriteMode);
+end;
+
+function ListFluentRegions(const AUnitPath: string): TArray<string>;
+begin
+  Result := TRadFluent.ListRegions(AUnitPath);
+end;
+
+function PruneFluentRegions(const AUnitPath: string;
+  const AKeepClassNames: array of string; ADryRun: Boolean = True): TArray<string>;
+begin
+  Result := TRadFluent.PruneRegions(AUnitPath, AKeepClassNames, ADryRun);
+end;
+
+function DateEQ(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.EQ(ADate1, ADate2);
+end;
+
+function DateLT(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.LT(ADate1, ADate2);
+end;
+
+function DateLE(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.LE(ADate1, ADate2);
+end;
+
+function DateGT(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.GT(ADate1, ADate2);
+end;
+
+function DateGE(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.GE(ADate1, ADate2);
+end;
+
+function FixDT(const ADate: TDateTime): TDateTime;
+begin
+  Result := TRadDate.Fix(ADate);
+end;
+
+function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
+begin
+  Result := TRadDate.DayOfMonth(AYear, AMonth, AWeekInMonth, ADayInWeek);
+end;
 
 Initialization
 

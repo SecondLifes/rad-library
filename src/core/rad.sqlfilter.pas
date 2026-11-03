@@ -170,11 +170,14 @@ type
     function Clear: IRadSqlFilter;
     function ClearConditions: IRadSqlFilter;
     function ClearOrderBy: IRadSqlFilter;
+  public
+    /// <summary>SQL üst düzeyde UNION/INTERSECT/EXCEPT içeriyor mu (parantez, metin ve yorum içi sayılmaz).
+    /// Böyle bir sorguda AddWhere yalnız ilk kola uygulanır.</summary>
+    class function HasSetOperator(const ASql: string): Boolean; static;
   end;
 
-/// <summary>SQL üst düzeyde UNION/INTERSECT/EXCEPT içeriyor mu (parantez, metin ve yorum içi sayılmaz).
-/// Böyle bir sorguda AddWhere yalnız ilk kola uygulanır.</summary>
-function RadSqlHasSetOperator(const ASql: string): Boolean;
+function RadSqlHasSetOperator(const ASql: string): Boolean; deprecated 'Use TRadSqlFilter.HasSetOperator';
+
 
 implementation
 
@@ -222,7 +225,7 @@ begin
     i := LEnd + 1;
 end;
 
-function RadSqlHasSetOperator(const ASql: string): Boolean;
+class function TRadSqlFilter.HasSetOperator(const ASql: string): Boolean;
 var
   i, LStart, LDepth: Integer;
 begin
@@ -886,6 +889,13 @@ function TRadSqlFilter.Clear: IRadSqlFilter;
 begin
   ClearConditions;
   Result := ClearOrderBy;
+end;
+
+{ Deprecated names }
+
+function RadSqlHasSetOperator(const ASql: string): Boolean;
+begin
+  Result := TRadSqlFilter.HasSetOperator(ASql);
 end;
 
 end.

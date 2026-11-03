@@ -338,7 +338,7 @@ begin
         Kontrol('L05 secili sehir (540) 15 satirin ICINDE - ayni adli iki parametre birlikte baglandi',
           LS.QSehir.Locate('id', 540, []));
 
-        LDenetim := RadChainAudit(LForm);
+        LDenetim := TRadChain.Audit(LForm);
         Kontrol('L06 RadChainAudit AOnLocate eksigi bildirmiyor',
           Pos('AOnLocate yok', LDenetim) = 0, LDenetim);
         Writeln('  [BILGI] RadChainAudit: "', LDenetim.Replace(sLineBreak, ' | '), '"');

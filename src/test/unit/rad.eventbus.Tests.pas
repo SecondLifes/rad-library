@@ -168,7 +168,7 @@ var
   Cagrildi : Boolean;
   Olay     : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Cagrildi := False;
     Bus.Subscribe<TDenemeOlayi>('test.kanal', dmSync,
@@ -196,7 +196,7 @@ var
   Cagrildi: Boolean;
   Olay    : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Cagrildi := False;
     Bus.Subscribe<TDenemeOlayi>('siparis.islem', dmSync,
@@ -218,7 +218,7 @@ var
   ACagrildi, BCagrildi: Boolean;
   Olay      : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     ACagrildi := False;
     BCagrildi := False;
@@ -243,7 +243,7 @@ var
   DenemeCagrildi, DigerCagrildi: Boolean;
   Olay        : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     DenemeCagrildi := False;
     DigerCagrildi  := False;
@@ -268,7 +268,7 @@ var
   Yakalanan : TArray<TValue>;
   Cagrildi  : Boolean;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Cagrildi := False;
     Bus.Subscribe('dinamik.kanal', dmSync,
@@ -297,7 +297,7 @@ var
   Cagrildi : Boolean;
   Yakalanan: IDocDict;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Cagrildi := False;
     Bus.Subscribe('json.kanal', dmSync,
@@ -329,7 +329,7 @@ var
 begin
   // Aynı kanala üç farklı "tür" (T:record, TArray<TValue>, IDocDict) abone olabilir;
   // her Publish çağrısı yalnızca KENDİ türündeki aboneye ulaşmalı.
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     GenericCagrildi := False;
     DinamikCagrildi := False;
@@ -361,7 +361,7 @@ var
   AnaThreadID: TThreadID;
   Olay       : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
     AnaThreadID := TThread.CurrentThread.ThreadID;
@@ -393,7 +393,7 @@ begin
   // TThread.Synchronize kullanmayıp DOĞRUDAN çağırdığını doğrular. Eğer DispatchOne bu
   // özel durumu ele almasaydı, TThread.Synchronize kendi kendini bekleyip sonsuza kadar
   // bloklardı (self-deadlock) ve bu test asla dönmezdi.
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Cagrildi := False;
     Bus.Subscribe<TDenemeOlayi>('mainsync.kanal', dmMainSync,
@@ -415,7 +415,7 @@ var
   AnaThreadID: TThreadID;
   BittiOlay  : TEvent;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
     AnaThreadID := TThread.CurrentThread.ThreadID;
@@ -449,7 +449,7 @@ var
   Cagrildi: Boolean;
   Olay    : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Cagrildi := False;
     Bus.Subscribe<TDenemeOlayi>('mainasync.kanal', dmMainAsync,
@@ -474,7 +474,7 @@ var
   CagriSayaci: Integer;
   Olay      : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     CagriSayaci := 0;
     Sub := Bus.Subscribe<TDenemeOlayi>('unsub.kanal', dmSync,
@@ -502,7 +502,7 @@ var
   IsBittiBayragi: Integer; // 0/1, TInterlocked ile
   Olay      : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     IsBittiBayragi := 0;
     Sub := Bus.Subscribe<TDenemeOlayi>('waitunsub.kanal', dmAsync,
@@ -530,7 +530,7 @@ var
   Bus: TChannelBus;
   Sub1, Sub2: IChannelSubscription;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Assert.AreEqual(0, Bus.SubscriberCount('sayac.kanal'));
 
@@ -554,7 +554,7 @@ var
   Bus     : TChannelBus;
   Kanallar: TArray<string>;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Bus.Subscribe<TDenemeOlayi>('kanal.bir', dmSync, procedure(const AEvent: TDenemeOlayi) begin end);
     Bus.Subscribe<TDenemeOlayi>('kanal.bir', dmSync, procedure(const AEvent: TDenemeOlayi) begin end);
@@ -575,7 +575,7 @@ var
 begin
   // Regresyon: eskiden dmSync/dmMainSync'te bir abonenin exception'ı, aynı Publish
   // çağrısındaki DİĞER abonelerin çağrılmasını engelliyordu (for döngüsü kesiliyordu).
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     IkinciCagrildi := False;
     Bus.Subscribe<TDenemeOlayi>('hatali.kanal', dmSync,
@@ -597,7 +597,7 @@ procedure TChannelBusTestleri.OnErrorAtanmamissaHataSessizceYutulur;
 var
   Bus: TChannelBus;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Bus.Subscribe<TDenemeOlayi>('sessiz.hata.kanal', dmSync,
       procedure(const AEvent: TDenemeOlayi) begin raise Exception.Create('kasıtlı hata'); end);
@@ -621,7 +621,7 @@ var
   YakalananDeger : Integer;
   OnErrorCagrildi: Boolean;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     OnErrorCagrildi := False;
     Bus.OnError :=
@@ -655,7 +655,7 @@ var
   BittiOlay : TEvent;
   YakalananKanal: string;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
     Bus.OnError :=
@@ -686,7 +686,7 @@ var
   YakalananKanallar: TArray<string>;
   Olay           : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Bus.Subscribe<TDenemeOlayi>('siparis.*', dmSync,
       procedure(const AEvent: TDenemeOlayi)
@@ -711,7 +711,7 @@ var
   Cagrildi: Boolean;
   Olay    : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Cagrildi := False;
     Bus.Subscribe<TDenemeOlayi>('siparis.*', dmSync,
@@ -730,7 +730,7 @@ procedure TChannelBusTestleri.WildcardPatternsVeToplamSayiDogruDoner;
 var
   Bus     : TChannelBus;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Bus.Subscribe<TDenemeOlayi>('kanal.tam', dmSync, procedure(const AEvent: TDenemeOlayi) begin end);
     Bus.Subscribe<TDenemeOlayi>('siparis.*', dmSync, procedure(const AEvent: TDenemeOlayi) begin end);
@@ -752,7 +752,7 @@ var
 begin
   // Hiç wildcard abonelik yokken (FHasWildcards=False) GetMatchingSubscriptions'ın
   // tam-eşleşme-öncesi davranışı hiç bozmadığını doğrular.
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     ACagrildi := False;
     BCagrildi := False;
@@ -781,7 +781,7 @@ begin
   // thread'i (gerekirse) bekletir ama olayı asla düşürmez. Yayın BİLEREK bir arka plan
   // thread'inden yapılıyor — ana thread'den opBlockPublisher ile Publish çağırmak DEBUG
   // derlemede kasıtlı bir guard'ı tetikler (bkz. "opBlockPublisher + Ana Thread Riski").
-  Bus := CreateChannelBus(opBlockPublisher, 4);
+  Bus := TChannelBus.New(opBlockPublisher, 4);
   IslenenSayac := 0;
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
@@ -824,7 +824,7 @@ var
   i         : Integer;
   Olay      : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus(opGrow, 4);
+  Bus := TChannelBus.New(opGrow, 4);
   IslenenSayac := 0;
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
@@ -862,7 +862,7 @@ begin
   // thread'i arasında bir yarışa (race) dayanır — kuyruk derinliği 1 iken çok sayıda
   // olay sıkı bir döngüde art arda yayınlanır. Amaç kesin bir sayı değil, opDropOldest
   // politikasının en az bir olayı gerçekten atabildiğini göstermektir.
-  Bus := CreateChannelBus(opDropOldest, 1);
+  Bus := TChannelBus.New(opDropOldest, 1);
   try
     Bus.Subscribe<TDenemeOlayi>('drop.kanal', dmAsync,
       procedure(const AEvent: TDenemeOlayi) begin end);
@@ -886,7 +886,7 @@ var
   Sira : string;
   Olay : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     Sira := '';
     Bus.AddBeforePublish(procedure(const AChannel: string; const AData: TValue) begin Sira := Sira + 'B'; end);
@@ -909,7 +909,7 @@ var
   HandlerCagrildi, AfterCagrildi: Boolean;
   Olay        : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     HandlerCagrildi := False;
     AfterCagrildi := False;
@@ -938,7 +938,7 @@ var
   i        : Integer;
   Olay     : TDenemeOlayi;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
     CagriSayaci := 0;
@@ -977,7 +977,7 @@ var
 begin
   // ADebounceMs verilmezse (varsayılan 0) debounce devre dışıdır — her Publish handler'ı
   // tetiklemelidir (eski davranış, backward-compatible).
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   try
     CagriSayaci := 0;
     Bus.Subscribe<TDenemeOlayi>('nodebounce.kanal', dmSync,
@@ -1003,7 +1003,7 @@ var
   BaslangicTick: UInt64;
   GecenMs   : UInt64;
 begin
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   PublishBitti := TEvent.Create(nil, True, False, '');
   try
     HandlerCagrildi := False;
@@ -1043,7 +1043,7 @@ begin
   // AMainSyncTimeoutMs verilmezse (varsayılan INFINITE) eski davranış (TThread.Synchronize,
   // süresiz bekler) korunmalı — GorevBekle'nin kendisi CheckSynchronize'i pompaladığı için
   // burada iş kaybolmadan tamamlanmalı.
-  Bus := CreateChannelBus;
+  Bus := TChannelBus.New;
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
     Bus.Subscribe<TDenemeOlayi>('mainsync.notimeout.kanal', dmMainSync,
@@ -1080,7 +1080,7 @@ begin
   // taşımadan) doğrudan Publish çağırıyoruz: DEBUG derlemede guard'ın gerçekten
   // tetiklendiğini kanıtlamanın tek yolu bu. RELEASE derlemede guard devre dışı
   // olduğundan aynı kod sessizce (yavaşça) tamamlanır.
-  Bus := CreateChannelBus(opBlockPublisher, 1);
+  Bus := TChannelBus.New(opBlockPublisher, 1);
   try
     Bus.Subscribe<TDenemeOlayi>('debugguard.kanal', dmAsync,
       procedure(const AEvent: TDenemeOlayi) begin Sleep(10); end);

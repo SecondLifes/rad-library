@@ -128,7 +128,7 @@ try
          SetLength(ArgDefaultKey,k+1);
          ArgAct[k]:=act;
          ArgDefaultKey[k]:=act.ShortCut;
-         if (RadGlobalKeyOf(act) <> '') then
+         if (TRadGlobalKey.KeyOf(act) <> '') then
           view:=TableGlobal
          else
           view:=TableAct;
@@ -346,7 +346,7 @@ begin
     begin
       if act.Tag>-1 then
       begin
-        if (RadGlobalKeyOf(act) <> '') then
+        if (TRadGlobalKey.KeyOf(act) <> '') then
           view:=TableGlobal
         else
           view:=TableAct;

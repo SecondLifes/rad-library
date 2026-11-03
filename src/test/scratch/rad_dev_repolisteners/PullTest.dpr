@@ -322,13 +322,13 @@ begin
 
       Writeln;
       Writeln('=== T11) RadChainAudit teshisleri topluyor mu? ===');
-      LDenetim := RadChainAudit(LForm);
+      LDenetim := TRadChain.Audit(LForm);
       Kontrol('form denetimi bos donmuyor',
         LDenetim <> '', Format('uzunluk: %d', [Length(LDenetim)]));
       Kontrol('PullWarning bulgusu denetimde gorunuyor',
         Pos('AOnFilter', LDenetim) > 0);
       Kontrol('nil kok icin bos donuyor',
-        RadChainAudit(nil) = '');
+        TRadChain.Audit(nil) = '');
       Writeln('         --- denetim ciktisi (ilk satir) ---');
       if LDenetim <> '' then
         Writeln('         ', Copy(LDenetim, 1, Pos(sLineBreak, LDenetim + sLineBreak) - 1));
@@ -351,7 +351,7 @@ begin
       TRadLookupComboBoxProperties(LCol.Properties).AMaster := LUsta2;
 
       LOnce := LDenetim;
-      LDenetim := RadChainAudit(LForm);
+      LDenetim := TRadChain.Audit(LForm);
       Kontrol('kolonun kendi Properties''i denetimde yeni bir bulgu uretiyor',
         Length(LDenetim) > Length(LOnce),
         Format('once %d karakter, simdi %d', [Length(LOnce), Length(LDenetim)]));
@@ -380,7 +380,7 @@ begin
         'aktif ile kendi ayni ise bu test bir sey olcmez');
 
       LOnce := LDenetim;
-      LDenetim := RadChainAudit(LForm);
+      LDenetim := TRadChain.Audit(LForm);
       Kontrol('denetim, KENDI Properties''indeki master''i da raporluyor',
         Length(LDenetim) > Length(LOnce),
         Format('once %d karakter, simdi %d ' +
@@ -658,7 +658,7 @@ begin
       Kontrol('combo icin CascadeWarning uretiliyor',
         Pos('AOnCascade', LCombo.Properties.CascadeWarning) > 0,
         'uyari: ' + LCombo.Properties.CascadeWarning);
-      LOnce := RadChainAudit(LForm);
+      LOnce := TRadChain.Audit(LForm);
       Kontrol('denetim combo uyarisini da topluyor',
         Pos('Items', LOnce) > 0,
         'combo uyarisi Items kelimesini iceriyor; denetimde gorunmeli');

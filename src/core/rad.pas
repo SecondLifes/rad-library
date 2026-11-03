@@ -16,7 +16,7 @@ uses
 
 
 const
- Cache  : function :ISmartCache = rad.cache.Cache;
+ Cache  : function :ISmartCache = TSmartCache.Global;
  //Config : function :ISmartCache = rad.cache.Config;
 type
   TFileVersion1 = class(mormot.core.os.TFileVersion);
@@ -64,9 +64,6 @@ type
 
   end;
 
-
-
-
   TRadApp  = class
    class var Folders : TFolders;
    private
@@ -78,6 +75,9 @@ type
 
     //function Config:ISmartCache;
 
+  public
+    class function Instance: TRadApp; static;
+    class function Config :TRadConfig; static;
   end;
 
 
@@ -85,36 +85,27 @@ type
 // rad.utils.pas. Iki birebir kopya vardi; ayni projede iki unit birlikte uses
 // edildiginde uses sirasina gore biri digerini golgeliyordu.
 
-/// 1/10 ms toleranslı TDateTime karşılaştırma (float yuvarlama hatalarına karşı)
-/// Kaynak: vendor\gabr42\GpDelphiUnits\src\GpTimezone.pas (DateEQ/DateLT/.../DateGE)
-function DateEQ(const ADate1, ADate2: TDateTime): Boolean;
-function DateLT(const ADate1, ADate2: TDateTime): Boolean;
-function DateLE(const ADate1, ADate2: TDateTime): Boolean;
-function DateGT(const ADate1, ADate2: TDateTime): Boolean;
-function DateGE(const ADate1, ADate2: TDateTime): Boolean;
+function DateEQ(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.EQ in rad.utils';
+function DateLT(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.LT in rad.utils';
+function DateLE(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.LE in rad.utils';
+function DateGT(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.GT in rad.utils';
+function DateGE(const ADate1, ADate2: TDateTime): Boolean; deprecated 'Use TRadDate.GE in rad.utils';
+function FixDT(const ADate: TDateTime): TDateTime; deprecated 'Use TRadDate.Fix in rad.utils';
+function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime; deprecated 'Use TRadDate.DayOfMonth in rad.utils';
 
-/// float yuvarlama hatalarını düzeltir (Trunc/Frac öncesi çağrılır)
-/// ör. FixDT(36463.99999999999) = 36464
-function FixDT(const ADate: TDateTime): TDateTime;
-
-/// "ayın N'inci X günü" tarihini hesaplar (ör. DayOfMonth2Date(2026,12,5,1) = Aralık'ın son Pazarı)
-/// AWeekInMonth: 1-4 (o ayın kaçıncı haftası) veya 5 (son hafta); ADayInWeek: 1=Pazar..7=Cumartesi
-function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
-
-
-function RadApp: TRadApp;
-
-function Config :TRadConfig;
+function RadApp: TRadApp; deprecated 'Use TRadApp.Instance';
+function Config :TRadConfig; deprecated 'Use TRadApp.Config';
 
 implementation
 uses
 System.Generics.Collections, System.DateUtils, System.IOUtils
+,rad.utils
 ,mormot.core.datetime
 //, JclSynch
 
 ;
 
-function Config :TRadConfig;
+class function TRadApp.Config :TRadConfig;
 begin
   if TRadConfig.Config = nil then
     TRadConfig.Config :=rad.config.TRadConfig.Create;
@@ -122,74 +113,12 @@ begin
 end;
 
 
-function RadApp: TRadApp;
+class function TRadApp.Instance: TRadApp;
  begin
   if TRadApp.FDefaultApp = nil then
    TRadApp.FDefaultApp := TRadApp.Create();
   Result:=TRadApp.FDefaultApp;
  end;
-
-const
-  CDateTolerance: Double = 1.157407407407407E-9; // ~0.1 ms, TDateTime gün biriminde
-
-function DateEQ(const ADate1, ADate2: TDateTime): Boolean;
-begin
-  Result := Abs(ADate1 - ADate2) < CDateTolerance;
-end;
-
-function DateLT(const ADate1, ADate2: TDateTime): Boolean;
-begin
-  Result := (ADate2 - ADate1) >= CDateTolerance;
-end;
-
-function DateLE(const ADate1, ADate2: TDateTime): Boolean;
-begin
-  Result := not DateGT(ADate1, ADate2);
-end;
-
-function DateGT(const ADate1, ADate2: TDateTime): Boolean;
-begin
-  Result := (ADate1 - ADate2) >= CDateTolerance;
-end;
-
-function DateGE(const ADate1, ADate2: TDateTime): Boolean;
-begin
-  Result := not DateLT(ADate1, ADate2);
-end;
-
-function FixDT(const ADate: TDateTime): TDateTime;
-begin
-  Result := Round(ADate * MSecsPerDay) / MSecsPerDay;
-end;
-
-function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
-var
-  LFirstOfMonth, LLastOfMonth, LResult: TDateTime;
-  LFirstDow: Word;
-  LOffset: Integer;
-begin
-  LFirstOfMonth := EncodeDate(AYear, AMonth, 1);
-  LFirstDow := DayOfWeek(LFirstOfMonth); // 1=Pazar..7=Cumartesi
-  LOffset := ADayInWeek - LFirstDow;
-  if LOffset < 0 then
-    Inc(LOffset, 7);
-  LResult := LFirstOfMonth + LOffset; // ayın ilk ADayInWeek günü
-
-  if AWeekInMonth = 5 then
-  begin
-    LLastOfMonth := EncodeDate(AYear, AMonth, DaysInAMonth(AYear, AMonth));
-    while LResult + 7 <= LLastOfMonth do
-      LResult := LResult + 7;
-  end
-  else
-    LResult := LResult + 7 * (AWeekInMonth - 1);
-
-  Result := LResult;
-end;
-
-
-
-
 
 { TFolders }
 
@@ -220,8 +149,6 @@ begin
   inherited;
 end;
 
-
-
 procedure wInit;
 begin
   //DocDict(StringFromFile(pmcFileName));
@@ -238,6 +165,53 @@ begin
 
 end;
 
+{ Deprecated names }
+
+function RadApp: TRadApp;
+begin
+  Result := TRadApp.Instance;
+end;
+
+function Config :TRadConfig;
+begin
+  Result := TRadApp.Config;
+end;
+
+function DateEQ(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.EQ(ADate1, ADate2);
+end;
+
+function DateLT(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.LT(ADate1, ADate2);
+end;
+
+function DateLE(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.LE(ADate1, ADate2);
+end;
+
+function DateGT(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.GT(ADate1, ADate2);
+end;
+
+function DateGE(const ADate1, ADate2: TDateTime): Boolean;
+begin
+  Result := TRadDate.GE(ADate1, ADate2);
+end;
+
+function FixDT(const ADate: TDateTime): TDateTime;
+begin
+  Result := TRadDate.Fix(ADate);
+end;
+
+function DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
+begin
+  Result := TRadDate.DayOfMonth(AYear, AMonth, AWeekInMonth, ADayInWeek);
+end;
+
 Initialization
  wInit;
 
@@ -245,11 +219,4 @@ finalization
 
 
 end.
-
-
-
-
-
-
-
 

@@ -566,8 +566,17 @@ type
   end;
 
 { Filtre SQL üretici }
+type
+  /// <summary>SQL text for a filter condition.</summary>
+  TRadDbFilter = class abstract
+  public
+    class function ToSql(const AFieldType: TFieldType; AOperation: TRadFilterOp;
+    const AFieldName: string; const v1, v2: Variant): string; static;
+  end;
+
 function RadFilterToSQL(const AFieldType: TFieldType; AOperation: TRadFilterOp;
-                        const AFieldName: string; const v1, v2: Variant): string;
+                        const AFieldName: string; const v1, v2: Variant): string; deprecated 'Use TRadDbFilter.ToSql';
+
 
 implementation
  uses help.uni;
@@ -575,7 +584,7 @@ implementation
   Yardımcı
   ═══════════════════════════════════════════════════════════════════════════════}
 
-function RadFilterToSQL(const AFieldType: TFieldType; AOperation: TRadFilterOp;
+class function TRadDbFilter.ToSql(const AFieldType: TFieldType; AOperation: TRadFilterOp;
                         const AFieldName: string; const v1, v2: Variant): string;
 const
   CFilterFmt: array[TRadFilterOp] of string = (
@@ -1932,7 +1941,7 @@ begin
       if Itm.FieldType = TFieldType.ftUnknown then
         Itm.FieldType := FieldByName(Itm.Filter1).DataType;
 
-      tmp := RadFilterToSQL(Itm.FieldType, Itm.Operation, Itm.ResolvedField, AValue, Null);
+      tmp := TRadDbFilter.ToSql(Itm.FieldType, Itm.Operation, Itm.ResolvedField, AValue, Null);
       if not tmp.IsEmpty then
       begin
         if not s.IsEmpty then
@@ -2306,6 +2315,14 @@ begin
   finally
     FClearing := False;
   end;
+end;
+
+{ Deprecated names }
+
+function RadFilterToSQL(const AFieldType: TFieldType; AOperation: TRadFilterOp;
+                        const AFieldName: string; const v1, v2: Variant): string;
+begin
+  Result := TRadDbFilter.ToSql(AFieldType, AOperation, AFieldName, v1, v2);
 end;
 
 end.

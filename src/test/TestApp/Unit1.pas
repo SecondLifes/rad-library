@@ -105,32 +105,32 @@ begin
  Memo1.Lines.Clear;
     //s:= rad.json.NewJson('').SetStr('Adý','Emrah').SetStr('soyad','BAÞPINAR').SetInt('phone',5555575595).ToJson;
 {
-SetLength(Config.Connection.FArgStr,2);
-SetLength(Config.Connection.FArgInt,2);
+SetLength(TRadApp.Config.Connection.FArgStr,2);
+SetLength(TRadApp.Config.Connection.FArgInt,2);
 
-Config.Connection.ArgStr[0]:='String 1';
-Config.Connection.ArgStr[1]:='String 2';
-Config.Connection.ArgInt[0]:=9;
-Config.Connection.ArgInt[1]:=99;
+TRadApp.Config.Connection.ArgStr[0]:='String 1';
+TRadApp.Config.Connection.ArgStr[1]:='String 2';
+TRadApp.Config.Connection.ArgInt[0]:=9;
+TRadApp.Config.Connection.ArgInt[1]:=99;
 
-Config.Connection.ServerIP:='192.168.1.11';
-Config.Connection.Port:=1452;
-Config.Connection.UserName :='emrah';
-Config.Connection.Passport:='02450350';
-Config.Connection.BeniHatirla:=True;
-Config.Connection.FDeneme.Ad:='Þenay';
-Config.Connection.FDeneme.Soyad:='BAÞPINAR';
-Config.Connection.FDeneme.yas:=48;
+TRadApp.Config.Connection.ServerIP:='192.168.1.11';
+TRadApp.Config.Connection.Port:=1452;
+TRadApp.Config.Connection.UserName :='emrah';
+TRadApp.Config.Connection.Passport:='02450350';
+TRadApp.Config.Connection.BeniHatirla:=True;
+TRadApp.Config.Connection.FDeneme.Ad:='Þenay';
+TRadApp.Config.Connection.FDeneme.Soyad:='BAÞPINAR';
+TRadApp.Config.Connection.FDeneme.yas:=48;
 }
-Config.AddOrSet('emr.string','Emrah BAÞPINAR');
-Config.AddOrSet('emr.int',14725);
-Config.AddOrSet('float',12.99);
-Config.AddOrSet('DateTime',Now);
-Config.AddOrSet('Date',Date);
-Config.AddOrSet('Time',Time);
-Config.SaveToFile('E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\asd.json');
-Config.SaveToFile('E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\asd.yml');
-Config.SaveToFile('E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\asd.xml');
+TRadApp.Config.AddOrSet('emr.string','Emrah BAÞPINAR');
+TRadApp.Config.AddOrSet('emr.int',14725);
+TRadApp.Config.AddOrSet('float',12.99);
+TRadApp.Config.AddOrSet('DateTime',Now);
+TRadApp.Config.AddOrSet('Date',Date);
+TRadApp.Config.AddOrSet('Time',Time);
+TRadApp.Config.SaveToFile('E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\asd.json');
+TRadApp.Config.SaveToFile('E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\asd.yml');
+TRadApp.Config.SaveToFile('E:\system\dev\AI\AI-Spec-Kits-Maker\spec-kits\rad-library\src\core\asd.xml');
  exit;
  _Add(TPath.GetAppPath);
  _Add(TPath.GetLibraryPath);
@@ -169,14 +169,14 @@ end;
 procedure TForm1.FormCreate(Sender: TObject);
 begin
   Config:=TRadConfig.Create();
-  Config.AddOrSet('Connection',TRadOptions.Create());
+  TRadApp.Config.AddOrSet('Connection',TRadOptions.Create());
 
   Button1Click(nil);
 end;
 
 procedure TForm1.FormDestroy(Sender: TObject);
 begin
-  Config.Free;
+  TRadApp.Config.Free;
 end;
 
 

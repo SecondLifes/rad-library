@@ -343,7 +343,7 @@ begin
   try
     var DonguSayisi := 0;
     var IptalTetiklendi := False;
-    var Kaynak := NewCancellationSource;
+    var Kaynak := TRadCancellation.NewSource;
     var Gorev := TRadTask.Create(procedure(t: TRadTask) begin
         while not t.CheckCancelled do
         begin
@@ -1005,7 +1005,7 @@ begin
   // DEĞİL) — bu yüzden OnError/retry değil OnCancel tetiklenir.
   BittiOlay := YeniOlay;
   try
-    var Kaynak := NewCancellationSource;
+    var Kaynak := TRadCancellation.NewSource;
     Kaynak.Cancel;
     var IptalTetiklendi, HataTetiklendi: Boolean;
     TRadTask.Create(procedure(t: TRadTask) begin

@@ -85,7 +85,7 @@ procedure TCmdsTestleri.KomutKaydiVeSayisi;
 var
   Komutlar: ICmds;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Assert.AreEqual(0, Komutlar.CommandCount);
   Assert.IsFalse(Komutlar.Exists('topla'));
 
@@ -101,7 +101,7 @@ var
   Komutlar: ICmds;
   Sonuc   : TValue;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('carp', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin Result := Args[0].AsInteger * Args[1].AsInteger; end);
 
@@ -124,7 +124,7 @@ begin
   // locale'de 'I'.ToLower <> 'i' olabiliyordu ("Turkish I" sorunu). Artık
   // ToLowerInvariant kullanılıyor, bu yüzden büyük/küçük harf içeren isimler
   // her locale'de tutarlı eşleşmeli.
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('GetID', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin Result := 99; end);
 
@@ -136,7 +136,7 @@ procedure TCmdsTestleri.KomutKaydiniSil;
 var
   Komutlar: ICmds;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('sil', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin Result := 1; end);
   Assert.IsTrue(Komutlar.Exists('sil'));
@@ -153,7 +153,7 @@ var
   Basarili : Boolean;
   SonucDeger: Integer;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('asenkron', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin
       Sleep(20);
@@ -188,7 +188,7 @@ var
   BittiOlay: TEvent;
   HataYakalandi: Boolean;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
 
   BittiOlay := TEvent.Create(nil, True, False, '');
   try
@@ -238,7 +238,7 @@ var
   Hatalar   : Integer;
   i         : Integer;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Hatalar  := 0;
   for i := 0 to ThreadSayisi - 1 do
     BittiOlaylar[i] := TEvent.Create(nil, True, False, '');
@@ -260,7 +260,7 @@ procedure TCmdsTestleri.IsimBaslangicBitisBosluklariTrimlenir;
 var
   Komutlar: ICmds;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('Kaydet', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin Result := 1; end);
   Assert.IsTrue(Komutlar.Exists(' kaydet '), 'Trim uygulanmadığı için boşluklu ad bulunamadı');
@@ -271,7 +271,7 @@ procedure TCmdsTestleri.BosIsimKaydiReddedilir;
 var
   Komutlar: ICmds;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Assert.WillRaise(procedure
     begin
       Komutlar.RegisterCommand('   ', function(Sender: TObject; const Args: TArray<TValue>): TValue
@@ -284,7 +284,7 @@ var
   Komutlar: ICmds;
   LNilFunc: TCmd;
 begin
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   LNilFunc := nil;
   Assert.WillRaise(procedure
     begin
@@ -302,7 +302,7 @@ begin
   // Regresyon: ExecuteAsync artık Self'i ICmds interface'i üzerinden yakalayıp
   // (LKeepAlive) task bitene kadar hayatta tutuyor - dış referans hemen
   // bırakılsa bile AV oluşmamalı (2026-07-09 incelemesi #2).
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('omur', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin
       Sleep(100);
@@ -343,7 +343,7 @@ var
 begin
   // Regresyon: AcquireExceptionObject olmadan E, ForceQueue callback'i
   // çalışmadan önce RTL tarafından Free edilebiliyordu (2026-07-09 incelemesi #1).
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('patlar', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin raise Exception.Create(CBeklenenMesaj); end);
 
@@ -373,7 +373,7 @@ begin
   // Regresyon: OnDone/OnError callback'inin KENDİSİ exception atarsa artık
   // sarmalanıp loglanıyor, sarmalanmamış exception yayılmıyor (2026-07-09
   // incelemesi #6).
-  Komutlar := CreateCmds;
+  Komutlar := TRadCmds.New;
   Komutlar.RegisterCommand('basarili', function(Sender: TObject; const Args: TArray<TValue>): TValue
     begin Result := 1; end);
 

@@ -39,18 +39,31 @@ type
   end;
   TRadSearchTerms = TArray<TRadSearchTerm>;
 
-/// <summary>Arama kutusu metnini terimlere ayırır; boş metin için boş dizi döner.</summary>
-function RadSearchParse(const AInput: string): TRadSearchTerms;
+type
+  /// <summary>Search expression parser.</summary>
+  TRadSearch = class abstract
+  public
+    /// <summary>Arama kutusu metnini terimlere ayırır; boş metin için boş dizi döner.</summary>
+    class function Parse(const AInput: string): TRadSearchTerms; static;
+    /// <summary>Metni alan türüne göre değere çevirir; tür uymuyorsa False.
+    /// Tamsayı yalnız rakam, ondalık '1.234,56' / '1,234.56' / '12.5' (üstel yazım yok),
+    /// tarih yerel biçim ya da ISO 8601.</summary>
+    class function Value(const AText: string; AKind: TRadSearchKind; out AValue: Variant): Boolean; static;
+    /// <summary>Terimi AField ifadesi için AFilter'a koşul olarak ekler; terim bu türe uymuyorsa
+    /// hiçbir şey eklemez ve False döner. AField yalnız geliştirici kodundan gelmelidir.</summary>
+    class function Apply(const AFilter: IRadSqlFilter; const AField: string;
+    AKind: TRadSearchKind; const ATerm: TRadSearchTerm): Boolean; static;
+  end;
 
-/// <summary>Metni alan türüne göre değere çevirir; tür uymuyorsa False.
-/// Tamsayı yalnız rakam, ondalık '1.234,56' / '1,234.56' / '12.5' (üstel yazım yok),
-/// tarih yerel biçim ya da ISO 8601.</summary>
-function RadSearchValue(const AText: string; AKind: TRadSearchKind; out AValue: Variant): Boolean;
-
-/// <summary>Terimi AField ifadesi için AFilter'a koşul olarak ekler; terim bu türe uymuyorsa
-/// hiçbir şey eklemez ve False döner. AField yalnız geliştirici kodundan gelmelidir.</summary>
+function RadSearchParse(const AInput: string): TRadSearchTerms; deprecated 'Use TRadSearch.Parse';
+function RadSearchValue(const AText: string; AKind: TRadSearchKind; out AValue: Variant): Boolean; deprecated 'Use TRadSearch.Value';
 function RadSearchApply(const AFilter: IRadSqlFilter; const AField: string;
-  AKind: TRadSearchKind; const ATerm: TRadSearchTerm): Boolean;
+  AKind: TRadSearchKind; const ATerm: TRadSearchTerm): Boolean; deprecated 'Use TRadSearch.Apply';
+
+
+
+
+
 
 implementation
 
@@ -185,7 +198,7 @@ begin
   end;
 end;
 
-function RadSearchParse(const AInput: string): TRadSearchTerms;
+class function TRadSearch.Parse(const AInput: string): TRadSearchTerms;
 var
   LInput: string;
   i, n, LOpLen, LP: Integer;
@@ -302,7 +315,7 @@ begin
   Result.DateSeparator := '-';
 end;
 
-function RadSearchValue(const AText: string; AKind: TRadSearchKind; out AValue: Variant): Boolean;
+class function TRadSearch.Value(const AText: string; AKind: TRadSearchKind; out AValue: Variant): Boolean;
 var
   LInt: Int64;
   LDec: Double;
@@ -408,14 +421,14 @@ begin
       Exit;
     V := Null;
     V2 := Null;
-    if (ATerm.Operand <> '') and not RadSearchValue(ATerm.Operand, AKind, V) then
+    if (ATerm.Operand <> '') and not TRadSearch.Value(ATerm.Operand, AKind, V) then
       Exit;
-    if (ATerm.Operand2 <> '') and not RadSearchValue(ATerm.Operand2, AKind, V2) then
+    if (ATerm.Operand2 <> '') and not TRadSearch.Value(ATerm.Operand2, AKind, V2) then
       Exit;
     AFilter.Between(AField, V, V2);
     Exit(True);
   end;
-  if not RadSearchValue(ATerm.Operand, AKind, V) then
+  if not TRadSearch.Value(ATerm.Operand, AKind, V) then
     Exit;
   if (AKind = skBoolean) and not (ATerm.Op in [soContains, soEqual, soNotEqual]) then
     Exit;
@@ -431,7 +444,7 @@ begin
   Result := True;
 end;
 
-function RadSearchApply(const AFilter: IRadSqlFilter; const AField: string;
+class function TRadSearch.Apply(const AFilter: IRadSqlFilter; const AField: string;
   AKind: TRadSearchKind; const ATerm: TRadSearchTerm): Boolean;
 begin
   case AKind of
@@ -440,6 +453,24 @@ begin
   else
     Result := ApplyTyped(AFilter, AField, AKind, ATerm);
   end;
+end;
+
+{ Deprecated names }
+
+function RadSearchParse(const AInput: string): TRadSearchTerms;
+begin
+  Result := TRadSearch.Parse(AInput);
+end;
+
+function RadSearchValue(const AText: string; AKind: TRadSearchKind; out AValue: Variant): Boolean;
+begin
+  Result := TRadSearch.Value(AText, AKind, AValue);
+end;
+
+function RadSearchApply(const AFilter: IRadSqlFilter; const AField: string;
+  AKind: TRadSearchKind; const ATerm: TRadSearchTerm): Boolean;
+begin
+  Result := TRadSearch.Apply(AFilter, AField, AKind, ATerm);
 end;
 
 end.

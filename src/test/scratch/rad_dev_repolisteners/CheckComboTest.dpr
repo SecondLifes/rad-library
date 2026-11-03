@@ -316,7 +316,7 @@ begin
     LCb.Name := 'cbTemiz';
     LCb.Parent := LForm;
     Kur(LCb.Properties);
-    LRapor := RadChainAudit(LForm);
+    LRapor := TRadChain.Audit(LForm);
     Kontrol('A00 duzgun kurulumda rapor bos', LRapor = '', LRapor);
 
     LCb.Properties.Items.AddItem('Tekrar', 'A');           { ayni deger }
@@ -335,7 +335,7 @@ begin
     Kur(LDb.Properties);
     LDb.DataBinding.DataSource := LDs;
     LDb.DataBinding.DataField := 'kisa';                  { A;S;AS sigmaz (7 > 3) }
-    LRapor := RadChainAudit(LForm);
+    LRapor := TRadChain.Audit(LForm);
     Writeln('  [BILGI] ', LRapor.Replace(sLineBreak, ' | '));
     Kontrol('A01 ayni degerli iki item bildirildi', Pos('"A"', LRapor) > 0);
     Kontrol('A02 ayrac iceren deger bildirildi', Pos('X;Y', LRapor) > 0);
@@ -348,7 +348,7 @@ begin
       (LOlay.Sayac = 1) and (VarToStr(LCb.EditValue) = 'OLAY'), VarToStr(LCb.EditValue));
     LCb.Properties.OnStatesToEditValue := nil;
     LDb.DataBinding.DataField := 'sayi';
-    LRapor := RadChainAudit(LForm);
+    LRapor := TRadChain.Audit(LForm);
     Kontrol('A06 metin olmayan DB alani bildirildi', Pos('sayi', LRapor) > 0, LRapor);
   finally
     LForm.Free;

@@ -105,12 +105,20 @@ var
   /// <summary>İptal'den önce çağrılır (açık düzenleyiciyi iptal eder).</summary>
   RadCancelEditors: TProc = nil;
 
-/// <summary>Eylemin GlobalKey'i; arayüzü desteklemiyorsa ya da boşsa ''.</summary>
-function RadGlobalKeyOf(AAction: TObject): string;
+type
+  /// <summary>Global shortcut keys of actions.</summary>
+  TRadGlobalKey = class abstract
+  public
+    /// <summary>Eylemin GlobalKey'i; arayüzü desteklemiyorsa ya da boşsa ''.</summary>
+    class function KeyOf(AAction: TObject): string; static;
+  end;
+
+function RadGlobalKeyOf(AAction: TObject): string; deprecated 'Use TRadGlobalKey.KeyOf';
+
 
 implementation
  uses Math;
-function RadGlobalKeyOf(AAction: TObject): string;
+class function TRadGlobalKey.KeyOf(AAction: TObject): string;
 var
   LKey: IRadGlobalKey;
 begin
@@ -215,8 +223,8 @@ begin
     if not (act is TCustomAction) then Continue;
 
     // GlobalKey varsa onu ara, yoksa action adını ara
-    if RadGlobalKeyOf(act) <> '' then
-      name := StringToUtf8(RadGlobalKeyOf(act))
+    if TRadGlobalKey.KeyOf(act) <> '' then
+      name := StringToUtf8(TRadGlobalKey.KeyOf(act))
     else
       name := StringToUtf8(act.Name);
 
@@ -245,8 +253,8 @@ begin
       act := Actions[i];
       if not (act is TCustomAction) then Continue;
 
-      if RadGlobalKeyOf(act) <> '' then
-        key := RadGlobalKeyOf(act)
+      if TRadGlobalKey.KeyOf(act) <> '' then
+        key := TRadGlobalKey.KeyOf(act)
       else
         key := act.Name;
 
@@ -296,6 +304,13 @@ end;
 procedure TRadCmdList.SetCmdList(const Value: TStrings);
 begin
  FCmdList.Assign(Value);
+end;
+
+{ Deprecated names }
+
+function RadGlobalKeyOf(AAction: TObject): string;
+begin
+  Result := TRadGlobalKey.KeyOf(AAction);
 end;
 
 end.

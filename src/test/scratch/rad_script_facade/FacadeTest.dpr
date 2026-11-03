@@ -258,7 +258,7 @@ begin
     Kontrol('F07 Kullanici/Sirket/Log', (V = '7AlialiFIRMAFirma AŞ') and (GLogs.Count = 2) and (GLogs[1] = 'HATA: kotu'), VarToStr(V) + ' ' + GLogs.Text);
 
     // EARS 10: gizli uyeler
-    RegisterUniClasses;
+    TRadScriptUni.RegisterAll;
     Firlatir('F10 TUniConnection.Password gizli', procedure begin
       Calistir(Ctx, 'T10', 'function Dene: string; var C: TUniConnection; begin Result := ''''; end;'#13#10 +
         'function Dene2(C: TUniConnection): string; begin Result := C.Password; end;', 'Dene', [P.Id]); end, 'Password');

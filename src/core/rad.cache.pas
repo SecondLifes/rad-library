@@ -51,7 +51,7 @@ type
     GetIntf<T> burada YOKTUR; interface üzerinden generic erişim için
     TSmartCacheView kullanılır (aşağıda):
 
-      var Cache: ISmartCache := NewSmartCache;   // ARC — Free yok
+      var Cache: ISmartCache := TSmartCache.New;   // ARC — Free yok
       Liste := TSmartCacheView(Cache).Get<TStringList>('k', nil);
 
     YAŞAM SÜRESİ KURALI: Bir örneği YA ISmartCache olarak tutun (ARC serbest
@@ -278,6 +278,10 @@ type
     property SaveFileName: string read GetSaveFileName write SetSaveFileName;
     property OnGlobalChange: TParamChangeEvent     read GetGlobalEvent write SetGlobalEvent;
     property OnError       : TSmartCacheErrorEvent read GetOnError     write SetOnError;
+  public
+    // Fabrika: ARC yaşam süresiyle kullanım için önerilen kuruluş yolu.
+    class function New(const AThreadSafe: Boolean = True): ISmartCache; static;
+    class function Global    : ISmartCache; static;
   end;
 
   // ISmartCache üzerinden generic erişim görünümü. Record olduğu için generic
@@ -311,9 +315,10 @@ type
 
 
 
-// Fabrika: ARC yaşam süresiyle kullanım için önerilen kuruluş yolu.
-function NewSmartCache(const AThreadSafe: Boolean = True): ISmartCache;
-function Cache    : ISmartCache;
+function NewSmartCache(const AThreadSafe: Boolean = True): ISmartCache; deprecated 'Use TSmartCache.New';
+function Cache    : ISmartCache; deprecated 'Use TSmartCache.Global';
+
+
 
 
 implementation
@@ -425,15 +430,15 @@ begin
 end;
 
 
-function NewSmartCache(const AThreadSafe: Boolean): ISmartCache;
+class function TSmartCache.New(const AThreadSafe: Boolean): ISmartCache;
 begin
   Result := TSmartCache.Create(AThreadSafe);
 end;
 
-function Cache  :ISmartCache;
+class function TSmartCache.Global  :ISmartCache;
  begin
   if TSmartCache.FCache = nil then
-   TSmartCache.FCache := rad.Cache.NewSmartCache(True);
+   TSmartCache.FCache := TSmartCache.New(True);
   Result:=TSmartCache.FCache;
  end;
 
@@ -1766,6 +1771,18 @@ begin
 end;
 
 
+
+{ Deprecated names }
+
+function NewSmartCache(const AThreadSafe: Boolean = True): ISmartCache;
+begin
+  Result := TSmartCache.New(AThreadSafe);
+end;
+
+function Cache    : ISmartCache;
+begin
+  Result := TSmartCache.Global;
+end;
 
 end.
 

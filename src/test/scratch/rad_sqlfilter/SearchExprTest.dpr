@@ -36,7 +36,7 @@ var
   T: TRadSearchTerm;
 begin
   Result := '';
-  for T in RadSearchParse(AMetin) do
+  for T in TRadSearch.Parse(AMetin) do
     Result := Result + Format('{%d|%s|%s}', [Ord(T.Op), T.Operand, T.Operand2]);
 end;
 
@@ -54,7 +54,7 @@ function Deger(const AMetin: string; AKind: TRadSearchKind): string;
 var
   V: Variant;
 begin
-  if RadSearchValue(AMetin, AKind, V) then
+  if TRadSearch.Value(AMetin, AKind, V) then
     Result := Goster(V)
   else
     Result := '<yok>';
@@ -69,8 +69,8 @@ var
 begin
   F := TRadSqlFilter.New;
   LVar := False;
-  for T in RadSearchParse(AMetin) do
-    LVar := RadSearchApply(F, 'x.alan', AKind, T) or LVar;
+  for T in TRadSearch.Parse(AMetin) do
+    LVar := TRadSearch.Apply(F, 'x.alan', AKind, T) or LVar;
   if not LVar then
     Exit('<eklenmedi>');
   Result := F.GetConditions;
@@ -200,11 +200,11 @@ begin
     Esit('G01 bos grup', '(1 = 0)', F.GetConditions);
     F := TRadSqlFilter.New;
     F.BeginOr;
-    RadSearchApply(F, 'a.x', skText, RadSearchParse('ali')[0]);
-    RadSearchApply(F, 'a.y', skText, RadSearchParse('ali')[0]);
+    TRadSearch.Apply(F, 'a.x', skText, TRadSearch.Parse('ali')[0]);
+    TRadSearch.Apply(F, 'a.y', skText, TRadSearch.Parse('ali')[0]);
     F.EndOr;
     F.BeginOr;
-    RadSearchApply(F, 'a.x', skText, RadSearchParse('veli')[0]);
+    TRadSearch.Apply(F, 'a.x', skText, TRadSearch.Parse('veli')[0]);
     F.EndOr;
     Writeln('   (bilgi) iki terim: ', F.GetConditions);
     Kontrol('G02 terimler AND, alanlar OR', (Pos(' OR ', F.GetConditions) > 0) and (Pos(' AND ', F.GetConditions) > 0), F.GetConditions);

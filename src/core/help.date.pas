@@ -877,7 +877,7 @@ end;
 
 class function TDateTimeHelper._DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek: Word): TDateTime;
 begin
-  Result := rad.utils.DayOfMonth2Date(AYear, AMonth, AWeekInMonth, ADayInWeek);
+  Result := TRadDate.DayOfMonth(AYear, AMonth, AWeekInMonth, ADayInWeek);
 end;
 
 class function TDateTimeHelper._IndexedWeekDay(AYear, AMonth: Word; AIndex: Integer): TDateTime;

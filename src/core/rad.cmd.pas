@@ -25,7 +25,15 @@ type
     procedure ExecuteAsync(const Name: string; Sender: TObject; const Args: TArray<TValue>; OnDone: TProc<TValue>; OnError: TProc<Exception> = nil);
   end;
 
-function CreateCmds: ICmds;
+type
+  /// <summary>Command list factory.</summary>
+  TRadCmds = class abstract
+  public
+    class function New: ICmds; static;
+  end;
+
+function CreateCmds: ICmds; deprecated 'Use TRadCmds.New';
+
 
 implementation
 
@@ -60,7 +68,7 @@ type
     procedure ExecuteAsync(const Name: string; Sender: TObject; const Args: TArray<TValue>; OnDone: TProc<TValue>; OnError: TProc<Exception> = nil);
   end;
 
-function CreateCmds: ICmds;
+class function TRadCmds.New: ICmds;
 begin
   Result := TCmds.Create;
 end;
@@ -176,7 +184,7 @@ var
 begin
   // 2026-07-09 incelemesi #2: closure Self'i (Execute cagrisi uzerinden) dogrudan
   // yakalardi - interface refcount'a katilmayan ham nesne referansi. Dis kod
-  // ICmds referansini erken birakirsa (ör. CreateCmds.ExecuteAsync(...)) task
+  // ICmds referansini erken birakirsa (ör. TRadCmds.New.ExecuteAsync(...)) task
   // calisirken nesne Free edilebilirdi. LKeepAlive, task bitene kadar nesneyi
   // interface refcount ile hayatta tutar.
   LKeepAlive := Self;
@@ -250,6 +258,13 @@ begin
   finally
     EndRead;
   end;
+end;
+
+{ Deprecated names }
+
+function CreateCmds: ICmds;
+begin
+  Result := TRadCmds.New;
 end;
 
 end.

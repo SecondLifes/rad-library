@@ -112,7 +112,7 @@ type
   // interface'leri generic method içeremez (GpEventBus.pas'ın kendi başlık yorumundaki
   // gerekçeyle aynı: "Core event bus class (not interface - Delphi interfaces cannot
   // have generic methods)"). TChannelBus ömrünü sen yönetirsin (Create/Free) —
-  // CreateChannelBus ile ürettiğin örneği finally bloğunda Free etmeyi unutma; global
+  // TChannelBus.New ile ürettiğin örneği finally bloğunda Free etmeyi unutma; global
   // ChannelBus örneği ünite finalization'ında otomatik serbest bırakılır.
   TChannelBus = class
   strict private
@@ -393,14 +393,20 @@ type
     /// edildikten sonra, çağrı başına bir kez) çalışacak şekilde kaydeder. Diğer notlar
     /// AddBeforePublish ile aynı.
     procedure AddAfterPublish(const AInterceptor: TChannelInterceptor);
+  public
+    /// Yeni, izole bir kanal veriyolu oluşturur (testler için idealdir). Çağıran sorumludur: Free et.
+    class function New(AOverflowPolicy: TOverflowPolicy = opBlockPublisher;
+    AQueueDepth: Integer = RAD_EVENTBUS_DEFAULT_QUEUE_DEPTH; AErrorIsolation: Boolean = True): TChannelBus; static;
+    /// Global, tembel-başlatılan (lazy) paylaşılan kanal veriyolu. Free ETME — ünite kapanışında otomatik temizlenir.
+    class function Global: TChannelBus; static;
   end;
 
-/// Yeni, izole bir kanal veriyolu oluşturur (testler için idealdir). Çağıran sorumludur: Free et.
 function CreateChannelBus(AOverflowPolicy: TOverflowPolicy = opBlockPublisher;
-  AQueueDepth: Integer = RAD_EVENTBUS_DEFAULT_QUEUE_DEPTH; AErrorIsolation: Boolean = True): TChannelBus;
+  AQueueDepth: Integer = RAD_EVENTBUS_DEFAULT_QUEUE_DEPTH; AErrorIsolation: Boolean = True): TChannelBus; deprecated 'Use TChannelBus.New';
+function ChannelBus: TChannelBus; deprecated 'Use TChannelBus.Global';
 
-/// Global, tembel-başlatılan (lazy) paylaşılan kanal veriyolu. Free ETME — ünite kapanışında otomatik temizlenir.
-function ChannelBus: TChannelBus;
+
+
 
 implementation
 
@@ -1409,12 +1415,12 @@ var
   GChannelBus    : TChannelBus;
   GChannelBusLock: TLightweightMREW;
 
-function CreateChannelBus(AOverflowPolicy: TOverflowPolicy; AQueueDepth: Integer; AErrorIsolation: Boolean): TChannelBus;
+class function TChannelBus.New(AOverflowPolicy: TOverflowPolicy; AQueueDepth: Integer; AErrorIsolation: Boolean): TChannelBus;
 begin
   Result := TChannelBus.Create(AOverflowPolicy, AQueueDepth, AErrorIsolation);
 end;
 
-function ChannelBus: TChannelBus;
+class function TChannelBus.Global: TChannelBus;
 begin
   GChannelBusLock.BeginRead;
   try
@@ -1435,6 +1441,19 @@ begin
   finally
     GChannelBusLock.EndWrite;
   end;
+end;
+
+{ Deprecated names }
+
+function CreateChannelBus(AOverflowPolicy: TOverflowPolicy = opBlockPublisher;
+  AQueueDepth: Integer = RAD_EVENTBUS_DEFAULT_QUEUE_DEPTH; AErrorIsolation: Boolean = True): TChannelBus;
+begin
+  Result := TChannelBus.New(AOverflowPolicy, AQueueDepth, AErrorIsolation);
+end;
+
+function ChannelBus: TChannelBus;
+begin
+  Result := TChannelBus.Global;
 end;
 
 initialization

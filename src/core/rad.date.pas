@@ -233,10 +233,18 @@ type
   /// varsayılan iş-günü kontrolü (Cumartesi/Pazar hariç); TDtSchedule 'W' token'ında kullanılır
   TDtWorkDayFunction = reference to function(ADate: TDateTime): Boolean;
 
-function DtDefaultIsWorkDay(ADate: TDateTime): Boolean;
+type
+  /// <summary>Calendar rules.</summary>
+  TDtCalendar = class abstract
+  public
+    class function IsWorkDay(ADate: TDateTime): Boolean; static;
+  end;
+
+function DtDefaultIsWorkDay(ADate: TDateTime): Boolean; deprecated 'Use TDtCalendar.IsWorkDay';
+
 
 var
-  DtIsWorkDay: TDtWorkDayFunction = nil; // nil ise DtDefaultIsWorkDay kullanılır
+  DtIsWorkDay: TDtWorkDayFunction = nil; // nil ise TDtCalendar.IsWorkDay kullanılır
 
 implementation
 
@@ -763,7 +771,7 @@ end;
 
 { TDtSchedule }
 
-function DtDefaultIsWorkDay(ADate: TDateTime): Boolean;
+class function TDtCalendar.IsWorkDay(ADate: TDateTime): Boolean;
 var
   LDow: Word;
 begin
@@ -776,7 +784,7 @@ begin
   if Assigned(DtIsWorkDay) then
     Result := DtIsWorkDay(ADate)
   else
-    Result := DtDefaultIsWorkDay(ADate);
+    Result := TDtCalendar.IsWorkDay(ADate);
 end;
 
 const
@@ -1034,6 +1042,13 @@ begin
   if NextTime(AWhen) > ADeadline then
     Exit(soTimeout);
   Result := soNotArrived;
+end;
+
+{ Deprecated names }
+
+function DtDefaultIsWorkDay(ADate: TDateTime): Boolean;
+begin
+  Result := TDtCalendar.IsWorkDay(ADate);
 end;
 
 end.

@@ -1095,7 +1095,7 @@ begin
   SaveSQL;
   if AFilter.GetConditions <> '' then
   begin
-    if RadSqlHasSetOperator(SQL.Text) then
+    if TRadSqlFilter.HasSetOperator(SQL.Text) then
       raise ERadSqlFilter.Create('Filtre UNION/INTERSECT/EXCEPT içeren sorguya uygulanamaz (yalnız ilk kola yazılırdı).');
     for P in AFilter.Params do
       if FindParam(P.Name) <> nil then

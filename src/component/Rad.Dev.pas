@@ -182,7 +182,7 @@
     Dikis yeri olay DEGIL: CalculateCheckStatesByEditValue ve
     CalculateEditValueByCheckStates sanal (cxCheckComboBox.pas:246-249). Olaylari
     yine de atarsaniz OLAY KAZANIR ve deger kipi sessizce devre disi kalir
-    (RadChainAudit bunu bildirir). Hicbir item'da Value yoksa stok davranis aynen surer.
+    (TRadChain.Audit bunu bildirir). Hicbir item'da Value yoksa stok davranis aynen surer.
     SINIR: gridin FILTRE SATIRI kendi stok TcxCheckComboBox'unu yaratir
     (cxCheckComboBox.pas:1725-1757); oraya deger kipi gitmez.
 
@@ -1117,7 +1117,7 @@ type
     /// kendiliginden cagrilir; elle de cagrilabilir.</summary>
     procedure FillItems(ASource: TComponent);
     /// <summary>AConsumer'in kaydinda bulunmayan AMasterFields alanlari
-    /// (RadChainAudit icin). Bos string = sorun yok ya da bilinemiyor.</summary>
+    /// (TRadChain.Audit icin). Bos string = sorun yok ya da bilinemiyor.</summary>
     function MissingMasterFields(AConsumer: TComponent): string;
     //procedure DoAssign(AProperties: TcxCustomEditProperties); override;
     //procedure DoInitPopup(Sender: TObject);
@@ -1766,7 +1766,7 @@ type
    Bu yuzden bu bir SORGUDUR; cagirmak size kalmis:
 
      {$IFDEF DEBUG}
-     OutputDebugString(PChar(RadChainAudit(Self)));
+     OutputDebugString(PChar(TRadChain.Audit(Self)));
      {$ENDIF}
 
    Adi '_' ile BASLAMIYOR: bu bir helper birimi degil (helper-patterns.md'deki
@@ -1778,12 +1778,20 @@ type
 
    Paylasilan Properties ornekleri BIR KEZ raporlanir: bir RepositoryItem'a
    bagli on tuketici ayni uyariyi on kez basmaz. *)
-function RadChainAudit(ARoot: TComponent): string;
+type
+  /// <summary>Audits the consumer chains under a root.</summary>
+  TRadChain = class abstract
+  public
+    class function Audit(ARoot: TComponent): string; static;
+  end;
+
+function RadChainAudit(ARoot: TComponent): string; deprecated 'Use TRadChain.Audit';
+
 
 implementation
   uses Help.Dev,DBAccess, Vcl.Dialogs, Help.vcl, System.TypInfo;
 
-function RadChainAudit(ARoot: TComponent): string;
+class function TRadChain.Audit(ARoot: TComponent): string;
 var
   LSeen: TList<TObject>;
   LOut: TStringList;
@@ -1839,18 +1847,18 @@ var
          icin tam olarak bunu ONERIYOR. Yalnizca aktif Properties'e bakan bir
          denetim, tavsiye ettigi kurulumu denetleyemezdi.
          Ayni ornek iki kez raporlanmaz: LSeen bunu zaten kesiyor. *)
-      BakProperties(_OwnProperties(AC));
-      BakProperties(_ActiveProperties(AC));
+      BakProperties(TDev.OwnProperties(AC));
+      BakProperties(TDev.ActiveProperties(AC));
       { Combo listesi: AMasterFields TUKETICININ kaydinda var mi? Paylasilan
         item icin bile tuketici basina bakilir - her tuketicinin kaydi farkli. }
-      if _ActiveProperties(AC) is TRadComboBoxProperties then
-        Ekle(TRadComboBoxProperties(_ActiveProperties(AC)).MissingMasterFields(AC));
-      if (_OwnProperties(AC) <> _ActiveProperties(AC)) and
-         (_OwnProperties(AC) is TRadComboBoxProperties) then
-        Ekle(TRadComboBoxProperties(_OwnProperties(AC)).MissingMasterFields(AC));
+      if TDev.ActiveProperties(AC) is TRadComboBoxProperties then
+        Ekle(TRadComboBoxProperties(TDev.ActiveProperties(AC)).MissingMasterFields(AC));
+      if (TDev.OwnProperties(AC) <> TDev.ActiveProperties(AC)) and
+         (TDev.OwnProperties(AC) is TRadComboBoxProperties) then
+        Ekle(TRadComboBoxProperties(TDev.OwnProperties(AC)).MissingMasterFields(AC));
       { Check combo: bagli DB alani 'A;S;AS' metnini tasiyabiliyor mu? }
-      if _ActiveProperties(AC) is TRadCheckComboBoxProperties then
-        Ekle(TRadCheckComboBoxProperties(_ActiveProperties(AC)).FieldWarning(AC));
+      if TDev.ActiveProperties(AC) is TRadCheckComboBoxProperties then
+        Ekle(TRadCheckComboBoxProperties(TDev.ActiveProperties(AC)).FieldWarning(AC));
     end;
     for i := 0 to AC.ComponentCount - 1 do
       Gez(AC.Components[i]);
@@ -1872,7 +1880,7 @@ begin
     try
       Gez(ARoot);
       if LOut.Count > 0 then
-        Result := Format('RadChainAudit(%s): %d bulgu',
+        Result := Format('TRadChain.Audit(%s): %d bulgu',
           [LKokAdi, LOut.Count]) + sLineBreak + LOut.Text;
     finally
       LOut.Free;
@@ -2294,7 +2302,7 @@ begin
   (* DAIRESEL MASTER: editor kendini master gosterir ya da master, bu
      Properties'i paylasan baska bir tuketicidir (paylasilan RepositoryItem). *)
   if (AValue <> nil) and
-     ((_OwnProperties(AValue) = Owner) or (_ActiveProperties(AValue) = Owner)) then
+     ((TDev.OwnProperties(AValue) = Owner) or (TDev.ActiveProperties(AValue) = Owner)) then
     raise ERadDev.CreateFmt(
       'Master dairesel: %s bu Properties ornegini kullaniyor, yani editor ' +
       'kendi degerine gore suzulurdu. Paylasilan bir RepositoryItem ' +
@@ -2466,7 +2474,7 @@ begin
   LNames := FMasterFields.Split([';'], TStringSplitOptions.ExcludeEmpty);
   if Length(LNames) = 0 then
     Exit;
-  LDS := _DataSetOf(ASource);
+  LDS := TDev.DataSetOf(ASource);
   for LName in LNames do
   begin
     LValue := Null;
@@ -2533,7 +2541,7 @@ begin
   LNames := FMasterFields.Split([';'], TStringSplitOptions.ExcludeEmpty);
   if Length(LNames) = 0 then
     Exit;
-  LDS := _DataSetOf(AConsumer);
+  LDS := TDev.DataSetOf(AConsumer);
   { Alan listesi bilinmiyorsa (kapali, alansiz dataset) YANLIS alarm vermeyiz. }
   if (LDS = nil) or (LDS.FieldCount = 0) then
     Exit;
@@ -3153,7 +3161,7 @@ end;
 
 function TRadCheckComboBoxProperties.FieldWarning(AConsumer: TComponent): string;
 begin
-  Result := FValues.FieldWarning(AConsumer.Name, _FieldOf(AConsumer));
+  Result := FValues.FieldWarning(AConsumer.Name, TDev.FieldOf(AConsumer));
 end;
 
 { TRadCheckListBoxItem }
@@ -4189,7 +4197,7 @@ begin
      cxGridCustomTableView.pas:13724; DxAuditTest G02). ApplyAutoFilter
      Null/Unassigned/bos metni ayni "bos master" sayar. Isleyiciye oldugu
      gibi geciyoruz, uydurma bir deger uretmiyoruz. *)
-  LValue := _ValueOf(LMaster);
+  LValue := TDev.ValueOf(LMaster);
 
   { Isleyici liste dataset'ini kapatip acacak. Ayni dataset'i paylasan baska
     bir editorun cizim yolundan yeniden girmesini kesen mevcut mekanizma bu -
@@ -4992,6 +5000,13 @@ procedure TRadDBPopupEdit.SetProperties(Value: TRadPopupEditProperties);
 begin
   Properties.Assign(Value);
 end;
+{ Deprecated names }
+
+function RadChainAudit(ARoot: TComponent): string;
+begin
+  Result := TRadChain.Audit(ARoot);
+end;
+
 initialization
   GetRegisteredEditProperties.Register(TRadComboBoxProperties, 'Rad ComboBox|Defines a combo box editor');
   GetRegisteredEditProperties.Register(TRadLookupComboBoxProperties, 'Rad LookupComboBox|LookupComboBox AksaSoft');

@@ -106,6 +106,7 @@ type
     class var FClosed: Boolean;
     class var FLive: TList<TRadPropertiesStore>;
     class var FProviders: TList<IRadStateProvider>;
+    class var FStorages: TObjectDictionary<string, TRadStateRepository>;
     class constructor CreateClass;
     class destructor DestroyClass;
     class procedure SaveLive; static;
@@ -114,6 +115,7 @@ type
     FOptions: TRadStateOptions;
     FVersion: Integer;
     FStorageName: string;
+    FStorage: string;
     FItems: TRadStateItems;
     FStoredValues: TRadStoredValues;
     FValues: IDocDict;
@@ -135,6 +137,7 @@ type
     procedure SetStoredValue(const AName: string; const AValue: Variant);
     function TryStoredValue(const AName: string; AType: TRadStoredValueType; out AValue: Variant): Boolean;
     function OwnerClassName: RawUtf8;
+    function StoreRepository: TRadStateRepository;
     function CurrentPpi: Integer;
     procedure AddError(const AText: RawUtf8);
     procedure ApplyDoc;
@@ -165,6 +168,13 @@ type
     class procedure Shutdown; static;
     /// <summary>The configured repository; a default file store until Configure, nil after Shutdown.</summary>
     class function Repository: TRadStateRepository; static;
+    /// <summary>A named repository (taken over and freed by Shutdown) that a store selects with Storage.
+    /// The same name replaces the earlier one.</summary>
+    class procedure AddStorage(const AName: string; ARepository: TRadStateRepository); static;
+    /// <summary>Repository for '' (the default), a named one, or nil when the name is not added.</summary>
+    class function StorageRepository(const AName: string): TRadStateRepository; static;
+    /// <summary>Reads every record of the scope from the default and every named repository.</summary>
+    class procedure Prefetch; static;
     class function Scope: RawUtf8; static;
     class procedure SetScope(const AScope: RawUtf8); static;
     /// <summary>Adds an application-wide participant; one with the same Name is replaced.</summary>
@@ -210,6 +220,8 @@ type
     property Options: TRadStateOptions read FOptions write FOptions default RAD_STATE_DEFAULT_OPTIONS;
     property Version: Integer read FVersion write FVersion default 0;
     property StorageName: string read FStorageName write FStorageName;
+    /// <summary>Name given to TRadFormState.AddStorage; empty uses the store set by Kur.</summary>
+    property Storage: string read FStorage write FStorage;
     property Items: TRadStateItems read FItems write SetItems;
     property StoredValues: TRadStoredValues read FStoredValues write SetStoredValues;
     property OnLoad: TRadStateEvent read FOnLoad write FOnLoad;
@@ -223,6 +235,7 @@ uses
   Winapi.Windows,
   Winapi.Messages,
   System.Variants,
+  System.Generics.Defaults,
   mormot.core.text,
   mormot.core.unicode,
   mormot.core.datetime,
@@ -231,6 +244,7 @@ uses
 
 resourcestring
   SAttachNeedsStateful = '%s: Attach needs a named component that implements IRadStateful.';
+  SStorageMissing = 'storage ''%s'' is not added (TRadFormState.AddStorage); nothing is loaded or saved';
 
 const
   FIELD_STATE = 'state';
@@ -721,6 +735,7 @@ class constructor TRadPropertiesStore.CreateClass;
 begin
   FLive := TList<TRadPropertiesStore>.Create;
   FProviders := TList<IRadStateProvider>.Create;
+  FStorages := TObjectDictionary<string, TRadStateRepository>.Create([doOwnsValues], TIStringComparer.Ordinal);
 end;
 
 class destructor TRadPropertiesStore.DestroyClass;
@@ -728,6 +743,7 @@ begin
   Shutdown;
   FreeAndNil(FLive);
   FreeAndNil(FProviders);
+  FreeAndNil(FStorages);
 end;
 
 class procedure TRadPropertiesStore.Configure(const ARepository: TRadStateRepository; const AScope: RawUtf8);
@@ -757,6 +773,7 @@ begin
   SaveLive; // forms still open at shutdown would otherwise save after the repository is gone
   ClearProviders;
   FreeAndNil(FRepository);
+  FStorages.Clear;
   FClosed := True;
 end;
 
@@ -765,6 +782,40 @@ begin
   if (FRepository = nil) and not FClosed then
     FRepository := TRadStateRepository.Create(TRadFileStateStore.Create);
   Result := FRepository;
+end;
+
+class procedure TRadPropertiesStore.AddStorage(const AName: string; ARepository: TRadStateRepository);
+var
+  LOld: TRadStateRepository;
+begin
+  if AName = '' then
+  begin
+    ARepository.Free;
+    raise ERadFormState.Create('AddStorage needs a name; the default store is set by Kur');
+  end;
+  if FStorages.TryGetValue(AName, LOld) and (LOld = ARepository) then
+    Exit;
+  FStorages.Remove(AName); // frees the earlier repository
+  FStorages.Add(AName, ARepository);
+  FClosed := False;
+end;
+
+class function TRadPropertiesStore.StorageRepository(const AName: string): TRadStateRepository;
+begin
+  if AName = '' then
+    Result := Repository
+  else if not FStorages.TryGetValue(AName, Result) then
+    Result := nil;
+end;
+
+class procedure TRadPropertiesStore.Prefetch;
+var
+  LRepo: TRadStateRepository;
+begin
+  if Repository <> nil then
+    Repository.Prefetch(FScope);
+  for LRepo in FStorages.Values do
+    LRepo.Prefetch(FScope);
 end;
 
 class procedure TRadPropertiesStore.RegisterProvider(const AProvider: IRadStateProvider);
@@ -861,6 +912,11 @@ begin
     Result := StringToUtf8(ClassName);
 end;
 
+function TRadPropertiesStore.StoreRepository: TRadStateRepository;
+begin
+  Result := StorageRepository(FStorage);
+end;
+
 function TRadPropertiesStore.Key: TRadStateKey;
 var
   LName: RawUtf8;
@@ -902,9 +958,11 @@ begin
   FRestored := True; // a load was attempted, so closing may save even without a record
   FSaved := False;
   FResetPending := False;
-  LRepo := Repository;
+  LRepo := StoreRepository;
   Result := (LRepo <> nil) and LRepo.Load(Key, FDoc);
-  if (LRepo <> nil) and not Result and (LRepo.LastError <> '') then
+  if (LRepo = nil) and (FStorage <> '') and not FClosed then
+    AddError(StringToUtf8(Format(SStorageMissing, [FStorage])))
+  else if (LRepo <> nil) and not Result and (LRepo.LastError <> '') then
     AddError(StringToUtf8(LRepo.LastError));
   if Assigned(FOnLoad) then
     FOnLoad(Self, True);
@@ -1185,7 +1243,7 @@ var
   LRepo: TRadStateRepository;
 begin
   Result := False;
-  LRepo := Repository;
+  LRepo := StoreRepository;
   if not FActive or not FRestored or FResetPending or (LRepo = nil) then
     Exit; // never overwrite a record that this owner did not get to read, or one just reset
   if Assigned(FOnSave) then
@@ -1318,7 +1376,7 @@ procedure TRadPropertiesStore.Reset;
 var
   LRepo: TRadStateRepository;
 begin
-  LRepo := Repository;
+  LRepo := StoreRepository;
   if LRepo <> nil then
     LRepo.Delete(Key);
   FValues := DocDict(mFastFloat);

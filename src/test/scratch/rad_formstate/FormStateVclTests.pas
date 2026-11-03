@@ -83,6 +83,10 @@ type
     [Test]
     procedure StoredValue_TypeChange_ConvertsDesignValue;
     [Test]
+    procedure Storage_Named_SavesThereNotInDefault;
+    [Test]
+    procedure Storage_Unknown_NeverFallsBackToDefault;
+    [Test]
     procedure Measure_ThreeHundredPaths;
   end;
 
@@ -234,6 +238,51 @@ procedure SaveAndFree(AForm: TCustomForm);
 begin
   AForm.Close;
   AForm.Free;
+end;
+
+procedure TRadFormStateVclTests.Storage_Named_SavesThereNotInDefault;
+var
+  LOther: string;
+  LForm: TFormA;
+begin
+  LOther := FRoot + '_ikinci';
+  TRadFormState.AddStorage('ikinci', TRadFormState.FileStore(LOther));
+  try
+    LForm := NewChangedFormA;
+    LForm.Store1.Storage := 'ikinci';
+    SaveAndFree(LForm);
+    Assert.IsTrue(FileExists(TPath.Combine(TPath.Combine(LOther, SCOPE), 'TFormA.state')), 'saved in the named store');
+    Assert.IsFalse(FileExists(StateFile('TFormA')), 'default store untouched');
+    LForm := TFormA.Create(nil);
+    try
+      Assert.AreNotEqual(222, LForm.Edit1.Width, 'the DFM store (Storage empty) reads the default');
+      LForm.Store1.Storage := 'IKINCI'; // names ignore case
+      Assert.IsTrue(LForm.Store1.Load);
+      Assert.AreEqual(222, LForm.Edit1.Width);
+    finally
+      LForm.Free;
+    end;
+  finally
+    TRadFormState.Kapat;
+    if TDirectory.Exists(LOther) then
+      TDirectory.Delete(LOther, True);
+  end;
+end;
+
+procedure TRadFormStateVclTests.Storage_Unknown_NeverFallsBackToDefault;
+var
+  LForm: TFormA;
+begin
+  LForm := TFormA.Create(nil);
+  try
+    LForm.Store1.Storage := 'yok';
+    Assert.IsFalse(LForm.Store1.Load);
+    Assert.Contains(Utf8ToString(RawUtf8ArrayToCsv(LForm.Store1.Errors)), '''yok''');
+    LForm.Edit1.Width := 222;
+  finally
+    SaveAndFree(LForm);
+  end;
+  Assert.IsFalse(FileExists(StateFile('TFormA')), 'a missing storage must not write to the default');
 end;
 
 procedure TRadFormStateVclTests.Form_CloseAndReopen_RestoresPropsValuesAndPlacement;

@@ -240,6 +240,12 @@ TRadFormState.Prefetch;   // isteğe bağlı, veritabanında önerilir
 TRadFormState.Kapat;      // açık formları kaydeder; iki kez çağrılabilir
 ```
 
+  **A8 (2026-11-03) — form başına depo:** `Kur` yalnız varsayılan depoyu verir.
+  `TRadFormState.AddStorage(AName, AStore, ACipher)` açılışta adlı depolar ekler; store'un published
+  `Storage` özelliği adı seçer (büyük/küçük harf duyarsız), boşsa varsayılan. Eklenmemiş ad: okuma ve
+  yazma yok, `Errors`'a satır; varsayılana düşmek veriyi yanlış yere yazacağı için reddedildi. Scope
+  kullanıcının kimliğidir, depo ayarı değildir: global kalır.
+
   `Kur` önceki kurulumu önce kapatır; şifreleme anahtarı uygulamanındır (`rad.cipher`), bu yüzden
   parametre boolean değil `IRadCipher`. `FileStore(AFolder)`, `FileStore(srLocalAppData|srExeFolder,
   AFolder = 'state')`, `CallbackStore` (A4: `DbStore`)
@@ -441,9 +447,8 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
 
 **A7 — kök ve değer türü (2026-11-03)**
 
-- Kök ve klasör bileşen özelliği değil, `FileStore` parametresi: depo uygulama başına tek
-  (`Kur`), form başına kök aynı uygulamanın kayıtlarını klasörlere dağıtır ve `Kur` sonrası sessizce
-  yok sayılırdı. `srExeFolder` Program Files altında yazılamaz; kayıt hatası loglanır, form kapanır.
+- Kök ve klasör bileşen özelliği değil, `FileStore` parametresi. (A8 bunu değiştirdi: form başına
+  depo artık adla seçiliyor.) `srExeFolder` Program Files altında yazılamaz; kayıt hatası loglanır, form kapanır.
 - `ValueType` olmadan `StoredValue['when']` kaydedilen tarihi ISO metin olarak döndürüyordu (test bunu da
   sabitliyor). Bildirilince `varDate` döner.
 - Bulunan hata: `GetInteger/GetDouble/GetDate/GetBoolean` kayıt ve varsayılan yokken `ADefault` yerine `0`

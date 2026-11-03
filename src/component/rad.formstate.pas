@@ -1,7 +1,8 @@
 ﻿unit rad.formstate;
 
 { Entry unit of the form-state system (docs/specs/rad.formstate.md).
-  uses rad.formstate;  TRadFormState.Kur(TRadFormState.FileStore, 'emrah');  ...  TRadFormState.Kapat; }
+  uses rad.formstate;  TRadFormState.Kur(TRadFormState.FileStore, 'emrah');  ...  TRadFormState.Kapat;
+  A store with Storage = 'db' uses TRadFormState.AddStorage('db', TRadFormState.DbStore(Conn)) instead. }
 
 interface
 
@@ -78,10 +79,14 @@ type
     /// <param name="ACipher">nil saves plain JSON; existing plain records stay readable later.</param>
     class procedure Kur(const AStore: IRadStateStore; const AScope: RawUtf8 = '';
       const ACipher: IRadCipher = nil); static;
+    /// <summary>A store selected per component: TRadPropertiesStore.Storage = AName uses it instead of
+    /// the default. The scope stays the one given to Kur. Kapat removes it.</summary>
+    class procedure AddStorage(const AName: string; const AStore: IRadStateStore;
+      const ACipher: IRadCipher = nil); static;
     /// <summary>Saves open forms that have not saved yet, then releases the store and the providers.
     /// Safe to call twice.</summary>
     class procedure Kapat; static;
-    /// <summary>Reads every record of the current scope in one store call.</summary>
+    /// <summary>Reads every record of the current scope, one call per store.</summary>
     class procedure Prefetch; static;
     /// <summary>Changes the scope after login without rebuilding the store.</summary>
     class procedure SetScope(const AScope: RawUtf8); static;
@@ -121,6 +126,12 @@ begin
   TRadPropertiesStore.Configure(TRadStateRepository.Create(AStore, ACipher), AScope);
 end;
 
+class procedure TRadFormState.AddStorage(const AName: string; const AStore: IRadStateStore;
+  const ACipher: IRadCipher);
+begin
+  TRadPropertiesStore.AddStorage(AName, TRadStateRepository.Create(AStore, ACipher));
+end;
+
 class procedure TRadFormState.Kapat;
 begin
   TRadPropertiesStore.Shutdown;
@@ -128,8 +139,7 @@ end;
 
 class procedure TRadFormState.Prefetch;
 begin
-  if TRadPropertiesStore.Repository <> nil then
-    TRadPropertiesStore.Repository.Prefetch(TRadPropertiesStore.Scope);
+  TRadPropertiesStore.Prefetch;
 end;
 
 class procedure TRadFormState.SetScope(const AScope: RawUtf8);

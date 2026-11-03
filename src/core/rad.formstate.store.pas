@@ -21,8 +21,9 @@ const
 type
   ERadFormState = class(ERadCore);
 
-  /// <summary>Base folder of a file store: per user (writable) or beside the exe (portable).</summary>
-  TRadStorageRoot = (srLocalAppData, srExeFolder);
+  /// <summary>Base folder of a file store: per user (writable), beside the exe (portable) or
+  /// %ProgramData% (every user of the machine).</summary>
+  TRadStorageRoot = (srLocalAppData, srExeFolder, srCommonAppData);
 
   TRadStateEntry = record
     Key: TRadStateKey;
@@ -51,8 +52,9 @@ type
     constructor Create(const ARoot: TFileName = ''); overload;
     /// <summary>RootOf(ABase, AFolder).</summary>
     constructor Create(ABase: TRadStorageRoot; const AFolder: TFileName = RAD_STATE_FOLDER); overload;
-    /// <summary>%LOCALAPPDATA%\exe name\AFolder or exe folder\AFolder; an empty AFolder means the base itself.</summary>
-    /// <remarks>srLocalAppData falls back to the exe folder when LOCALAPPDATA is not set.</remarks>
+    /// <summary>%LOCALAPPDATA%\exe name\AFolder, exe folder\AFolder or %ProgramData%\exe name\AFolder;
+    /// an empty AFolder means the base itself.</summary>
+    /// <remarks>Falls back to the exe folder when the environment variable is not set.</remarks>
     class function RootOf(ABase: TRadStorageRoot; const AFolder: TFileName = RAD_STATE_FOLDER): TFileName; static;
     /// <summary>RootOf(srLocalAppData).</summary>
     class function DefaultRoot: TFileName; static;
@@ -103,6 +105,7 @@ type
   private
     FStore: IRadStateStore;
     FCipher: IRadCipher;
+    FEncrypt: Boolean;
     FCache: TDictionary<RawUtf8, RawByteString>;
     FHashes: TDictionary<RawUtf8, Cardinal>;
     FPrefetched: TDictionary<RawUtf8, Boolean>;
@@ -111,7 +114,8 @@ type
     function ParseDoc(const AKey: TRadStateKey; const AData: RawByteString; out ADoc: IDocDict): Boolean;
     function Fail(const AKey: TRadStateKey; const AReason: string): Boolean;
   public
-    constructor Create(const AStore: IRadStateStore; const ACipher: IRadCipher = nil);
+    /// <param name="AEncrypt">False writes plain JSON; ACipher still reads records written encrypted.</param>
+    constructor Create(const AStore: IRadStateStore; const ACipher: IRadCipher = nil; AEncrypt: Boolean = True);
     destructor Destroy; override;
     /// <summary>False when there is no record or it cannot be read (LastError says why).</summary>
     function Load(const AKey: TRadStateKey; out ADoc: IDocDict): Boolean;
@@ -196,11 +200,15 @@ begin
 end;
 
 class function TRadFileStateStore.RootOf(ABase: TRadStorageRoot; const AFolder: TFileName): TFileName;
+const
+  BASE_VARS: array[TRadStorageRoot] of string = ('LOCALAPPDATA', '', 'ProgramData');
 var
   LAppData: TFileName;
 begin
-  LAppData := GetEnvironmentVariable('LOCALAPPDATA');
-  if (ABase = srExeFolder) or (LAppData = '') then
+  LAppData := '';
+  if BASE_VARS[ABase] <> '' then
+    LAppData := GetEnvironmentVariable(BASE_VARS[ABase]);
+  if LAppData = '' then
     Result := ExtractFilePath(ParamStr(0))
   else
     Result := TPath.Combine(LAppData, ChangeFileExt(ExtractFileName(ParamStr(0)), ''));
@@ -380,13 +388,15 @@ end;
 
 { TRadStateRepository }
 
-constructor TRadStateRepository.Create(const AStore: IRadStateStore; const ACipher: IRadCipher);
+constructor TRadStateRepository.Create(const AStore: IRadStateStore; const ACipher: IRadCipher;
+  AEncrypt: Boolean);
 begin
   inherited Create;
   if AStore = nil then
     raise ERadFormState.Create('TRadStateRepository needs a store');
   FStore := AStore;
   FCipher := ACipher;
+  FEncrypt := AEncrypt and (ACipher <> nil);
   FCache := TDictionary<RawUtf8, RawByteString>.Create;
   FHashes := TDictionary<RawUtf8, Cardinal>.Create;
   FPrefetched := TDictionary<RawUtf8, Boolean>.Create;
@@ -466,7 +476,10 @@ begin
   if FHashes.TryGetValue(AKey.Path, LOld) and (LOld = LHash) then
     Exit(False);
   ADoc.U[RAD_STATE_FIELD_SAVED_AT] := NowUtcToString(True, 'T') + 'Z';
-  LData := TRadStateEnvelope.Encode(ADoc.Json, FCipher);
+  if FEncrypt then
+    LData := TRadStateEnvelope.Encode(ADoc.Json, FCipher)
+  else
+    LData := TRadStateEnvelope.Encode(ADoc.Json, nil);
   FStore.Save(AKey, LData);
   FCache.AddOrSetValue(AKey.Path, LData);
   FHashes.AddOrSetValue(AKey.Path, LHash);

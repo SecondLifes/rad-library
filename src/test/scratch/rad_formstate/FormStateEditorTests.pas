@@ -93,7 +93,7 @@ uses
 procedure TRadFormStateEditorTests.Setup;
 begin
   FRoot := TPath.Combine(TPath.GetTempPath, 'radfsed_' + TGuid.NewGuid.ToString);
-  TRadPropertiesStore.Configure(TRadStateRepository.Create(TRadFileStateStore.Create(FRoot)), 'test');
+  TRadPropertiesStore.Configure(TRadFileStateStore.Create(FRoot), nil, 'test');
   FForm := TFormA.Create(nil);
 end;
 

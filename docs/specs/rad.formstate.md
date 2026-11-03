@@ -240,11 +240,15 @@ TRadFormState.Prefetch;   // isteğe bağlı, veritabanında önerilir
 TRadFormState.Kapat;      // açık formları kaydeder; iki kez çağrılabilir
 ```
 
-  **A8 (2026-11-03) — form başına depo:** `Kur` yalnız varsayılan depoyu verir.
-  `TRadFormState.AddStorage(AName, AStore, ACipher)` açılışta adlı depolar ekler; store'un published
-  `Storage` özelliği adı seçer (büyük/küçük harf duyarsız), boşsa varsayılan. Eklenmemiş ad: okuma ve
-  yazma yok, `Errors`'a satır; varsayılana düşmek veriyi yanlış yere yazacağı için reddedildi. Scope
-  kullanıcının kimliğidir, depo ayarı değildir: global kalır.
+  **A8 (2026-11-03) — kayıt yeri store'un özelliği:** `StorageType` (`stDefault`, `stLocalAppData`,
+  `stExeFolder`, `stCommonAppData`, `stDatabase`), `StorageRoot` (göreli klasör, boşsa `state`),
+  `StorageName` (kayıt adı, boşsa sınıf adı), `Encrypted`. Dosya yolu: taban\StorageRoot\scope\ad.state;
+  veritabanında StorageRoot adın önüne `/` ile eklenir. Açılış yalnız varsayılan verir: `Kur` (stDefault
+  deposu, scope, anahtar) ve `SetDatabase(Conn)`. Depolar ayar başına bir kez kurulur ve önbelleklenir.
+  Kullanılamayan ayar (anahtarsız Encrypted, veritabanı yok, `..`/mutlak kök): okuma ve yazma yok,
+  `Errors`'a satır; varsayılana ya da düz metne düşmek veriyi yanlış yere yazacağı için reddedildi.
+  Scope kullanıcının kimliğidir, DFM'ye yazılmaz: global kalır ve StorageRoot'un altına eklenir.
+  Anahtar DFM'de olamaz (düz metin), bu yüzden `Encrypted` yalnız aç/kapa; anahtar `Kur`'dan gelir.
 
   `Kur` önceki kurulumu önce kapatır; şifreleme anahtarı uygulamanındır (`rad.cipher`), bu yüzden
   parametre boolean değil `IRadCipher`. `FileStore(AFolder)`, `FileStore(srLocalAppData|srExeFolder,

@@ -236,6 +236,9 @@ begin
     ChangeFileExt(ExtractFileName(ParamStr(0)), '')), 'x'),
     string(TRadFileStateStore.RootOf(srLocalAppData, 'x')));
   Assert.AreEqual(string(TRadFileStateStore.RootOf(srLocalAppData)), string(TRadFileStateStore.DefaultRoot));
+  Assert.AreEqual(TPath.Combine(TPath.Combine(GetEnvironmentVariable('ProgramData'),
+    ChangeFileExt(ExtractFileName(ParamStr(0)), '')), 'x'),
+    string(TRadFileStateStore.RootOf(srCommonAppData, 'x')));
   LStore := TRadFileStateStore.Create(srExeFolder, 'ayar');
   Assert.AreEqual(LExe + 'ayar', string((LStore as TRadFileStateStore).Root));
 end;

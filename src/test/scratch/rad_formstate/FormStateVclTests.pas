@@ -83,9 +83,11 @@ type
     [Test]
     procedure StoredValue_TypeChange_ConvertsDesignValue;
     [Test]
-    procedure Storage_Named_SavesThereNotInDefault;
+    procedure Storage_ExeFolderRootAndName_UsesThatFile;
     [Test]
-    procedure Storage_Unknown_NeverFallsBackToDefault;
+    procedure Storage_Encrypted_NeedsKeyAndOthersStayPlain;
+    [Test]
+    procedure Storage_Unusable_LoadsAndSavesNothing;
     [Test]
     procedure Measure_ThreeHundredPaths;
   end;
@@ -94,9 +96,11 @@ implementation
 
 uses
   System.IOUtils,
+  mormot.core.os,
   mormot.core.text,
   mormot.core.unicode,
   rad.formstate.core,
+  rad.formstate.store,
   FormStateTestA,
   FormStateTestTwo,
   FormStateTestDm,
@@ -240,49 +244,92 @@ begin
   AForm.Free;
 end;
 
-procedure TRadFormStateVclTests.Storage_Named_SavesThereNotInDefault;
-var
-  LOther: string;
-  LForm: TFormA;
+{ Re-points Store1 of a fresh TFormA (which already read the default) and loads again. }
+function FormAWith(AType: TRadStorageType; const ARoot, AName: string; AEncrypted: Boolean;
+  out ALoaded: Boolean): TFormA;
 begin
-  LOther := FRoot + '_ikinci';
-  TRadFormState.AddStorage('ikinci', TRadFormState.FileStore(LOther));
+  Result := TFormA.Create(nil);
+  Result.Store1.StorageType := AType;
+  Result.Store1.StorageRoot := ARoot;
+  Result.Store1.StorageName := AName;
+  Result.Store1.Encrypted := AEncrypted;
+  ALoaded := Result.Store1.Load;
+end;
+
+function ErrorsOf(AForm: TFormA): string;
+begin
+  Result := Utf8ToString(RawUtf8ArrayToCsv(AForm.Store1.Errors));
+end;
+
+procedure TRadFormStateVclTests.Storage_ExeFolderRootAndName_UsesThatFile;
+var
+  LTop, LRoot: string;
+  LForm: TFormA;
+  LLoaded: Boolean;
+begin
+  LTop := 'radtest_' + TGuid.NewGuid.ToString;
+  LRoot := LTop + '\rapor';
   try
-    LForm := NewChangedFormA;
-    LForm.Store1.Storage := 'ikinci';
+    LForm := FormAWith(stExeFolder, LRoot, 'ayar', False, LLoaded);
+    LForm.Edit1.Width := 222;
     SaveAndFree(LForm);
-    Assert.IsTrue(FileExists(TPath.Combine(TPath.Combine(LOther, SCOPE), 'TFormA.state')), 'saved in the named store');
-    Assert.IsFalse(FileExists(StateFile('TFormA')), 'default store untouched');
-    LForm := TFormA.Create(nil);
+    Assert.IsTrue(FileExists(ExtractFilePath(ParamStr(0)) + LRoot + '\' + SCOPE + '\ayar.state'),
+      'exe folder \ StorageRoot \ scope \ StorageName.state');
+    Assert.IsFalse(FileExists(StateFile('TFormA')), 'the default store is untouched');
+    LForm := FormAWith(stExeFolder, LRoot, 'ayar', False, LLoaded);
     try
-      Assert.AreNotEqual(222, LForm.Edit1.Width, 'the DFM store (Storage empty) reads the default');
-      LForm.Store1.Storage := 'IKINCI'; // names ignore case
-      Assert.IsTrue(LForm.Store1.Load);
+      Assert.IsTrue(LLoaded, ErrorsOf(LForm));
       Assert.AreEqual(222, LForm.Edit1.Width);
     finally
       LForm.Free;
     end;
   finally
-    TRadFormState.Kapat;
-    if TDirectory.Exists(LOther) then
-      TDirectory.Delete(LOther, True);
+    if TDirectory.Exists(ExtractFilePath(ParamStr(0)) + LTop) then
+      TDirectory.Delete(ExtractFilePath(ParamStr(0)) + LTop, True);
   end;
 end;
 
-procedure TRadFormStateVclTests.Storage_Unknown_NeverFallsBackToDefault;
+procedure TRadFormStateVclTests.Storage_Encrypted_NeedsKeyAndOthersStayPlain;
+var
+  LKey: THash256;
+  LForm: TFormA;
+  LLoaded: Boolean;
+begin
+  LForm := FormAWith(stDefault, '', 'gizli', True, LLoaded);
+  Assert.Contains(ErrorsOf(LForm), 'Encrypted');
+  SaveAndFree(LForm);
+  Assert.IsFalse(FileExists(StateFile('gizli')), 'no key: never written as plain text');
+  FillChar(LKey, SizeOf(LKey), $5A);
+  TRadFormState.Kur(TRadFormState.FileStore(FRoot), SCOPE, TRadAesGcmCipher.Create(LKey));
+  LForm := FormAWith(stDefault, '', 'gizli', True, LLoaded);
+  LForm.Edit1.Width := 222;
+  SaveAndFree(LForm);
+  Assert.IsTrue(TRadStateEnvelope.IsEncrypted(StringFromFile(StateFile('gizli'))), 'Encrypted store');
+  SaveAndFree(NewChangedFormA);
+  Assert.IsFalse(TRadStateEnvelope.IsEncrypted(StringFromFile(StateFile('TFormA'))),
+    'a key alone does not encrypt the other stores');
+  LForm := FormAWith(stDefault, '', 'gizli', True, LLoaded);
+  try
+    Assert.IsTrue(LLoaded, ErrorsOf(LForm));
+    Assert.AreEqual(222, LForm.Edit1.Width);
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.Storage_Unusable_LoadsAndSavesNothing;
 var
   LForm: TFormA;
+  LLoaded: Boolean;
 begin
-  LForm := TFormA.Create(nil);
-  try
-    LForm.Store1.Storage := 'yok';
-    Assert.IsFalse(LForm.Store1.Load);
-    Assert.Contains(Utf8ToString(RawUtf8ArrayToCsv(LForm.Store1.Errors)), '''yok''');
-    LForm.Edit1.Width := 222;
-  finally
-    SaveAndFree(LForm);
-  end;
-  Assert.IsFalse(FileExists(StateFile('TFormA')), 'a missing storage must not write to the default');
+  LForm := FormAWith(stExeFolder, '..\radtest_disari', '', False, LLoaded);
+  Assert.Contains(ErrorsOf(LForm), 'StorageRoot');
+  SaveAndFree(LForm);
+  LForm := FormAWith(stDatabase, '', '', False, LLoaded);
+  Assert.Contains(ErrorsOf(LForm), 'SetDatabase');
+  LForm.Edit1.Width := 222;
+  SaveAndFree(LForm);
+  Assert.IsFalse(FileExists(StateFile('TFormA')), 'an unusable setting never falls back to the default');
 end;
 
 procedure TRadFormStateVclTests.Form_CloseAndReopen_RestoresPropsValuesAndPlacement;
@@ -511,7 +558,7 @@ begin
     LForm.Edit1.Text := 'kept';
     LForm.Close;
     Assert.AreEqual(1, LForm.CloseQueryCalls);
-    Assert.IsTrue(FileExists(StateFile('TFormTwo.second')), 'second store saved');
+    Assert.IsTrue(FileExists(StateFile('second')), 'second store saved');
     Assert.IsFalse(FileExists(StateFile('TFormTwo')), 'freed store saved nothing');
   finally
     LForm.Free;

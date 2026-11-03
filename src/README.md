@@ -107,7 +107,8 @@ owner's `OnCreate`. One setup call through the entry unit:
 uses rad.formstate;
 TRadFormState.Kur(TRadFormState.FileStore, 'emrah');   // or DbStore(Conn), CallbackStore; 3rd: IRadCipher
 // FileStore(srExeFolder, 'state'): beside the exe instead of %LOCALAPPDATA%\<exe>
-TRadFormState.AddStorage('db', TRadFormState.DbStore(Conn)); // stores with Storage = 'db' use it
+TRadFormState.SetDatabase(Conn);                         // for stores with StorageType = stDatabase
+// per store (DFM): StorageType, StorageRoot ('ayarlar\rapor'), StorageName ('ayar' -> ayar.state), Encrypted
 ...
 TRadFormState.Kapat;                                    // saves forms still open
 ```

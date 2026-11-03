@@ -2,7 +2,8 @@
 
 { Entry unit of the form-state system (docs/specs/rad.formstate.md).
   uses rad.formstate;  TRadFormState.Kur(TRadFormState.FileStore, 'emrah');  ...  TRadFormState.Kapat;
-  A store with Storage = 'db' uses TRadFormState.AddStorage('db', TRadFormState.DbStore(Conn)) instead. }
+  Each TRadPropertiesStore picks its own place with StorageType/StorageRoot/StorageName/Encrypted;
+  startup only gives the defaults (Kur, SetDatabase). }
 
 interface
 
@@ -25,6 +26,7 @@ type
   TRadStoredValue = rad.formstate.component.TRadStoredValue;
   TRadStoredValueType = rad.formstate.component.TRadStoredValueType;
   TRadStorageRoot = rad.formstate.store.TRadStorageRoot;
+  TRadStorageType = rad.formstate.component.TRadStorageType;
   TRadStateOption = rad.formstate.component.TRadStateOption;
   TRadStateOptions = rad.formstate.component.TRadStateOptions;
   TRadStateEvent = rad.formstate.component.TRadStateEvent;
@@ -64,6 +66,12 @@ const
   svtBoolean = rad.formstate.component.svtBoolean;
   srLocalAppData = rad.formstate.store.srLocalAppData;
   srExeFolder = rad.formstate.store.srExeFolder;
+  srCommonAppData = rad.formstate.store.srCommonAppData;
+  stDefault = rad.formstate.component.stDefault;
+  stLocalAppData = rad.formstate.component.stLocalAppData;
+  stExeFolder = rad.formstate.component.stExeFolder;
+  stCommonAppData = rad.formstate.component.stCommonAppData;
+  stDatabase = rad.formstate.component.stDatabase;
   RAD_STATE_FOLDER = rad.formstate.store.RAD_STATE_FOLDER;
 
 type
@@ -74,15 +82,14 @@ type
   public
     /// <summary>Host hook for ResetForm: close AForm and open it again the same way.</summary>
     class var Reopen: TRadReopenProc;
-    /// <summary>Where and how states are saved. Closes any earlier setup first.</summary>
-    /// <param name="AScope">User or company part of every key, e.g. 'emrah'.</param>
-    /// <param name="ACipher">nil saves plain JSON; existing plain records stay readable later.</param>
+    /// <summary>Application defaults; optional (without it stDefault is %LOCALAPPDATA%\exe\state).</summary>
+    /// <param name="AStore">Where stores with StorageType = stDefault save.</param>
+    /// <param name="AScope">The signed-in user, the folder or key part every store saves under.</param>
+    /// <param name="ACipher">The key of stores with Encrypted = True; it also reads their old records.</param>
     class procedure Kur(const AStore: IRadStateStore; const AScope: RawUtf8 = '';
       const ACipher: IRadCipher = nil); static;
-    /// <summary>A store selected per component: TRadPropertiesStore.Storage = AName uses it instead of
-    /// the default. The scope stays the one given to Kur. Kapat removes it.</summary>
-    class procedure AddStorage(const AName: string; const AStore: IRadStateStore;
-      const ACipher: IRadCipher = nil); static;
+    /// <summary>The connection of stores with StorageType = stDatabase; DDL: TRadUniStateStore.CreateTableSql.</summary>
+    class procedure SetDatabase(AConnection: TUniConnection; const ATable: string = RAD_STATE_DEFAULT_TABLE); static;
     /// <summary>Saves open forms that have not saved yet, then releases the store and the providers.
     /// Safe to call twice.</summary>
     class procedure Kapat; static;
@@ -123,13 +130,12 @@ resourcestring
 class procedure TRadFormState.Kur(const AStore: IRadStateStore; const AScope: RawUtf8;
   const ACipher: IRadCipher);
 begin
-  TRadPropertiesStore.Configure(TRadStateRepository.Create(AStore, ACipher), AScope);
+  TRadPropertiesStore.Configure(AStore, ACipher, AScope);
 end;
 
-class procedure TRadFormState.AddStorage(const AName: string; const AStore: IRadStateStore;
-  const ACipher: IRadCipher);
+class procedure TRadFormState.SetDatabase(AConnection: TUniConnection; const ATable: string);
 begin
-  TRadPropertiesStore.AddStorage(AName, TRadStateRepository.Create(AStore, ACipher));
+  TRadPropertiesStore.SetDatabase(TRadUniStateStore.Create(AConnection, ATable));
 end;
 
 class procedure TRadFormState.Kapat;

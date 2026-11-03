@@ -288,7 +288,7 @@ object RadFormStateEditorForm: TRadFormStateEditorForm
         Top = 212
         Width = 128
         Height = 15
-        Caption = 'Kay'#305't ad'#305' eki (StorageName)'
+        Caption = 'Kay'#305't ad'#305' (StorageName)'
       end
       object chkPlacement: TCheckBox
         Left = 16

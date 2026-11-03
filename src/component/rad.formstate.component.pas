@@ -15,6 +15,7 @@ uses
   Vcl.Forms,
   mormot.core.base,
   mormot.core.variants,
+  rad.cipher,
   rad.formstate.core,
   rad.formstate.store;
 
@@ -23,6 +24,9 @@ type
   TRadStateOptions = set of TRadStateOption;
   /// <summary>svtVariant returns what was saved; the others always return that type.</summary>
   TRadStoredValueType = (svtVariant, svtString, svtInteger, svtFloat, svtDateTime, svtBoolean);
+  /// <summary>stDefault: the store given to TRadFormState.Kur. stDatabase: TRadFormState.SetDatabase.
+  /// The rest: a file under %LOCALAPPDATA%\exe, the exe folder or %ProgramData%\exe.</summary>
+  TRadStorageType = (stDefault, stLocalAppData, stExeFolder, stCommonAppData, stDatabase);
 
 const
   RAD_STATE_DEFAULT_OPTIONS = [soPlacement, soProps, soValues, soCustom];
@@ -101,21 +105,26 @@ type
   /// Created at runtime it hooks nothing: call Load and Save yourself.</remarks>
   TRadPropertiesStore = class(TComponent)
   strict private
-    class var FRepository: TRadStateRepository;
+    class var FDefaultStore: IRadStateStore;
+    class var FDatabaseStore: IRadStateStore;
+    class var FCipher: IRadCipher;
     class var FScope: RawUtf8;
     class var FClosed: Boolean;
     class var FLive: TList<TRadPropertiesStore>;
     class var FProviders: TList<IRadStateProvider>;
-    class var FStorages: TObjectDictionary<string, TRadStateRepository>;
+    class var FRepositories: TObjectDictionary<string, TRadStateRepository>;
     class constructor CreateClass;
     class destructor DestroyClass;
     class procedure SaveLive; static;
+    class function StoreFor(AType: TRadStorageType; const ARoot: string; out AError: string): IRadStateStore; static;
   private
     FActive: Boolean;
     FOptions: TRadStateOptions;
     FVersion: Integer;
+    FStorageType: TRadStorageType;
+    FStorageRoot: string;
     FStorageName: string;
-    FStorage: string;
+    FEncrypted: Boolean;
     FItems: TRadStateItems;
     FStoredValues: TRadStoredValues;
     FValues: IDocDict;
@@ -137,7 +146,7 @@ type
     procedure SetStoredValue(const AName: string; const AValue: Variant);
     function TryStoredValue(const AName: string; AType: TRadStoredValueType; out AValue: Variant): Boolean;
     function OwnerClassName: RawUtf8;
-    function StoreRepository: TRadStateRepository;
+    function StoreRepository(out AError: string): TRadStateRepository;
     function CurrentPpi: Integer;
     procedure AddError(const AText: RawUtf8);
     procedure ApplyDoc;
@@ -162,18 +171,20 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    /// <summary>Sets the repository (taken over and freed later) and the scope. Used by TRadFormState.Kur.</summary>
-    class procedure Configure(const ARepository: TRadStateRepository; const AScope: RawUtf8); static;
-    /// <summary>Saves every live store that loaded and has not saved, then frees the repository.</summary>
+    /// <summary>Application defaults: the stDefault store (nil: a file store), the key Encrypted stores
+    /// use, and the scope. Used by TRadFormState.Kur.</summary>
+    class procedure Configure(const AStore: IRadStateStore; const ACipher: IRadCipher; const AScope: RawUtf8); static;
+    /// <summary>The store of stDatabase; nil removes it.</summary>
+    class procedure SetDatabase(const AStore: IRadStateStore); static;
+    /// <summary>Saves every live store that loaded and has not saved, then releases the stores.</summary>
     class procedure Shutdown; static;
-    /// <summary>The configured repository; a default file store until Configure, nil after Shutdown.</summary>
+    /// <summary>The plain stDefault repository; nil after Shutdown.</summary>
     class function Repository: TRadStateRepository; static;
-    /// <summary>A named repository (taken over and freed by Shutdown) that a store selects with Storage.
-    /// The same name replaces the earlier one.</summary>
-    class procedure AddStorage(const AName: string; ARepository: TRadStateRepository); static;
-    /// <summary>Repository for '' (the default), a named one, or nil when the name is not added.</summary>
-    class function StorageRepository(const AName: string): TRadStateRepository; static;
-    /// <summary>Reads every record of the scope from the default and every named repository.</summary>
+    /// <summary>The repository of one storage setting, built on first use; nil and AError when it cannot
+    /// be used (no key, no database, a root outside the base folder).</summary>
+    class function RepositoryFor(AType: TRadStorageType; const ARoot: string; AEncrypted: Boolean;
+      out AError: string): TRadStateRepository; static;
+    /// <summary>Reads every record of the scope from the default and the database store.</summary>
     class procedure Prefetch; static;
     class function Scope: RawUtf8; static;
     class procedure SetScope(const AScope: RawUtf8); static;
@@ -181,7 +192,8 @@ type
     class procedure RegisterProvider(const AProvider: IRadStateProvider); static;
     /// <summary>Removes every provider; Shutdown calls it after the last save.</summary>
     class procedure ClearProviders; static;
-    /// <summary>Scope + owner class name (+ '.' + StorageName), after OnGetKey.</summary>
+    /// <summary>Scope + (StorageName, else the owner class name), after OnGetKey. Outside the file
+    /// types StorageRoot is the front of the name, since there is no folder.</summary>
     function Key: TRadStateKey;
     /// <summary>Reads and applies the saved state. False when there is no usable record.</summary>
     function Load: Boolean;
@@ -219,9 +231,14 @@ type
     property Active: Boolean read FActive write FActive default True;
     property Options: TRadStateOptions read FOptions write FOptions default RAD_STATE_DEFAULT_OPTIONS;
     property Version: Integer read FVersion write FVersion default 0;
+    property StorageType: TRadStorageType read FStorageType write FStorageType default stDefault;
+    /// <summary>Relative folder under the base, e.g. 'ayarlar\rapor'; empty means 'state'.
+    /// The scope (user) folder is added below it.</summary>
+    property StorageRoot: string read FStorageRoot write FStorageRoot;
+    /// <summary>Record name ('ayar' gives ayar.state); empty means the owner class name.</summary>
     property StorageName: string read FStorageName write FStorageName;
-    /// <summary>Name given to TRadFormState.AddStorage; empty uses the store set by Kur.</summary>
-    property Storage: string read FStorage write FStorage;
+    /// <summary>Encrypts with the key given to Kur; without a key nothing is loaded or saved.</summary>
+    property Encrypted: Boolean read FEncrypted write FEncrypted default False;
     property Items: TRadStateItems read FItems write SetItems;
     property StoredValues: TRadStoredValues read FStoredValues write SetStoredValues;
     property OnLoad: TRadStateEvent read FOnLoad write FOnLoad;
@@ -244,7 +261,9 @@ uses
 
 resourcestring
   SAttachNeedsStateful = '%s: Attach needs a named component that implements IRadStateful.';
-  SStorageMissing = 'storage ''%s'' is not added (TRadFormState.AddStorage); nothing is loaded or saved';
+  SNoKey = 'Encrypted needs the key given to TRadFormState.Kur; nothing is loaded or saved';
+  SNoDatabase = 'stDatabase needs TRadFormState.SetDatabase; nothing is loaded or saved';
+  SRootOutside = 'StorageRoot ''%s'' must be a relative folder without ''..''; nothing is loaded or saved';
 
 const
   FIELD_STATE = 'state';
@@ -253,7 +272,11 @@ const
   STATE_MAXIMIZED = 'wsMaximized';
   STATE_NORMAL = 'wsNormal';
   NAME_SEPARATOR = '.';
+  ROOT_SEPARATOR = '/';
   SIZEABLE_BORDERS = [bsSizeable, bsSizeToolWin];
+  FILE_TYPES = [stLocalAppData, stExeFolder, stCommonAppData];
+  FILE_BASES: array[stLocalAppData..stCommonAppData] of TRadStorageRoot = (srLocalAppData, srExeFolder,
+    srCommonAppData);
 
 type
   { The protected events of TCustomForm, without assuming the owner descends from TForm. }
@@ -735,7 +758,7 @@ class constructor TRadPropertiesStore.CreateClass;
 begin
   FLive := TList<TRadPropertiesStore>.Create;
   FProviders := TList<IRadStateProvider>.Create;
-  FStorages := TObjectDictionary<string, TRadStateRepository>.Create([doOwnsValues], TIStringComparer.Ordinal);
+  FRepositories := TObjectDictionary<string, TRadStateRepository>.Create([doOwnsValues], TIStringComparer.Ordinal);
 end;
 
 class destructor TRadPropertiesStore.DestroyClass;
@@ -743,16 +766,23 @@ begin
   Shutdown;
   FreeAndNil(FLive);
   FreeAndNil(FProviders);
-  FreeAndNil(FStorages);
+  FreeAndNil(FRepositories);
 end;
 
-class procedure TRadPropertiesStore.Configure(const ARepository: TRadStateRepository; const AScope: RawUtf8);
+class procedure TRadPropertiesStore.Configure(const AStore: IRadStateStore; const ACipher: IRadCipher;
+  const AScope: RawUtf8);
 begin
-  if FRepository <> ARepository then
-    FreeAndNil(FRepository);
-  FRepository := ARepository;
+  FRepositories.Clear; // built again from the new defaults on first use
+  FDefaultStore := AStore;
+  FCipher := ACipher;
   FScope := AScope;
   FClosed := False;
+end;
+
+class procedure TRadPropertiesStore.SetDatabase(const AStore: IRadStateStore);
+begin
+  FRepositories.Clear;
+  FDatabaseStore := AStore;
 end;
 
 class procedure TRadPropertiesStore.SaveLive;
@@ -772,50 +802,105 @@ begin
     Exit;
   SaveLive; // forms still open at shutdown would otherwise save after the repository is gone
   ClearProviders;
-  FreeAndNil(FRepository);
-  FStorages.Clear;
+  FRepositories.Clear;
+  FDefaultStore := nil;
+  FDatabaseStore := nil;
+  FCipher := nil;
   FClosed := True;
 end;
 
 class function TRadPropertiesStore.Repository: TRadStateRepository;
-begin
-  if (FRepository = nil) and not FClosed then
-    FRepository := TRadStateRepository.Create(TRadFileStateStore.Create);
-  Result := FRepository;
-end;
-
-class procedure TRadPropertiesStore.AddStorage(const AName: string; ARepository: TRadStateRepository);
 var
-  LOld: TRadStateRepository;
+  LError: string;
 begin
-  if AName = '' then
-  begin
-    ARepository.Free;
-    raise ERadFormState.Create('AddStorage needs a name; the default store is set by Kur');
-  end;
-  if FStorages.TryGetValue(AName, LOld) and (LOld = ARepository) then
-    Exit;
-  FStorages.Remove(AName); // frees the earlier repository
-  FStorages.Add(AName, ARepository);
-  FClosed := False;
+  Result := RepositoryFor(stDefault, '', False, LError);
 end;
 
-class function TRadPropertiesStore.StorageRepository(const AName: string): TRadStateRepository;
+function IsRelativeRoot(const ARoot: string): Boolean;
+var
+  LPart: string;
 begin
-  if AName = '' then
-    Result := Repository
-  else if not FStorages.TryGetValue(AName, Result) then
-    Result := nil;
+  Result := (ExtractFileDrive(ARoot) = '') and not ARoot.StartsWith('\') and not ARoot.StartsWith('/');
+  if Result then
+    for LPart in ARoot.Split(['\', '/']) do
+      if LPart = '..' then
+        Exit(False);
+end;
+
+function FolderOf(const ARoot: string): string;
+begin
+  if ARoot = '' then
+    Result := RAD_STATE_FOLDER
+  else
+    Result := ARoot;
+end;
+
+class function TRadPropertiesStore.StoreFor(AType: TRadStorageType; const ARoot: string;
+  out AError: string): IRadStateStore;
+begin
+  Result := nil;
+  case AType of
+    stDefault:
+      begin
+        if FDefaultStore = nil then
+          FDefaultStore := TRadFileStateStore.Create;
+        Result := FDefaultStore;
+      end;
+    stDatabase:
+      if FDatabaseStore = nil then
+        AError := SNoDatabase
+      else
+        Result := FDatabaseStore;
+  else
+    if IsRelativeRoot(ARoot) then
+      Result := TRadFileStateStore.Create(FILE_BASES[AType], FolderOf(ARoot))
+    else
+      AError := Format(SRootOutside, [ARoot]);
+  end;
+end;
+
+class function TRadPropertiesStore.RepositoryFor(AType: TRadStorageType; const ARoot: string;
+  AEncrypted: Boolean; out AError: string): TRadStateRepository;
+var
+  LId: string;
+  LStore: IRadStateStore;
+begin
+  Result := nil;
+  AError := '';
+  if FClosed then
+    Exit;
+  if AEncrypted and (FCipher = nil) then
+  begin
+    AError := SNoKey; // never fall back to writing plain text
+    Exit;
+  end;
+  LId := Format('%d|%d', [Ord(AType), Ord(AEncrypted)]);
+  if AType in FILE_TYPES then
+    LId := LId + '|' + ARoot; // the root is a folder only for files
+  if FRepositories.TryGetValue(LId, Result) then
+    Exit;
+  LStore := StoreFor(AType, ARoot, AError);
+  if LStore = nil then
+    Exit;
+  Result := TRadStateRepository.Create(LStore, FCipher, AEncrypted);
+  FRepositories.Add(LId, Result);
 end;
 
 class procedure TRadPropertiesStore.Prefetch;
 var
+  LType: TRadStorageType;
+  LEncrypted: Boolean;
   LRepo: TRadStateRepository;
+  LError: string;
 begin
-  if Repository <> nil then
-    Repository.Prefetch(FScope);
-  for LRepo in FStorages.Values do
-    LRepo.Prefetch(FScope);
+  // Plain and encrypted repositories keep separate caches; prefetch each one a store may use.
+  for LType in [stDefault, stDatabase] do
+    for LEncrypted := False to FCipher <> nil do
+    begin
+      LRepo := RepositoryFor(LType, '', LEncrypted, LError);
+      if LRepo <> nil then
+        LRepo.Prefetch(FScope);
+    end;
 end;
 
 class procedure TRadPropertiesStore.RegisterProvider(const AProvider: IRadStateProvider);
@@ -912,18 +997,22 @@ begin
     Result := StringToUtf8(ClassName);
 end;
 
-function TRadPropertiesStore.StoreRepository: TRadStateRepository;
+function TRadPropertiesStore.StoreRepository(out AError: string): TRadStateRepository;
 begin
-  Result := StorageRepository(FStorage);
+  Result := RepositoryFor(FStorageType, FStorageRoot, FEncrypted, AError);
 end;
 
 function TRadPropertiesStore.Key: TRadStateKey;
 var
   LName: RawUtf8;
 begin
-  LName := OwnerClassName;
   if FStorageName <> '' then
-    LName := LName + NAME_SEPARATOR + StringToUtf8(FStorageName);
+    LName := StringToUtf8(FStorageName)
+  else
+    LName := OwnerClassName;
+  if (FStorageRoot <> '') and not (FStorageType in FILE_TYPES) then
+    LName := StringToUtf8(StringReplace(ExcludeTrailingPathDelimiter(FStorageRoot), '\', ROOT_SEPARATOR,
+      [rfReplaceAll])) + ROOT_SEPARATOR + LName;
   Result := TRadStateKey.Make(FScope, LName);
   if Assigned(FOnGetKey) then
     FOnGetKey(Self, Result);
@@ -952,16 +1041,17 @@ end;
 function TRadPropertiesStore.Load: Boolean;
 var
   LRepo: TRadStateRepository;
+  LError: string;
 begin
   FErrors := nil;
   FDoc := nil;
   FRestored := True; // a load was attempted, so closing may save even without a record
   FSaved := False;
   FResetPending := False;
-  LRepo := StoreRepository;
+  LRepo := StoreRepository(LError);
   Result := (LRepo <> nil) and LRepo.Load(Key, FDoc);
-  if (LRepo = nil) and (FStorage <> '') and not FClosed then
-    AddError(StringToUtf8(Format(SStorageMissing, [FStorage])))
+  if LError <> '' then
+    AddError(StringToUtf8(LError))
   else if (LRepo <> nil) and not Result and (LRepo.LastError <> '') then
     AddError(StringToUtf8(LRepo.LastError));
   if Assigned(FOnLoad) then
@@ -1241,9 +1331,10 @@ end;
 function TRadPropertiesStore.Save: Boolean;
 var
   LRepo: TRadStateRepository;
+  LError: string;
 begin
   Result := False;
-  LRepo := StoreRepository;
+  LRepo := StoreRepository(LError); // Load already reported LError
   if not FActive or not FRestored or FResetPending or (LRepo = nil) then
     Exit; // never overwrite a record that this owner did not get to read, or one just reset
   if Assigned(FOnSave) then
@@ -1375,8 +1466,9 @@ end;
 procedure TRadPropertiesStore.Reset;
 var
   LRepo: TRadStateRepository;
+  LError: string;
 begin
-  LRepo := StoreRepository;
+  LRepo := StoreRepository(LError);
   if LRepo <> nil then
     LRepo.Delete(Key);
   FValues := DocDict(mFastFloat);

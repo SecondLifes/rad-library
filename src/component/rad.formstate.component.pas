@@ -108,6 +108,7 @@ type
     class var FDefaultStore: IRadStateStore;
     class var FDatabaseStore: IRadStateStore;
     class var FCipher: IRadCipher;
+    class var FBuiltInCipher: IRadCipher;
     class var FScope: RawUtf8;
     class var FClosed: Boolean;
     class var FLive: TList<TRadPropertiesStore>;
@@ -117,6 +118,7 @@ type
     class destructor DestroyClass;
     class procedure SaveLive; static;
     class function StoreFor(AType: TRadStorageType; const ARoot: string; out AError: string): IRadStateStore; static;
+    class function CipherOf: IRadCipher; static;
   private
     FActive: Boolean;
     FOptions: TRadStateOptions;
@@ -181,7 +183,7 @@ type
     /// <summary>The plain stDefault repository; nil after Shutdown.</summary>
     class function Repository: TRadStateRepository; static;
     /// <summary>The repository of one storage setting, built on first use; nil and AError when it cannot
-    /// be used (no key, no database, a root outside the base folder).</summary>
+    /// be used (no database, a root outside the base folder).</summary>
     class function RepositoryFor(AType: TRadStorageType; const ARoot: string; AEncrypted: Boolean;
       out AError: string): TRadStateRepository; static;
     /// <summary>Reads every record of the scope from the default and the database store.</summary>
@@ -237,7 +239,8 @@ type
     property StorageRoot: string read FStorageRoot write FStorageRoot;
     /// <summary>Record name ('ayar' gives ayar.state); empty means the owner class name.</summary>
     property StorageName: string read FStorageName write FStorageName;
-    /// <summary>Encrypts with the key given to Kur; without a key nothing is loaded or saved.</summary>
+    /// <summary>Encrypts with the key given to Kur, else with a key built into the library for this exe
+    /// name: that one only keeps the file unreadable in a text editor.</summary>
     property Encrypted: Boolean read FEncrypted write FEncrypted default False;
     property Items: TRadStateItems read FItems write SetItems;
     property StoredValues: TRadStoredValues read FStoredValues write SetStoredValues;
@@ -253,6 +256,7 @@ uses
   Winapi.Messages,
   System.Variants,
   System.Generics.Defaults,
+  mormot.crypt.core,
   mormot.core.text,
   mormot.core.unicode,
   mormot.core.datetime,
@@ -261,7 +265,6 @@ uses
 
 resourcestring
   SAttachNeedsStateful = '%s: Attach needs a named component that implements IRadStateful.';
-  SNoKey = 'Encrypted needs the key given to TRadFormState.Kur; nothing is loaded or saved';
   SNoDatabase = 'stDatabase needs TRadFormState.SetDatabase; nothing is loaded or saved';
   SRootOutside = 'StorageRoot ''%s'' must be a relative folder without ''..''; nothing is loaded or saved';
 
@@ -273,6 +276,7 @@ const
   STATE_NORMAL = 'wsNormal';
   NAME_SEPARATOR = '.';
   ROOT_SEPARATOR = '/';
+  BUILT_IN_KEY_SALT: RawUtf8 = 'rad.formstate built-in key/';
   SIZEABLE_BORDERS = [bsSizeable, bsSizeToolWin];
   FILE_TYPES = [stLocalAppData, stExeFolder, stCommonAppData];
   FILE_BASES: array[stLocalAppData..stCommonAppData] of TRadStorageRoot = (srLocalAppData, srExeFolder,
@@ -767,6 +771,7 @@ begin
   FreeAndNil(FLive);
   FreeAndNil(FProviders);
   FreeAndNil(FRepositories);
+  FBuiltInCipher := nil;
 end;
 
 class procedure TRadPropertiesStore.Configure(const AStore: IRadStateStore; const ACipher: IRadCipher;
@@ -869,11 +874,6 @@ begin
   AError := '';
   if FClosed then
     Exit;
-  if AEncrypted and (FCipher = nil) then
-  begin
-    AError := SNoKey; // never fall back to writing plain text
-    Exit;
-  end;
   LId := Format('%d|%d', [Ord(AType), Ord(AEncrypted)]);
   if AType in FILE_TYPES then
     LId := LId + '|' + ARoot; // the root is a folder only for files
@@ -882,8 +882,27 @@ begin
   LStore := StoreFor(AType, ARoot, AError);
   if LStore = nil then
     Exit;
-  Result := TRadStateRepository.Create(LStore, FCipher, AEncrypted);
+  Result := TRadStateRepository.Create(LStore, CipherOf, AEncrypted);
   FRepositories.Add(LId, Result);
+end;
+
+class function TRadPropertiesStore.CipherOf: IRadCipher;
+var
+  LKey: TSha256Digest;
+begin
+  if FCipher <> nil then
+    Exit(FCipher);
+  if FBuiltInCipher = nil then
+  begin
+    // shortcut: anyone with this library and the exe name derives the key; Kur's key is the real protection.
+    LKey := Sha256Digest(BUILT_IN_KEY_SALT + StringToUtf8(System.SysUtils.LowerCase(ChangeFileExt(ExtractFileName(ParamStr(0)), ''))));
+    try
+      FBuiltInCipher := TRadAesGcmCipher.Create(LKey);
+    finally
+      FillZero(LKey);
+    end;
+  end;
+  Result := FBuiltInCipher;
 end;
 
 class procedure TRadPropertiesStore.Prefetch;
@@ -895,7 +914,7 @@ var
 begin
   // Plain and encrypted repositories keep separate caches; prefetch each one a store may use.
   for LType in [stDefault, stDatabase] do
-    for LEncrypted := False to FCipher <> nil do
+    for LEncrypted := False to True do
     begin
       LRepo := RepositoryFor(LType, '', LEncrypted, LError);
       if LRepo <> nil then

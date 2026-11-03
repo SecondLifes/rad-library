@@ -85,7 +85,8 @@ type
     /// <summary>Application defaults; optional (without it stDefault is %LOCALAPPDATA%\exe\state).</summary>
     /// <param name="AStore">Where stores with StorageType = stDefault save.</param>
     /// <param name="AScope">The signed-in user, the folder or key part every store saves under.</param>
-    /// <param name="ACipher">The key of stores with Encrypted = True; it also reads their old records.</param>
+    /// <param name="ACipher">The key of stores with Encrypted = True; nil uses a key built into the library,
+    /// which only hides the file from a text editor.</param>
     class procedure Kur(const AStore: IRadStateStore; const AScope: RawUtf8 = '';
       const ACipher: IRadCipher = nil); static;
     /// <summary>The connection of stores with StorageType = stDatabase; DDL: TRadUniStateStore.CreateTableSql.</summary>

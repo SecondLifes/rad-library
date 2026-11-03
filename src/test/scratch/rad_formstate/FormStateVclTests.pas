@@ -85,7 +85,7 @@ type
     [Test]
     procedure Storage_ExeFolderRootAndName_UsesThatFile;
     [Test]
-    procedure Storage_Encrypted_NeedsKeyAndOthersStayPlain;
+    procedure Storage_Encrypted_WorksWithAndWithoutKeyOthersStayPlain;
     [Test]
     procedure Storage_Unusable_LoadsAndSavesNothing;
     [Test]
@@ -289,16 +289,23 @@ begin
   end;
 end;
 
-procedure TRadFormStateVclTests.Storage_Encrypted_NeedsKeyAndOthersStayPlain;
+procedure TRadFormStateVclTests.Storage_Encrypted_WorksWithAndWithoutKeyOthersStayPlain;
 var
   LKey: THash256;
   LForm: TFormA;
   LLoaded: Boolean;
 begin
-  LForm := FormAWith(stDefault, '', 'gizli', True, LLoaded);
-  Assert.Contains(ErrorsOf(LForm), 'Encrypted');
+  LForm := FormAWith(stDefault, '', 'gomulu', True, LLoaded);
+  LForm.Edit1.Width := 222;
   SaveAndFree(LForm);
-  Assert.IsFalse(FileExists(StateFile('gizli')), 'no key: never written as plain text');
+  Assert.IsTrue(TRadStateEnvelope.IsEncrypted(StringFromFile(StateFile('gomulu'))), 'no key: the built-in key');
+  LForm := FormAWith(stDefault, '', 'gomulu', True, LLoaded);
+  try
+    Assert.IsTrue(LLoaded, ErrorsOf(LForm));
+    Assert.AreEqual(222, LForm.Edit1.Width);
+  finally
+    LForm.Free;
+  end;
   FillChar(LKey, SizeOf(LKey), $5A);
   TRadFormState.Kur(TRadFormState.FileStore(FRoot), SCOPE, TRadAesGcmCipher.Create(LKey));
   LForm := FormAWith(stDefault, '', 'gizli', True, LLoaded);

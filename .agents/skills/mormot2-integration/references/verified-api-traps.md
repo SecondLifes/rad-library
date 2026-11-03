@@ -257,3 +257,43 @@ say why in a comment.
 Note that `rad.config`'s `TRadConfig` does **not** set it, so its keys are flat
 today. That is a separate question from this trap; do not "fix" it without
 checking what already reads those files.
+
+## Reading and writing single published properties of VCL objects
+
+Measured on Delphi 37.0 / Win32 with `TEdit`, `TMemo`, `TStatusBar` and a test
+component whose class properties have getters, against mORMot revisions
+`32064e245` and `587ce1674` (same output on both). Most of these fail silently.
+
+| API | Observed | Why it matters |
+|---|---|---|
+| `ObjectToJson(TEdit)` | Omits `Font.Size`; writes the whole `PopupMenu` tree as a nested object | `stored False` properties are skipped, and a `TComponent` reference is serialized by value |
+| `GetInstanceByPath` / `PropFindByPath` | `'Font.Size'` resolves; a class property with a getter (`'GFont.Size'`) and a collection index (`'Panels.0.Width'`) do not | `PropFindByPath` sets `Data := nil` when `OffsetGet < 0` |
+| `TRttiCustomProp.GetValueText` | Returned `raw` for `read GetS write FS`, whose getter returns `getter`; returned `1` for `Align` | It tests `OffsetSet`, so a `write FField` property skips the getter; enumerations come back as ordinals |
+| `PropertyFromJson` | `valid=False` for scalars; `valid=True` for `Font` and `Lines` with **no change** and a setter call count of 0 | Exits unless `Kind = rkClass`; for a class with a setter it goes through a temp instance, and `ParsePropComplex` swallows exceptions there |
+| `JsonToObject(Edit, '{"Font":{...}}')` | `valid=TRUE`, `Font` unchanged | Same setter path. Scalars, enums and sets in the same call do apply |
+| `DocVariantToObject` | A set given as a name array (`"Anchors":["akTop"]`) is skipped without error | `TRttiProp.SetValue` cannot convert the array, and the fallback handles `rkClass` only |
+| `JsonToObject` on a whole `TCollection` property | Raises `ERttiException` until `Rtti.RegisterCollection()` is called, and then clears and re-adds every item | Items built in the DFM are destroyed; address them by index instead |
+
+What did work, for 14 paths in a round trip:
+
+- **Walk:** split the path yourself, `Rtti.RegisterClass(LInst).Props.Find(LToken)`,
+  then `Prop^.GetObjProp(LInst)` for each class step (it calls getters), and
+  `TCollection.Items[]` for a numeric token.
+- **Read:** `AddValueJson(W, LInst, [woEnumSetsAsText])` on the leaf. It calls
+  getters and writes enum and set names.
+- **Write a scalar, enum or set:** `JsonToObject(LInst, '{"Leaf":value}', ...)`.
+- **Write a class leaf:** `GetObjProp`, then `JsonToObject` on that instance. This
+  also works for a `TStrings` given a JSON array.
+
+## `mFastExtended` output is not standard JSON
+
+`DocDict(mFastExtended)` serializes keys unquoted: measured `{child:{viaGet:2}}`,
+where `DocDict(mFast)` gave `{"Edit1":{"Width":5}}`. mORMot reads it back, but a
+standard parser will not, so it must not reach a file other tools read or a
+PostgreSQL `jsonb` column. Use `mFastFloat` for a document that leaves the process.
+
+## `d.D[key] := child` stores a copy
+
+Changes made to `child` after the assignment do not reach `d`: measured
+`{child:{}}` after `C.I['after'] := 1`. Finish building the child first, or
+modify it through `d.D[key]`, which returns a reference.

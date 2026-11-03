@@ -13,6 +13,7 @@ object RadFormStateEditorForm: TRadFormStateEditorForm
   Font.Name = 'Segoe UI'
   Font.Style = []
   Position = poScreenCenter
+  OnCloseQuery = FormCloseQuery
   OnDestroy = FormDestroy
   TextHeight = 15
   object pgcMain: TPageControl
@@ -197,20 +198,79 @@ object RadFormStateEditorForm: TRadFormStateEditorForm
     object tabValues: TTabSheet
       Caption = 'De'#287'erler'
       ImageIndex = 1
-      object vleValues: TValueListEditor
+      object pnlValueTools: TPanel
         Left = 0
         Top = 0
         Width = 872
-        Height = 486
-        Align = alClient
-        KeyOptions = [keyEdit, keyAdd, keyDelete, keyUnique]
+        Height = 37
+        Align = alTop
+        BevelOuter = bvNone
         TabOrder = 0
-        TitleCaptions.Strings = (
-          'Ad'
-          'Varsay'#305'lan de'#287'er')
-        ColWidths = (
-          220
-          646)
+        object btnValueAdd: TButton
+          Left = 8
+          Top = 5
+          Width = 75
+          Height = 27
+          Caption = 'Ekle'
+          TabOrder = 0
+          OnClick = btnValueAddClick
+        end
+        object btnValueDelete: TButton
+          Left = 89
+          Top = 5
+          Width = 75
+          Height = 27
+          Caption = 'Sil'
+          TabOrder = 1
+          OnClick = btnValueDeleteClick
+        end
+      end
+      object tlValues: TcxTreeList
+        Left = 0
+        Top = 37
+        Width = 872
+        Height = 449
+        Align = alClient
+        Bands = <
+          item
+          end>
+        Navigator.Buttons.CustomButtons = <>
+        OptionsCustomizing.BandCustomizing = False
+        OptionsCustomizing.ColumnMoving = False
+        OptionsView.ColumnAutoWidth = True
+        OptionsView.ShowRoot = False
+        ScrollbarAnnotations.CustomAnnotations = <>
+        TabOrder = 1
+        object colValueName: TcxTreeListColumn
+          Caption.Text = 'Ad'
+          Width = 220
+          Position.ColIndex = 0
+          Position.RowIndex = 0
+          Position.BandIndex = 0
+        end
+        object colValueType: TcxTreeListColumn
+          PropertiesClassName = 'TcxComboBoxProperties'
+          Properties.DropDownListStyle = lsFixedList
+          Properties.Items.Strings = (
+            'Variant'
+            'String'
+            'Integer'
+            'Float'
+            'DateTime'
+            'Boolean')
+          Caption.Text = 'T'#252'r'
+          Width = 120
+          Position.ColIndex = 1
+          Position.RowIndex = 0
+          Position.BandIndex = 0
+        end
+        object colValueValue: TcxTreeListColumn
+          Caption.Text = 'Varsay'#305'lan de'#287'er'
+          Width = 300
+          Position.ColIndex = 2
+          Position.RowIndex = 0
+          Position.BandIndex = 0
+        end
       end
     end
     object tabOptions: TTabSheet

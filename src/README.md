@@ -46,6 +46,7 @@ owner's `OnCreate`. One setup call through the entry unit:
 ```pascal
 uses rad.formstate;
 TRadFormState.Kur(TRadFormState.FileStore, 'emrah');   // or DbStore(Conn), CallbackStore; 3rd: IRadCipher
+// FileStore(srExeFolder, 'state'): beside the exe instead of %LOCALAPPDATA%\<exe>
 ...
 TRadFormState.Kapat;                                    // saves forms still open
 ```
@@ -59,6 +60,8 @@ TRadFormState.Kapat;                                    // saves forms still ope
 | `component/rad.formstate` | entry unit: aliases and `TRadFormState` |
 | `packages/Rad.Editor.FormState(.Model)` | design-time editor (right click: Durum Editörü...) |
 
+A `StoredValues` item with a `ValueType` (`svtInteger`, `svtDateTime`, ...) always reads back
+as that type: an unconvertible value falls back to its default, never raises.
 `TRadActionList` implements `IRadStateful`: list it in `Items` and its shortcuts are
 saved with the form. Spec, decisions and measurements: `docs/specs/rad.formstate.md`.
 Tests: `test/scratch/rad_formstate/build_and_run.bat Win32|Win64 <runner>` with

@@ -8,11 +8,14 @@ interface
 uses
   System.SysUtils,
   System.Classes,
+  System.TypInfo,
+  System.Variants,
   Vcl.Controls,
   Vcl.Menus,
   Vcl.ComCtrls,
   DUnitX.TestFramework,
   cxTL,
+  cxDropDownEdit,
   mormot.core.base,
   mormot.core.variants,
   mormot.core.unicode,
@@ -66,6 +69,12 @@ type
     procedure Form_GroupByProperty_PutsPathsAtTheRoot;
     [Test]
     procedure Form_NotRestorableLeaf_IsDisabled;
+    [Test]
+    procedure Form_TypeList_FollowsTheEnum;
+    [Test]
+    procedure Form_TypedValue_ApplyWritesTypeAndConvertedValue;
+    [Test]
+    procedure Form_BadOrRepeatedValue_IsReported;
   end;
 
 implementation
@@ -295,7 +304,10 @@ begin
     LEditor.Prepare(FForm.Store1);
     Assert.IsTrue(FindNode(LEditor.tlProps.Root, ['Edit1', 'Font', 'Size']) <> nil, 'Edit1 > Font > Size');
     Assert.AreEqual(5, LEditor.lstSelected.Count);
-    Assert.AreEqual('0', LEditor.vleValues.Values['counter']);
+    Assert.AreEqual(1, LEditor.tlValues.Count);
+    Assert.AreEqual('counter', VarToStr(LEditor.tlValues.Items[0].Values[LEditor.colValueName.ItemIndex]));
+    Assert.AreEqual('Variant', VarToStr(LEditor.tlValues.Items[0].Values[LEditor.colValueType.ItemIndex]));
+    Assert.AreEqual('0', VarToStr(LEditor.tlValues.Items[0].Values[LEditor.colValueValue.ItemIndex]));
     Assert.IsTrue(LEditor.chkPlacement.Checked);
     Assert.AreEqual('1', LEditor.edtVersion.Text);
   finally
@@ -353,7 +365,7 @@ begin
   try
     LEditor.Prepare(FForm.Store1);
     FindNode(LEditor.tlProps.Root, ['Edit1', 'Height']).Checked := True;
-    LEditor.vleValues.Strings.Clear;
+    LEditor.tlValues.Clear;
   finally
     LEditor.Free; // closed with Cancel
   end;
@@ -392,6 +404,76 @@ begin
     LNode := FindNode(LEditor.tlProps.Root, ['Edit1', 'PopupMenu']);
     Assert.IsTrue(LNode <> nil);
     Assert.IsFalse(LNode.Enabled);
+  finally
+    LEditor.Free;
+  end;
+end;
+
+procedure AddRow(AEditor: TRadFormStateEditorForm; const AName, AType, AValue: string);
+var
+  LNode: TcxTreeListNode;
+begin
+  LNode := AEditor.tlValues.Add;
+  LNode.Values[AEditor.colValueName.ItemIndex] := AName;
+  LNode.Values[AEditor.colValueType.ItemIndex] := AType;
+  LNode.Values[AEditor.colValueValue.ItemIndex] := AValue;
+end;
+
+procedure TRadFormStateEditorTests.Form_TypeList_FollowsTheEnum;
+var
+  LEditor: TRadFormStateEditorForm;
+  LItems: TStrings;
+  LType: TRadStoredValueType;
+begin
+  LEditor := TRadFormStateEditorForm.Create(nil);
+  try
+    LItems := (LEditor.colValueType.Properties as TcxComboBoxProperties).Items;
+    Assert.AreEqual(Ord(High(TRadStoredValueType)) + 1, LItems.Count);
+    for LType := Low(TRadStoredValueType) to High(TRadStoredValueType) do
+      Assert.AreEqual(Copy(GetEnumName(TypeInfo(TRadStoredValueType), Ord(LType)), 4, MaxInt),
+        LItems[Ord(LType)]);
+  finally
+    LEditor.Free;
+  end;
+end;
+
+procedure TRadFormStateEditorTests.Form_TypedValue_ApplyWritesTypeAndConvertedValue;
+var
+  LEditor: TRadFormStateEditorForm;
+  LValue: TRadStoredValue;
+begin
+  LEditor := TRadFormStateEditorForm.Create(nil);
+  try
+    LEditor.Prepare(FForm.Store1);
+    AddRow(LEditor, 'when', 'DateTime', '2026-11-03');
+    AddRow(LEditor, 'rate', 'Float', '1.25');
+    Assert.AreEqual('', LEditor.InvalidValue);
+    LEditor.Apply;
+  finally
+    LEditor.Free;
+  end;
+  LValue := FForm.Store1.StoredValues.Find('when');
+  Assert.IsTrue(LValue <> nil);
+  Assert.IsTrue(LValue.ValueType = svtDateTime);
+  Assert.AreEqual(varDate, Integer(VarType(LValue.Value)));
+  Assert.AreEqual(Double(EncodeDate(2026, 11, 3)), Double(LValue.Value), 1E-9);
+  Assert.AreEqual(1.25, Double(FForm.Store1.StoredValues.Find('rate').Value), 1E-12);
+  Assert.IsTrue(FForm.Store1.StoredValues.Find('counter').ValueType = svtVariant, 'untouched row keeps Variant');
+end;
+
+procedure TRadFormStateEditorTests.Form_BadOrRepeatedValue_IsReported;
+var
+  LEditor: TRadFormStateEditorForm;
+begin
+  LEditor := TRadFormStateEditorForm.Create(nil);
+  try
+    LEditor.Prepare(FForm.Store1);
+    AddRow(LEditor, 'n', 'Integer', 'abc');
+    Assert.AreEqual('n', LEditor.InvalidValue);
+    LEditor.tlValues.Items[1].Values[LEditor.colValueValue.ItemIndex] := '12';
+    Assert.AreEqual('', LEditor.InvalidValue);
+    AddRow(LEditor, 'COUNTER', 'Integer', '1');
+    Assert.AreEqual('COUNTER', LEditor.InvalidValue, 'names are case-insensitive');
   finally
     LEditor.Free;
   end;

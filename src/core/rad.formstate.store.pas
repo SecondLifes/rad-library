@@ -15,8 +15,14 @@ uses
   rad.cipher,
   rad.formstate.core;
 
+const
+  RAD_STATE_FOLDER = 'state';
+
 type
   ERadFormState = class(ERadCore);
+
+  /// <summary>Base folder of a file store: per user (writable) or beside the exe (portable).</summary>
+  TRadStorageRoot = (srLocalAppData, srExeFolder);
 
   TRadStateEntry = record
     Key: TRadStateKey;
@@ -42,8 +48,13 @@ type
     function ScopeFolder(const AScope: RawUtf8): TFileName;
   public
     /// <summary>An empty root means DefaultRoot.</summary>
-    constructor Create(const ARoot: TFileName = '');
-    /// <summary>%LOCALAPPDATA%\exe name\state, or a state folder beside the exe.</summary>
+    constructor Create(const ARoot: TFileName = ''); overload;
+    /// <summary>RootOf(ABase, AFolder).</summary>
+    constructor Create(ABase: TRadStorageRoot; const AFolder: TFileName = RAD_STATE_FOLDER); overload;
+    /// <summary>%LOCALAPPDATA%\exe name\AFolder or exe folder\AFolder; an empty AFolder means the base itself.</summary>
+    /// <remarks>srLocalAppData falls back to the exe folder when LOCALAPPDATA is not set.</remarks>
+    class function RootOf(ABase: TRadStorageRoot; const AFolder: TFileName = RAD_STATE_FOLDER): TFileName; static;
+    /// <summary>RootOf(srLocalAppData).</summary>
     class function DefaultRoot: TFileName; static;
     /// <summary>One path segment safe as a Windows file name; never empty, never '..'.</summary>
     class function SafeSegment(const ASegment: RawUtf8): TFileName; static;
@@ -128,7 +139,6 @@ uses
 const
   STATE_EXT = '.state';
   TEMP_EXT = '.tmp';
-  STATE_FOLDER = 'state';
   INVALID_FILE_CHARS = ['<', '>', ':', '"', '/', '\', '|', '?', '*'];
   RESERVED_NAMES: array[0..21] of string = ('CON', 'PRN', 'AUX', 'NUL',
     'COM1', 'COM2', 'COM3', 'COM4', 'COM5', 'COM6', 'COM7', 'COM8', 'COM9',
@@ -180,15 +190,28 @@ begin
     FRoot := ExcludeTrailingPathDelimiter(ExpandFileName(ARoot));
 end;
 
-class function TRadFileStateStore.DefaultRoot: TFileName;
-var
-  LBase: TFileName;
+constructor TRadFileStateStore.Create(ABase: TRadStorageRoot; const AFolder: TFileName);
 begin
-  LBase := GetEnvironmentVariable('LOCALAPPDATA');
-  if LBase = '' then
-    Exit(ExtractFilePath(ParamStr(0)) + STATE_FOLDER);
-  Result := TPath.Combine(TPath.Combine(LBase, ChangeFileExt(ExtractFileName(ParamStr(0)), '')),
-    STATE_FOLDER);
+  Create(RootOf(ABase, AFolder));
+end;
+
+class function TRadFileStateStore.RootOf(ABase: TRadStorageRoot; const AFolder: TFileName): TFileName;
+var
+  LAppData: TFileName;
+begin
+  LAppData := GetEnvironmentVariable('LOCALAPPDATA');
+  if (ABase = srExeFolder) or (LAppData = '') then
+    Result := ExtractFilePath(ParamStr(0))
+  else
+    Result := TPath.Combine(LAppData, ChangeFileExt(ExtractFileName(ParamStr(0)), ''));
+  if AFolder <> '' then
+    Result := TPath.Combine(Result, AFolder);
+  Result := ExcludeTrailingPathDelimiter(Result);
+end;
+
+class function TRadFileStateStore.DefaultRoot: TFileName;
+begin
+  Result := RootOf(srLocalAppData);
 end;
 
 class function TRadFileStateStore.SafeSegment(const ASegment: RawUtf8): TFileName;

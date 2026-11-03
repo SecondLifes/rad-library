@@ -58,6 +58,8 @@ type
     [Test]
     procedure File_SafeSegment_HandlesWindowsNames;
     [Test]
+    procedure File_RootOf_BaseAndFolder;
+    [Test]
     procedure File_LoadScope_ReturnsOnlyThatScope;
     [Test]
     procedure File_Delete_RemovesFile;
@@ -218,6 +220,24 @@ begin
   LStore.Save(FKey, LData);
   Assert.IsTrue(LStore.Load(FKey, LBack));
   Assert.IsTrue(LBack = LData);
+end;
+
+procedure TRadFormStateStoreTests.File_RootOf_BaseAndFolder;
+var
+  LExe: string;
+  LStore: IRadStateStore;
+begin
+  LExe := ExtractFilePath(ParamStr(0));
+  Assert.AreEqual(LExe + 'state', string(TRadFileStateStore.RootOf(srExeFolder)));
+  Assert.AreEqual(LExe + 'ayar', string(TRadFileStateStore.RootOf(srExeFolder, 'ayar')));
+  Assert.AreEqual(ExcludeTrailingPathDelimiter(LExe), string(TRadFileStateStore.RootOf(srExeFolder, '')),
+    'empty folder: the exe folder itself');
+  Assert.AreEqual(TPath.Combine(TPath.Combine(GetEnvironmentVariable('LOCALAPPDATA'),
+    ChangeFileExt(ExtractFileName(ParamStr(0)), '')), 'x'),
+    string(TRadFileStateStore.RootOf(srLocalAppData, 'x')));
+  Assert.AreEqual(string(TRadFileStateStore.RootOf(srLocalAppData)), string(TRadFileStateStore.DefaultRoot));
+  LStore := TRadFileStateStore.Create(srExeFolder, 'ayar');
+  Assert.AreEqual(LExe + 'ayar', string((LStore as TRadFileStateStore).Root));
 end;
 
 procedure TRadFormStateStoreTests.File_LoadMissing_ReturnsFalse;

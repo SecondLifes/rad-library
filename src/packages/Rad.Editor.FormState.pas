@@ -13,8 +13,6 @@ uses
   Vcl.StdCtrls,
   Vcl.ExtCtrls,
   Vcl.ComCtrls,
-  Vcl.Grids,
-  Vcl.ValEdit,
   cxGraphics,
   cxControls,
   cxLookAndFeels,
@@ -23,6 +21,7 @@ uses
   cxStyles,
   cxTL,
   cxTextEdit,
+  cxDropDownEdit,
   cxInplaceContainer,
   dxScrollbarAnnotations,
   cxTLdxBarBuiltInMenu,
@@ -52,7 +51,13 @@ type
     btnUp: TButton;
     btnDown: TButton;
     btnRemove: TButton;
-    vleValues: TValueListEditor;
+    pnlValueTools: TPanel;
+    btnValueAdd: TButton;
+    btnValueDelete: TButton;
+    tlValues: TcxTreeList;
+    colValueName: TcxTreeListColumn;
+    colValueType: TcxTreeListColumn;
+    colValueValue: TcxTreeListColumn;
     chkPlacement: TCheckBox;
     chkActiveControl: TCheckBox;
     chkProps: TCheckBox;
@@ -66,6 +71,9 @@ type
     btnOk: TButton;
     btnCancel: TButton;
     procedure FormDestroy(Sender: TObject);
+    procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+    procedure btnValueAddClick(Sender: TObject);
+    procedure btnValueDeleteClick(Sender: TObject);
     procedure tlPropsNodeCheckChanged(Sender: TcxCustomTreeList; ANode: TcxTreeListNode;
       AState: TcxCheckBoxState);
     procedure ViewChanged(Sender: TObject);
@@ -85,6 +93,8 @@ type
     procedure FillTree;
     procedure FillSelected;
     procedure FillValues;
+    function TypeNames: TStrings;
+    function ValueTypeOf(ANode: TcxTreeListNode): TRadStoredValueType;
     procedure FillOptions;
     procedure SyncCheck(ANode: TcxTreeListNode);
     procedure ApplyValues;
@@ -95,6 +105,8 @@ type
     procedure Prepare(AStore: TRadPropertiesStore);
     /// <summary>Writes the form back into the store (what OK does).</summary>
     procedure Apply;
+    /// <summary>The first value row whose name repeats or whose text does not fit its type; '' when all fit.</summary>
+    function InvalidValue: string;
     property Model: TRadStateEditorModel read FModel;
     /// <summary>Shows the editor modally; True when the store was changed.</summary>
     class function Execute(AStore: TRadPropertiesStore): Boolean; static;
@@ -103,7 +115,12 @@ type
 implementation
 
 uses
-  System.Variants;
+  System.Variants,
+  System.UITypes,
+  Vcl.Dialogs;
+
+resourcestring
+  SInvalidValue = '"%s" değeri türüne uymuyor ya da adı tekrar ediyor.';
 
 {$R *.dfm}
 
@@ -331,45 +348,136 @@ end;
 
 { values and options }
 
+function TRadFormStateEditorForm.TypeNames: TStrings;
+begin
+  Result := (colValueType.Properties as TcxComboBoxProperties).Items; // ordered as TRadStoredValueType
+end;
+
+function TRadFormStateEditorForm.ValueTypeOf(ANode: TcxTreeListNode): TRadStoredValueType;
+var
+  LIndex: Integer;
+begin
+  LIndex := TypeNames.IndexOf(VarToStr(ANode.Values[colValueType.ItemIndex]));
+  if LIndex < 0 then
+    Result := svtVariant
+  else
+    Result := TRadStoredValueType(LIndex);
+end;
+
 procedure TRadFormStateEditorForm.FillValues;
 var
   I: Integer;
   LValue: TRadStoredValue;
+  LNode: TcxTreeListNode;
 begin
-  vleValues.Strings.Clear;
+  tlValues.Clear;
   for I := 0 to FModel.Store.StoredValues.Count - 1 do
   begin
     LValue := TRadStoredValue(FModel.Store.StoredValues.Items[I]);
-    if LValue.Name <> '' then
-      vleValues.Strings.AddPair(LValue.Name, VarToStr(LValue.Value));
+    if LValue.Name = '' then
+      Continue;
+    LNode := tlValues.Add;
+    LNode.Values[colValueName.ItemIndex] := LValue.Name;
+    LNode.Values[colValueType.ItemIndex] := TypeNames[Ord(LValue.ValueType)];
+    LNode.Values[colValueValue.ItemIndex] := VarToStr(LValue.Value);
   end;
 end;
 
-function TextToValue(const AText: string): Variant;
+function TextToValue(const AText: string; AType: TRadStoredValueType; out AValue: Variant): Boolean;
 var
   LInt: Integer;
 begin
+  AValue := Unassigned;
+  Result := True;
   if AText = '' then
-    Result := Unassigned
-  else if TryStrToInt(AText, LInt) then
-    Result := LInt
+    Exit;
+  if AType <> svtVariant then
+    Exit(TRadStoredValue.Convert(AText, AType, AValue));
+  if TryStrToInt(AText, LInt) then
+    AValue := LInt
   else
-    Result := AText;
+    AValue := AText;
+end;
+
+function TRadFormStateEditorForm.InvalidValue: string;
+var
+  I: Integer;
+  LName: string;
+  LNames: TStringList;
+  LValue: Variant;
+begin
+  tlValues.HideEdit; // posts a cell still being edited
+  LNames := TStringList.Create;
+  try
+    for I := 0 to tlValues.Count - 1 do
+    begin
+      LName := Trim(VarToStr(tlValues.Items[I].Values[colValueName.ItemIndex]));
+      if LName = '' then
+        Continue;
+      if (LNames.IndexOf(LName) >= 0) or not TextToValue(VarToStr(tlValues.Items[I].Values[
+        colValueValue.ItemIndex]), ValueTypeOf(tlValues.Items[I]), LValue) then
+        Exit(LName);
+      LNames.Add(LName);
+    end;
+  finally
+    LNames.Free;
+  end;
+  Result := '';
 end;
 
 procedure TRadFormStateEditorForm.ApplyValues;
 var
   I: Integer;
+  LNode: TcxTreeListNode;
+  LName: string;
   LValue: TRadStoredValue;
+  LData: Variant;
 begin
+  tlValues.HideEdit;
   FModel.Store.StoredValues.Clear;
-  for I := 0 to vleValues.Strings.Count - 1 do
-    if Trim(vleValues.Strings.Names[I]) <> '' then
-    begin
-      LValue := TRadStoredValue(FModel.Store.StoredValues.Add);
-      LValue.Name := Trim(vleValues.Strings.Names[I]);
-      LValue.Value := TextToValue(vleValues.Strings.ValueFromIndex[I]);
-    end;
+  for I := 0 to tlValues.Count - 1 do
+  begin
+    LNode := tlValues.Items[I];
+    LName := Trim(VarToStr(LNode.Values[colValueName.ItemIndex]));
+    if (LName = '') or (FModel.Store.StoredValues.Find(LName) <> nil) then
+      Continue;
+    LValue := TRadStoredValue(FModel.Store.StoredValues.Add);
+    LValue.Name := LName;
+    LValue.ValueType := ValueTypeOf(LNode);
+    TextToValue(VarToStr(LNode.Values[colValueValue.ItemIndex]), LValue.ValueType, LData);
+    LValue.Value := LData; // Unassigned when the text does not fit; OK is blocked before that
+  end;
+end;
+
+procedure TRadFormStateEditorForm.FormCloseQuery(Sender: TObject; var CanClose: Boolean);
+var
+  LInvalid: string;
+begin
+  if ModalResult <> mrOk then
+    Exit;
+  LInvalid := InvalidValue;
+  CanClose := LInvalid = '';
+  if not CanClose then
+  begin
+    pgcMain.ActivePage := tabValues;
+    MessageDlg(Format(SInvalidValue, [LInvalid]), mtWarning, [mbOK], 0);
+  end;
+end;
+
+procedure TRadFormStateEditorForm.btnValueAddClick(Sender: TObject);
+var
+  LNode: TcxTreeListNode;
+begin
+  LNode := tlValues.Add;
+  LNode.Values[colValueType.ItemIndex] := TypeNames[Ord(svtVariant)];
+  LNode.Focused := True;
+  tlValues.FocusedColumn := colValueName;
+end;
+
+procedure TRadFormStateEditorForm.btnValueDeleteClick(Sender: TObject);
+begin
+  if tlValues.FocusedNode <> nil then
+    tlValues.FocusedNode.Delete;
 end;
 
 procedure TRadFormStateEditorForm.FillOptions;

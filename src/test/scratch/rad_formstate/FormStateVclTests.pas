@@ -65,6 +65,10 @@ type
     [Test]
     procedure ActionList_ShortcutsRoundTripThroughTheStore;
     [Test]
+    procedure Values_DeclaredType_IsWhatComesBack;
+    [Test]
+    procedure Values_Convert_ParsesTextForms;
+    [Test]
     procedure Measure_ThreeHundredPaths;
   end;
 
@@ -165,6 +169,69 @@ begin
   finally
     LForm.Free;
   end;
+end;
+
+function Declare(AStore: TRadPropertiesStore; const AName: string; AType: TRadStoredValueType;
+  const ADefault: Variant): TRadStoredValue;
+begin
+  Result := TRadStoredValue(AStore.StoredValues.Add);
+  Result.Name := AName;
+  Result.ValueType := AType;
+  Result.Value := ADefault;
+end;
+
+procedure TRadFormStateVclTests.Values_DeclaredType_IsWhatComesBack;
+var
+  LForm: TFormA;
+begin
+  SaveAndFree(NewChangedFormA);
+  LForm := TFormA.Create(nil);
+  try
+    Assert.AreNotEqual(varDate, Integer(VarType(LForm.Store1.StoredValue['when'])), 'undeclared: JSON text');
+    Declare(LForm.Store1, 'when', svtDateTime, Unassigned);
+    Assert.AreEqual(varDate, Integer(VarType(LForm.Store1.StoredValue['when'])));
+    Assert.AreEqual(Double(EncodeDate(2026, 11, 3)), Double(LForm.Store1.StoredValue['when']), 1E-9);
+    Declare(LForm.Store1, 'n', svtInteger, '7');
+    Assert.AreEqual(varInt64, Integer(VarType(LForm.Store1.StoredValue['n'])), 'design default converted');
+    Assert.AreEqual(Int64(7), Int64(LForm.Store1.StoredValue['n']));
+    Declare(LForm.Store1, 'bad', svtInteger, 3);
+    LForm.Store1.StoredValue['bad'] := 'abc';
+    Assert.AreEqual(Int64(3), Int64(LForm.Store1.StoredValue['bad']), 'unconvertible runtime value: default');
+    Declare(LForm.Store1, 'flag', svtBoolean, Unassigned);
+    Assert.AreEqual(varBoolean, Integer(VarType(LForm.Store1.StoredValue['flag'])), 'nothing: empty of type');
+    Assert.IsFalse(LForm.Store1.StoredValue['flag']);
+    Assert.IsTrue(VarIsNull(LForm.Store1.StoredValue['nothing']), 'undeclared and missing: Null');
+    Assert.AreEqual(9, LForm.Store1.GetInteger('nothing', 9), 'missing: the caller default, not 0');
+    Assert.AreEqual(3, LForm.Store1.GetInteger('bad', 9));
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.Values_Convert_ParsesTextForms;
+var
+  LValue: Variant;
+  LDate: TDateTime;
+begin
+  Assert.IsTrue(TRadStoredValue.Convert('1.5', svtFloat, LValue));
+  Assert.AreEqual(1.5, Double(LValue), 1E-12, 'invariant');
+  Assert.IsTrue(TRadStoredValue.Convert('2' + FormatSettings.DecimalSeparator + '5', svtFloat, LValue));
+  Assert.AreEqual(2.5, Double(LValue), 1E-12, 'local');
+  LDate := EncodeDate(2026, 11, 3) + EncodeTime(10, 20, 30, 0);
+  Assert.IsTrue(TRadStoredValue.Convert('2026-11-03T10:20:30', svtDateTime, LValue));
+  Assert.AreEqual(Double(LDate), Double(LValue), 1E-6, 'ISO 8601');
+  Assert.IsTrue(TRadStoredValue.Convert(DateTimeToStr(LDate), svtDateTime, LValue));
+  Assert.AreEqual(Double(LDate), Double(LValue), 1E-5, 'local: ' + DateTimeToStr(LDate));
+  Assert.IsTrue(TRadStoredValue.Convert(' 42 ', svtInteger, LValue));
+  Assert.AreEqual(Int64(42), Int64(LValue));
+  Assert.IsFalse(TRadStoredValue.Convert('4.2', svtInteger, LValue), 'no silent truncation');
+  Assert.IsTrue(TRadStoredValue.Convert('true', svtBoolean, LValue));
+  Assert.IsTrue(LValue);
+  Assert.IsFalse(TRadStoredValue.Convert('yes?', svtBoolean, LValue));
+  Assert.IsFalse(TRadStoredValue.Convert(Null, svtString, LValue));
+  LValue := '5';
+  Assert.IsTrue(TRadStoredValue.Convert(LValue, svtInteger, LValue), 'same variable in and out');
+  Assert.AreEqual(Int64(5), Int64(LValue));
 end;
 
 procedure TRadFormStateVclTests.Form_OwnOnCreate_SeesRestoredValues;

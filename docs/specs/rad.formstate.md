@@ -109,9 +109,18 @@ Kurallar:
 
 ## `Variant` değerleri
 
-`StoredValue[...]` yazımda her tipi kabul eder, okumada JSON tipini döndürür. Ölçülen kayıplar:
-`varDate` → ISO metin, `Currency` → double. Bu yüzden tipli okuyucular var:
-`GetDate`, `GetCurrency`, `GetInteger`, `GetString`, `GetBoolean` (hepsi varsayılan değerli).
+`StoredValue[...]` yazımda her tipi kabul eder. JSON tipi korumaz: `varDate` → ISO metin,
+`Currency` → double (ölçüldü). Bu yüzden her `StoredValues` öğesinin bir `ValueType`'ı var
+(`svtVariant` varsayılan, `svtString`, `svtInteger`, `svtFloat`, `svtDateTime`, `svtBoolean`):
+
+- Okuma sırası: çalışma anı değeri → tasarım varsayılanı (`Value`) → türün boş değeri (`''`, `0`,
+  `0.0`, tarih `0`, `False`). Çevrilemeyen bir değer bir sonrakine düşer; istisna yok.
+- `svtVariant` ve bildirilmemiş ad JSON'daki tipi döndürür, hiçbir şey yoksa `Null` (eski davranış).
+- Metin çözme (`TRadStoredValue.Convert`): sayı önce değişmez (`1.5`), sonra yerel biçim; tarih önce
+  ISO 8601 (JSON'un sakladığı), sonra yerel; mantıksal `True/False/0/1`. Kesirli metin tamsayıya
+  çevrilmez (`4.2` → başarısız), sessiz kırpma yok.
+- `GetInteger/GetDouble/GetString/GetBoolean/GetDate` kendi türlerine aynı zincirle çevirir; hiçbiri
+  yoksa çağıranın varsayılanını döndürür.
 
 ## Yaşam döngüsü
 
@@ -164,7 +173,7 @@ Depolar bayt taşır; şifreleme bu yüzden üçüne de aynı şekilde uygulanı
 
 | Depo | Yer | Notlar |
 |---|---|---|
-| `TRadFileStateStore` | varsayılan `%LOCALAPPDATA%\<exe>\state\<scope>\<Class>.state` | Geçici dosya + `MoveFileEx(REPLACE)`; okunamayan kayıt yok sayılır, loglanır, sonraki kayıt üstüne yazar |
+| `TRadFileStateStore` | varsayılan `%LOCALAPPDATA%\<exe>\state\<scope>\<Class>.state`; `FileStore(srExeFolder, 'ayar')` exe yanı, klasör boşsa kökün kendisi | Geçici dosya + `MoveFileEx(REPLACE)`; okunamayan kayıt yok sayılır, loglanır, sonraki kayıt üstüne yazar |
 | `TRadCallbackStateStore` | `TRadFormState.DoSave/DoLoad` class var fonksiyonları | Host'un kendi saklama yolu |
 | `TRadUniStateStore` | tablo (ad ayarlanabilir) | `UPDATE`, etkilenen satır 0 ise `INSERT` (üç DB'de aynı); host'un bağlantısı |
 
@@ -208,7 +217,7 @@ DFM ile, DevExpress kontrolleriyle. Bileşen editörü fiili + `Items` için `pa
   desteklenmeyen tür) pasif ve gerekçesi değer sütununda. Olaylar hiç listelenmez.
 - Sağ: seçili yolların sıralanabilir listesi (apply sırası anlamlı: `Align` önce, boyut sonra).
 - Hazır seçimler: "Pencere", "Splitter konumları", "Sayfa (ActivePageIndex)".
-- Sekmeler: Özellikler, Değerler (`StoredValues`), Seçenekler (`Options`, `Version`).
+- Sekmeler: Özellikler, Değerler (`StoredValues`: Ad, Tür, Varsayılan değer), Seçenekler (`Options`, `Version`).
 - `Designer.Modified` yalnız Tamam'da.
 - Tasarım anında mORMot `Rtti` çağrılmaz (sınıfların VMT'sine yazar); editör `TypInfo` kullanır.
 
@@ -232,7 +241,8 @@ TRadFormState.Kapat;      // açık formları kaydeder; iki kez çağrılabilir
 ```
 
   `Kur` önceki kurulumu önce kapatır; şifreleme anahtarı uygulamanındır (`rad.cipher`), bu yüzden
-  parametre boolean değil `IRadCipher`. `FileStore(AFolder)`, `CallbackStore` (A4: `DbStore`)
+  parametre boolean değil `IRadCipher`. `FileStore(AFolder)`, `FileStore(srLocalAppData|srExeFolder,
+  AFolder = 'state')`, `CallbackStore` (A4: `DbStore`)
   yardımcıları yalnız oluşturup döndürür.
 - **Kabul:** host yalnız `rad.formstate` ekleyip `Kur` çağırarak sistemi çalıştırır; test ile kanıtlanır.
 
@@ -428,6 +438,22 @@ Her aşama kendi testiyle kapanır; bir aşama bitmeden sonrakine geçilmez.
   kaldırılınca kısayol testi kırmızı (`16467` yerine `0`).
 - `rad.rtl.pas`'ın kendi eski kodunda ipuçları var (kullanılmayan `sc`, `GetActions`, `mormot.core.text`
   inline'ı); bu değişikliğin kapsamı dışında bırakıldı.
+
+**A7 — kök ve değer türü (2026-11-03)**
+
+- Kök ve klasör bileşen özelliği değil, `FileStore` parametresi: depo uygulama başına tek
+  (`Kur`), form başına kök aynı uygulamanın kayıtlarını klasörlere dağıtır ve `Kur` sonrası sessizce
+  yok sayılırdı. `srExeFolder` Program Files altında yazılamaz; kayıt hatası loglanır, form kapanır.
+- `ValueType` olmadan `StoredValue['when']` kaydedilen tarihi ISO metin olarak döndürüyordu (test bunu da
+  sabitliyor). Bildirilince `varDate` döner.
+- Bulunan hata: `GetInteger/GetDouble/GetDate/GetBoolean` kayıt ve varsayılan yokken `ADefault` yerine `0`
+  döndürüyordu; mORMot `Variant` dönüştürücüleri `Null`'ı `0` sayıp başarı bildiriyor. Okuyucular artık
+  `TRadStoredValue.Convert` kullanıyor.
+- Editör Değerler sekmesi `TValueListEditor` yerine `TcxTreeList` (tür sütunu `TcxComboBoxProperties`,
+  `lsFixedList`, öğeler enum sırasında; test sırayı enum adlarıyla karşılaştırır). Hücre düzenlemesi
+  `HideEdit` ile işlenir; türe uymayan ya da tekrar eden ad `OnCloseQuery`'de Tamam'ı engeller.
+- Mutasyon: tasarım varsayılanına düşme, değişmez sayı çözümü, editörde tekrar denetimi ve kökte sondaki
+  ayırıcı ayrı ayrı bozuldu; her biri en az bir testi kırmızıya çevirdi.
 
 ## Riskler
 

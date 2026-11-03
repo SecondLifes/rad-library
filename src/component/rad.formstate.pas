@@ -18,6 +18,8 @@ type
   TRadPropertiesStore = rad.formstate.component.TRadPropertiesStore;
   TRadStateItem = rad.formstate.component.TRadStateItem;
   TRadStoredValue = rad.formstate.component.TRadStoredValue;
+  TRadStoredValueType = rad.formstate.component.TRadStoredValueType;
+  TRadStorageRoot = rad.formstate.store.TRadStorageRoot;
   TRadStateOption = rad.formstate.component.TRadStateOption;
   TRadStateOptions = rad.formstate.component.TRadStateOptions;
   TRadStateEvent = rad.formstate.component.TRadStateEvent;
@@ -42,6 +44,15 @@ const
   soProps = rad.formstate.component.soProps;
   soValues = rad.formstate.component.soValues;
   soCustom = rad.formstate.component.soCustom;
+  svtVariant = rad.formstate.component.svtVariant;
+  svtString = rad.formstate.component.svtString;
+  svtInteger = rad.formstate.component.svtInteger;
+  svtFloat = rad.formstate.component.svtFloat;
+  svtDateTime = rad.formstate.component.svtDateTime;
+  svtBoolean = rad.formstate.component.svtBoolean;
+  srLocalAppData = rad.formstate.store.srLocalAppData;
+  srExeFolder = rad.formstate.store.srExeFolder;
+  RAD_STATE_FOLDER = rad.formstate.store.RAD_STATE_FOLDER;
 
 type
   /// <summary>One setup call for every TRadPropertiesStore in the application.</summary>
@@ -59,7 +70,11 @@ type
     /// <summary>Changes the scope after login without rebuilding the store.</summary>
     class procedure SetScope(const AScope: RawUtf8); static;
     /// <summary>One file per record under AFolder (default %LOCALAPPDATA%\exe name\state).</summary>
-    class function FileStore(const AFolder: string = ''): IRadStateStore; static;
+    class function FileStore(const AFolder: string = ''): IRadStateStore; overload; static;
+    /// <summary>One file per record under ABase\AFolder; an empty AFolder uses ABase itself.</summary>
+    /// <remarks>srExeFolder fails under Program Files: saves are then only logged.</remarks>
+    class function FileStore(ABase: TRadStorageRoot;
+      const AFolder: string = RAD_STATE_FOLDER): IRadStateStore; overload; static;
     /// <summary>Routes to TRadCallbackStateStore.DoLoad/DoSave/DoDelete/DoLoadScope.</summary>
     class function CallbackStore: IRadStateStore; static;
     /// <summary>One row per record in ATable on the host's connection; DDL: TRadUniStateStore.CreateTableSql.</summary>
@@ -95,6 +110,11 @@ end;
 class function TRadFormState.FileStore(const AFolder: string): IRadStateStore;
 begin
   Result := TRadFileStateStore.Create(AFolder);
+end;
+
+class function TRadFormState.FileStore(ABase: TRadStorageRoot; const AFolder: string): IRadStateStore;
+begin
+  Result := TRadFileStateStore.Create(ABase, AFolder);
 end;
 
 class function TRadFormState.CallbackStore: IRadStateStore;

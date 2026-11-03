@@ -21,6 +21,8 @@ uses
 type
   TRadStateOption = (soPlacement, soActiveControl, soProps, soValues, soCustom);
   TRadStateOptions = set of TRadStateOption;
+  /// <summary>svtVariant returns what was saved; the others always return that type.</summary>
+  TRadStoredValueType = (svtVariant, svtString, svtInteger, svtFloat, svtDateTime, svtBoolean);
 
 const
   RAD_STATE_DEFAULT_OPTIONS = [soPlacement, soProps, soValues, soCustom];
@@ -62,18 +64,26 @@ type
     property Items[AIndex: Integer]: TRadStateItem read GetItem; default;
   end;
 
-  /// <summary>A named value and its design-time default.</summary>
+  /// <summary>A named value, its type and its design-time default.</summary>
   TRadStoredValue = class(TCollectionItem)
   private
     FName: string;
+    FValueType: TRadStoredValueType;
     FValue: Variant;
     function IsValueStored: Boolean;
   protected
     function GetDisplayName: string; override;
   public
     procedure Assign(ASource: TPersistent); override;
+    /// <summary>AValue as AType; False for Null/Empty or text that does not parse.</summary>
+    /// <remarks>Text: invariant or local numbers, ISO 8601 or local dates, True/False/0/1.</remarks>
+    class function Convert(const AValue: Variant; AType: TRadStoredValueType;
+      var AResult: Variant): Boolean; static;
+    /// <summary>'', 0, 0.0, 0 (date), False; Null for svtVariant.</summary>
+    class function EmptyOf(AType: TRadStoredValueType): Variant; static;
   published
     property Name: string read FName write FName;
+    property ValueType: TRadStoredValueType read FValueType write FValueType default svtVariant;
     property Value: Variant read FValue write FValue stored IsValueStored;
   end;
 
@@ -115,6 +125,7 @@ type
     procedure SetStoredValues(const AValue: TRadStoredValues);
     function GetStoredValue(const AName: string): Variant;
     procedure SetStoredValue(const AName: string; const AValue: Variant);
+    function TryStoredValue(const AName: string; AType: TRadStoredValueType; out AValue: Variant): Boolean;
     function OwnerClassName: RawUtf8;
     function CurrentPpi: Integer;
     procedure AddError(const AText: RawUtf8);
@@ -164,7 +175,8 @@ type
     property Saved: Boolean read FSaved;
     /// <summary>One line per failure of the last Load ('component.path: reason').</summary>
     property Errors: TRawUtf8DynArray read FErrors;
-    /// <summary>Runtime value, else the StoredValues default, else Null.</summary>
+    /// <summary>Runtime value, else the StoredValues default, as the item's ValueType.</summary>
+    /// <remarks>Neither convertible: the type's empty value (Null for svtVariant or an undeclared name).</remarks>
     property StoredValue[const AName: string]: Variant read GetStoredValue write SetStoredValue;
   published
     property Active: Boolean read FActive write FActive default True;
@@ -530,10 +542,126 @@ begin
   if ASource is TRadStoredValue then
   begin
     FName := TRadStoredValue(ASource).Name;
+    FValueType := TRadStoredValue(ASource).ValueType;
     FValue := TRadStoredValue(ASource).Value;
   end
   else
     inherited;
+end;
+
+function TrimmedText(const AValue: Variant): string;
+begin
+  Result := System.SysUtils.Trim(VariantToString(AValue)); // mORMot keeps text as RawUtf8 varString
+end;
+
+function ToInteger(const AValue: Variant; out AResult: Int64): Boolean;
+var
+  LFloat: Double;
+begin
+  Result := True;
+  if VarType(AValue) = varBoolean then
+    AResult := Ord(Boolean(AValue))
+  else if VarIsOrdinal(AValue) then
+    AResult := AValue
+  else if VarIsNumeric(AValue) then
+  begin
+    LFloat := AValue;
+    Result := (Frac(LFloat) = 0) and (Abs(LFloat) <= High(Int64));
+    if Result then
+      AResult := Trunc(LFloat);
+  end
+  else
+    Result := VarIsStr(AValue) and TryStrToInt64(TrimmedText(AValue), AResult);
+end;
+
+function ToFloat(const AValue: Variant; out AResult: Double): Boolean;
+var
+  LText: string;
+begin
+  if VarIsNumeric(AValue) or (VarType(AValue) = varDate) then
+  begin
+    AResult := AValue;
+    Exit(True);
+  end;
+  LText := TrimmedText(AValue);
+  // invariant first: '1.5' is never a thousands-separated 15 in a stored value
+  Result := VarIsStr(AValue) and (TryStrToFloat(LText, AResult, TFormatSettings.Invariant) or
+    TryStrToFloat(LText, AResult));
+end;
+
+function ToDateTime(const AValue: Variant; out AResult: TDateTime): Boolean;
+var
+  LText: string;
+begin
+  if VarIsNumeric(AValue) or (VarType(AValue) = varDate) then
+  begin
+    AResult := VarToDateTime(AValue);
+    Exit(True);
+  end;
+  if not VarIsStr(AValue) then
+    Exit(False);
+  LText := TrimmedText(AValue);
+  AResult := Iso8601ToDateTime(StringToUtf8(LText)); // how JSON keeps a date
+  Result := (AResult <> 0) or TryStrToDateTime(LText, AResult);
+end;
+
+function ToBoolean(const AValue: Variant; out AResult: Boolean): Boolean;
+var
+  LInt: Int64;
+begin
+  Result := True;
+  if VarType(AValue) = varBoolean then
+    AResult := AValue
+  else if ToInteger(AValue, LInt) then
+    AResult := LInt <> 0
+  else
+    Result := VarIsStr(AValue) and TryStrToBool(TrimmedText(AValue), AResult);
+end;
+
+class function TRadStoredValue.Convert(const AValue: Variant; AType: TRadStoredValueType;
+  var AResult: Variant): Boolean;
+var
+  LInt: Int64;
+  LFloat: Double;
+  LDate: TDateTime;
+  LBool: Boolean;
+begin
+  Result := not VarIsEmpty(AValue) and not VarIsNull(AValue);
+  if Result then
+  try
+    case AType of
+      svtString: AResult := VariantToString(AValue);
+      svtInteger: Result := ToInteger(AValue, LInt);
+      svtFloat: Result := ToFloat(AValue, LFloat);
+      svtDateTime: Result := ToDateTime(AValue, LDate);
+      svtBoolean: Result := ToBoolean(AValue, LBool);
+    else
+      AResult := AValue;
+    end;
+  except
+    on EVariantError do // e.g. an UInt64 beyond Int64
+      Result := False;
+  end;
+  if Result then
+    case AType of // assigned last: AResult may be the same variable as AValue
+      svtInteger: AResult := LInt;
+      svtFloat: AResult := LFloat;
+      svtDateTime: AResult := VarFromDateTime(LDate);
+      svtBoolean: AResult := LBool;
+    end;
+end;
+
+class function TRadStoredValue.EmptyOf(AType: TRadStoredValueType): Variant;
+begin
+  case AType of
+    svtString: Result := '';
+    svtInteger: Result := Int64(0);
+    svtFloat: Result := Double(0);
+    svtDateTime: Result := VarFromDateTime(0);
+    svtBoolean: Result := False;
+  else
+    Result := Null;
+  end;
 end;
 
 { TRadStoredValues }
@@ -994,17 +1122,29 @@ end;
 
 { values }
 
+function TRadPropertiesStore.TryStoredValue(const AName: string; AType: TRadStoredValueType;
+  out AValue: Variant): Boolean;
+var
+  LRaw: Variant;
+  LDefault: TRadStoredValue;
+begin
+  if FValues.Get(StringToUtf8(AName), LRaw) and TRadStoredValue.Convert(LRaw, AType, AValue) then
+    Exit(True);
+  LDefault := FStoredValues.Find(AName);
+  Result := (LDefault <> nil) and TRadStoredValue.Convert(LDefault.Value, AType, AValue);
+end;
+
 function TRadPropertiesStore.GetStoredValue(const AName: string): Variant;
 var
   LDefault: TRadStoredValue;
+  LType: TRadStoredValueType;
 begin
-  if FValues.Get(StringToUtf8(AName), Result) then
-    Exit;
   LDefault := FStoredValues.Find(AName);
+  LType := svtVariant;
   if LDefault <> nil then
-    Result := LDefault.Value
-  else
-    Result := Null;
+    LType := LDefault.ValueType;
+  if not TryStoredValue(AName, LType, Result) then
+    Result := TRadStoredValue.EmptyOf(LType);
 end;
 
 procedure TRadPropertiesStore.SetStoredValue(const AName: string; const AValue: Variant);
@@ -1013,14 +1153,26 @@ begin
 end;
 
 function TRadPropertiesStore.GetInteger(const AName: string; ADefault: Integer): Integer;
+var
+  LValue: Variant;
+  LInt: Int64;
 begin
-  if not VariantToInteger(StoredValue[AName], Result) then
-    Result := ADefault;
+  Result := ADefault;
+  if TryStoredValue(AName, svtInteger, LValue) then
+  begin
+    LInt := LValue;
+    if (LInt >= Low(Integer)) and (LInt <= High(Integer)) then
+      Result := LInt;
+  end;
 end;
 
 function TRadPropertiesStore.GetDouble(const AName: string; ADefault: Double): Double;
+var
+  LValue: Variant;
 begin
-  if not VariantToDouble(StoredValue[AName], Result) then
+  if TryStoredValue(AName, svtFloat, LValue) then
+    Result := LValue
+  else
     Result := ADefault;
 end;
 
@@ -1028,31 +1180,29 @@ function TRadPropertiesStore.GetString(const AName: string; const ADefault: stri
 var
   LValue: Variant;
 begin
-  LValue := StoredValue[AName];
-  if VarIsEmptyOrNull(LValue) then
-    Result := ADefault
+  if TryStoredValue(AName, svtString, LValue) then
+    Result := LValue
   else
-    Result := VariantToString(LValue);
+    Result := ADefault;
 end;
 
 function TRadPropertiesStore.GetBoolean(const AName: string; ADefault: Boolean): Boolean;
 var
   LValue: Variant;
-  LInt: Integer;
 begin
-  LValue := StoredValue[AName];
-  if VarType(LValue) = varBoolean then
+  if TryStoredValue(AName, svtBoolean, LValue) then
     Result := LValue
-  else if VariantToInteger(LValue, LInt) then
-    Result := LInt <> 0
   else
     Result := ADefault;
 end;
 
 function TRadPropertiesStore.GetDate(const AName: string; ADefault: TDateTime): TDateTime;
+var
+  LValue: Variant;
 begin
-  // JSON keeps a date as ISO text, so the value comes back as a string.
-  if not VariantToDateTime(StoredValue[AName], Result) then
+  if TryStoredValue(AName, svtDateTime, LValue) then
+    Result := VarToDateTime(LValue)
+  else
     Result := ADefault;
 end;
 

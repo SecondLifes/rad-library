@@ -33,6 +33,9 @@ that break something else in the kit.
 - `src/core/rad.formstate.store.pas` — form durum depoları: `IRadStateStore`, `TRadFileStateStore` (kayıt başına `.state` dosyası, geçici dosya + `MoveFileEx`, Windows dosya adı temizleme ve kök dışı yol reddi), `TRadCallbackStateStore` (host fonksiyonları `class var DoLoad/DoSave/DoDelete/DoLoadScope`), `TRadStateEnvelope` (düz JSON ya da `RADS` + algoritma etiketi + `IRadCipher`), `TRadStateRepository` (önbellek, senkron `Prefetch`, `savedAt` hariç hash ile yazma atlama).
 - `src/test/unit/rad.formstate.store.Tests.pas` — 25 test; `RunFormStateTests` toplam 45/45 Win32 + Win64.
 - `.agents/skills/mormot2-integration/references/verified-api-traps.md`: `DocDict(TDocVariantData)` zayıf referanstır, yerel kayıttan `DocDictCopy` gerekir (ölçüldü); `UpperCase` de mORMot gölgeleme listesinde.
+- `src/component/rad.formstate.component.pas` — `TRadPropertiesStore` (form ve DataModule; `Items` bileşen + nokta yollu özellikler, `StoredValues` + `StoredValue[]` ve tipli okuyucular, `Options`, `Version`, `StorageName`, `OnLoad`/`OnSave(Sender, ABefore)`, `OnGetKey`). Sahip başına tek gizli kanca: yükleme kullanıcının `OnCreate`'inden önce, kayıt `OnCloseQuery`/`OnDestroy`'da; yerleşim `OnCreate`'te `poDesigned` ile (VCL `OnShow`'dan sonra ortalıyor). Runtime'da oluşturulan store forma kanca takmaz.
+- `src/component/rad.formstate.pas` — giriş birimi: alias'lar ve `TRadFormState.Kur/Kapat/Prefetch/SetScope/FileStore/CallbackStore`. `Kapat` açık formları kaydeder.
+- `src/test/scratch/rad_formstate/RunFormStateVclTests.dpr`, `FormStateVclTests.pas`, `FormStateTestA/Two/Dm/Plain.pas` + `.dfm` — DFM'li VCL testleri, 13/13 Win32 + Win64; 300 yollu ölçüm (yükleme Win32 ~15 ms, Win64 ~12 ms; kayıt ~1 ms).
 - `Help.Dev`: `_EditGetValue`/`_EditSetValue` — editör değerini dilden bağımsız saklar ve geri yazar (`TcxCheckComboBox` JSON dizisi, tarih ISO metni).
 - `Help.Dev`: `_EditToFilter(F, alan, editör)` — editör değerini türüne göre `IRadSqlFilter` koşuluna çevirir (metin `Contains`, `TcxCheckComboBox` `InList`, diğerleri `Equal`).
 - `src/test/scratch/rad_sqlfilter/FilterEditTest.dpr` — `_EditToFilter` testi.
@@ -62,6 +65,7 @@ that break something else in the kit.
 
 ### Changed
 
+- `RadKon`: `TRadPropertiesStore` `rad.formstate.component`'ten kaydedilir; paket `rad.cipher` (önceden örtük) ve dört `rad.formstate` birimini içerir.
 - `src/share/rad.reports.pas`: `AddToMenu` alt menüsü açılmıyor, SQL sürekli çalışıyor, ekran titriyordu. Açılır menüde öğenin `OnClick`'ine
   artık bağlanılmaz (liste `OnPopup`'ta yenilenir); `FillMenu` `Clear` yerine önce ekleyip sonra siler, öğe sayısı sıfıra düşmez. Testler:
   `rad.reports.db.Tests` `AddToMenu_SubmenuOpen_DoesNotRebuild`, `AddToMenu_MainMenu_RefreshesOnClick`.

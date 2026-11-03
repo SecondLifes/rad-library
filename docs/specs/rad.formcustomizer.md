@@ -1,6 +1,7 @@
 # Specification: form durumu katılımcıları ve `TRadFormCustomizer`
 
-Durum: **onaylandı** (2026-11-03; sıfırlama: kayıt sil + yeniden aç). Önceki iş: `rad.formstate.md` (store, depolar, editör).
+Durum: **onaylandı ve uygulandı** (2026-11-03; sıfırlama: kayıt sil + yeniden aç). Elle doğrulama
+(ERPPlus'ta canlı formda sürükleme, inspector, DPI) kullanıcıda. Önceki iş: `rad.formstate.md` (store, depolar, editör).
 Plan: kullanıcının onayladığı plan (kullanıcıya özel · TMS taşıma · cxRTTIInspector · grid/layout
 sağlayıcıları · formu varsayılana döndür · üç düzeltme).
 
@@ -283,8 +284,12 @@ Customizer1.Customize;             // "formu düzenle" komutu (RadScriptTmsDesig
    - `DesignVclTest` sızıntısı (`TList`×2, `TcxStreamObjectData`): DevExpress `TdxLayoutControl.
      LoadFromStream` bozuk akışta istisna yolunda bırakıyor (bozuk kaynak çıkarılınca kayboluyor).
      Vendor hatası; bizde yalnız bozuk veriyle olur.
-6. Tasarım anı: customizer için izin listesi editörü (mevcut ağaç editörü, store'dan bağımsız model),
-   README, CHANGELOG, proje haritası.
+6. ✅ Tasarım anı: `TRadStateEditorModel.CreateFor(ARoot, AItems, AForStore)`; customizer kipinde yalnız
+   kontroller listelenir, değerler/seçenekler sekmeleri ve hazır seçimler gizlenir. `RadKonD`:
+   `TRadFormCustomizer` kaydı, "Kullanıcı İzinleri..." bileşen editörü ve `Allowed` özellik editörü.
+   Editör testleri 19/19 Win32 + Win64; `Apply`'ın store'a dokunmaması mutasyonla doğrulandı. İlk
+   tasarımdaki `AExclude` parametresi kaldırıldı: mutasyon onun hiçbir şeyi değiştirmediğini gösterdi
+   (store sınıfıyla, customizer görsel olmadığı için zaten dışarıda).
 
 ## Riskler
 

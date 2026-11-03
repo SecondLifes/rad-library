@@ -46,7 +46,15 @@ type
      procedure ExecuteVerb(Index: Integer); override;
   end;
 
-  /// <summary>Items of a TRadPropertiesStore: the same editor from the Object Inspector.</summary>
+  /// <summary>Opens the allowed-list editor of a TRadFormCustomizer.</summary>
+  TRadFormCustomizerEditor = class(TComponentEditorBase)
+    public
+     procedure Edit; override;
+     function GetItem:TArray<string>;override;
+     procedure ExecuteVerb(Index: Integer); override;
+  end;
+
+  /// <summary>Items of a TRadPropertiesStore or Allowed of a TRadFormCustomizer, from the Object Inspector.</summary>
   TRadStateItemsProperty = class(TClassProperty)
     public
      function GetAttributes: TPropertyAttributes; override;
@@ -118,7 +126,7 @@ type
 
 procedure Register;
 implementation
-uses System.Variants,Vcl.Controls,vcl.forms,Vcl.Dialogs, rad.formstate.component, Rad.Editor.FormState,
+uses System.Variants,Vcl.Controls,vcl.forms,Vcl.Dialogs, rad.formstate.component, rad.formstate.customizer, Rad.Editor.FormState,
 cxNavigator,cxDBNavigator,
 cxGridCustomTableView,
 cxGridServerModeBandedTableView,
@@ -166,6 +174,8 @@ begin
   RegisterComponentEditor(TRadPermission,TRadPermissonEditor);
   RegisterComponentEditor(TRadPropertiesStore,TRadFormStateEditor);
   RegisterPropertyEditor(TypeInfo(TRadStateItems), TRadPropertiesStore, 'Items', TRadStateItemsProperty);
+  RegisterComponentEditor(TRadFormCustomizer, TRadFormCustomizerEditor);
+  RegisterPropertyEditor(TypeInfo(TRadStateItems), TRadFormCustomizer, 'Allowed', TRadStateItemsProperty);
   (* Zincir denetimi: AMaster/AComponent1..4 tasiyan HER dort sinifa.
      Combo ailesi de kaskad yuvalarina sahip ve kendi sessiz tuzagi var
      (AOnCascade siz zincir - bkz. TRadComboBoxProperties.CascadeWarning);
@@ -302,9 +312,33 @@ begin
 end;
 
 procedure TRadStateItemsProperty.Edit;
+var
+  LChanged: Boolean;
 begin
-  if TRadFormStateEditorForm.Execute(GetComponent(0) as TRadPropertiesStore) then
+  if GetComponent(0) is TRadFormCustomizer then
+    LChanged := TRadFormStateEditorForm.Execute(TRadFormCustomizer(GetComponent(0)))
+  else
+    LChanged := TRadFormStateEditorForm.Execute(GetComponent(0) as TRadPropertiesStore);
+  if LChanged then
     Modified;
+end;
+
+{ TRadFormCustomizerEditor }
+
+procedure TRadFormCustomizerEditor.Edit;
+begin
+  if TRadFormStateEditorForm.Execute(TRadFormCustomizer(Component)) then
+    Designer.Modified;
+end;
+
+procedure TRadFormCustomizerEditor.ExecuteVerb(Index: Integer);
+begin
+  Edit;
+end;
+
+function TRadFormCustomizerEditor.GetItem: TArray<string>;
+begin
+  Result := ['Kullan'#305'c'#305' '#304'zinleri...'];
 end;
 
 { TAksaPermissonEditor }

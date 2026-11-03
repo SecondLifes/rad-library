@@ -26,6 +26,7 @@ uses
   dxScrollbarAnnotations,
   cxTLdxBarBuiltInMenu,
   rad.formstate.component,
+  rad.formstate.customizer,
   Rad.Editor.FormState.Model;
 
 type
@@ -102,14 +103,18 @@ type
     procedure MoveSelected(ADelta: Integer);
   public
     /// <summary>Loads the store into the form; nothing is written yet.</summary>
-    procedure Prepare(AStore: TRadPropertiesStore);
+    procedure Prepare(AStore: TRadPropertiesStore); overload;
+    /// <summary>Customizer mode: only the allowed controls and paths; no values, options or presets.</summary>
+    procedure Prepare(ACustomizer: TRadFormCustomizer); overload;
     /// <summary>Writes the form back into the store (what OK does).</summary>
     procedure Apply;
     /// <summary>The first value row whose name repeats or whose text does not fit its type; '' when all fit.</summary>
     function InvalidValue: string;
     property Model: TRadStateEditorModel read FModel;
     /// <summary>Shows the editor modally; True when the store was changed.</summary>
-    class function Execute(AStore: TRadPropertiesStore): Boolean; static;
+    class function Execute(AStore: TRadPropertiesStore): Boolean; overload; static;
+    /// <summary>Edits ACustomizer.Allowed; True when it was changed.</summary>
+    class function Execute(ACustomizer: TRadFormCustomizer): Boolean; overload; static;
   end;
 
 implementation
@@ -120,6 +125,8 @@ uses
   Vcl.Dialogs;
 
 resourcestring
+  SCustomizerCaption = 'Kullanıcı Düzenleme İzinleri';
+  SAllowedCaption = 'Kullanıcının değiştirebilecekleri';
   SInvalidValue = '"%s" değeri türüne uymuyor ya da adı tekrar ediyor.';
 
 {$R *.dfm}
@@ -149,6 +156,21 @@ begin
   end;
 end;
 
+class function TRadFormStateEditorForm.Execute(ACustomizer: TRadFormCustomizer): Boolean;
+var
+  LForm: TRadFormStateEditorForm;
+begin
+  LForm := TRadFormStateEditorForm.Create(nil);
+  try
+    LForm.Prepare(ACustomizer);
+    Result := LForm.ShowModal = mrOk;
+    if Result then
+      LForm.Apply;
+  finally
+    LForm.Free;
+  end;
+end;
+
 procedure TRadFormStateEditorForm.FormDestroy(Sender: TObject);
 begin
   FModel.Free;
@@ -167,9 +189,27 @@ begin
   FillOptions;
 end;
 
+procedure TRadFormStateEditorForm.Prepare(ACustomizer: TRadFormCustomizer);
+begin
+  FreeAndNil(FModel);
+  FModel := TRadStateEditorModel.CreateFor(ACustomizer.Owner, ACustomizer.Allowed, False);
+  FModel.Build;
+  FModel.LoadFromStore;
+  Caption := Format('%s - %s', [SCustomizerCaption, ACustomizer.Name]);
+  tabValues.TabVisible := False;
+  tabOptions.TabVisible := False;
+  btnPresetPage.Visible := False;
+  btnPresetSize.Visible := False;
+  lblSelected.Caption := SAllowedCaption;
+  FillTree;
+  FillSelected;
+end;
+
 procedure TRadFormStateEditorForm.Apply;
 begin
   FModel.SaveToStore;
+  if FModel.Store = nil then
+    Exit; // customizer mode: the allowed list is all there is
   ApplyValues;
   ApplyOptions;
 end;

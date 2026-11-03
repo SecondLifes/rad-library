@@ -22,6 +22,7 @@ uses
   rad.formstate.core,
   rad.formstate.store,
   rad.formstate.component,
+  rad.formstate.customizer,
   rad.rtl,
   Rad.Editor.FormState.Model,
   Rad.Editor.FormState,
@@ -70,6 +71,10 @@ type
     [Test]
     procedure Form_NotRestorableLeaf_IsDisabled;
     [Test]
+    procedure Model_CustomizerMode_ListsControlsOnly;
+    [Test]
+    procedure Form_CustomizerMode_HidesStoreTabsAndWritesAllowed;
+    [Test]
     procedure Form_TypeList_FollowsTheEnum;
     [Test]
     procedure Form_TypedValue_ApplyWritesTypeAndConvertedValue;
@@ -80,7 +85,8 @@ type
 implementation
 
 uses
-  System.IOUtils;
+  System.IOUtils,
+  FormStateTestCustom;
 
 procedure TRadFormStateEditorTests.Setup;
 begin
@@ -417,6 +423,58 @@ begin
   LNode.Values[AEditor.colValueName.ItemIndex] := AName;
   LNode.Values[AEditor.colValueType.ItemIndex] := AType;
   LNode.Values[AEditor.colValueValue.ItemIndex] := AValue;
+end;
+
+procedure TRadFormStateEditorTests.Model_CustomizerMode_ListsControlsOnly;
+var
+  LForm: TFormCustom;
+  LModel: TRadStateEditorModel;
+  LLeaf: TRadStateLeaf;
+begin
+  LForm := TFormCustom.Create(nil);
+  LModel := nil;
+  try
+    LModel := TRadStateEditorModel.CreateFor(LForm, LForm.Customizer1.Allowed, False);
+    LModel.Build;
+    Assert.IsTrue(LModel.Store = nil);
+    Assert.IsTrue(LModel.LeafOf(LForm.Button1, 'Caption', LLeaf), 'controls are listed');
+    for LLeaf in LModel.Leaves do
+    begin
+      Assert.IsFalse(LLeaf.Component = LForm.Store1, 'no store');
+      Assert.IsFalse(LLeaf.Component = LForm.Customizer1, 'not the customizer itself');
+      Assert.AreNotEqual(STATE_SELF_PATH, LLeaf.Path, 'no stateful rows');
+    end;
+    LModel.LoadFromStore;
+    Assert.AreEqual(6, LModel.Selection.Count, 'Edit1 5 paths + Label1 Caption');
+  finally
+    LModel.Free;
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateEditorTests.Form_CustomizerMode_HidesStoreTabsAndWritesAllowed;
+var
+  LForm: TFormCustom;
+  LEditor: TRadFormStateEditorForm;
+begin
+  LForm := TFormCustom.Create(nil);
+  try
+    LEditor := TRadFormStateEditorForm.Create(nil);
+    try
+      LEditor.Prepare(LForm.Customizer1);
+      Assert.IsFalse(LEditor.tabValues.TabVisible);
+      Assert.IsFalse(LEditor.tabOptions.TabVisible);
+      Assert.IsFalse(LEditor.btnPresetPage.Visible);
+      LEditor.Model.SetSelected(LForm.Button1, 'Caption', True);
+      LEditor.Apply;
+    finally
+      LEditor.Free;
+    end;
+    Assert.IsTrue(LForm.Customizer1.IsAllowed(LForm.Button1, 'Caption'), 'written into Allowed');
+    Assert.AreEqual(0, LForm.Store1.Items.Count, 'the store is untouched');
+  finally
+    LForm.Free;
+  end;
 end;
 
 procedure TRadFormStateEditorTests.Form_TypeList_FollowsTheEnum;

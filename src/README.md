@@ -118,7 +118,22 @@ TRadFormState.Kapat;                                    // saves forms still ope
 | `vendor/unidac/rad.formstate.uni` | database store (PostgreSQL, SQL Server, Firebird) |
 | `component/rad.formstate.component` | `TRadPropertiesStore` |
 | `component/rad.formstate` | entry unit: aliases and `TRadFormState` |
-| `packages/Rad.Editor.FormState(.Model)` | design-time editor (right click: Durum Editörü...) |
+| `component/rad.formstate.dev` | providers: user grid layouts (`cxgrid`) and layout controls (`dxlayout`) |
+| `component/rad.formstate.customizer` | `TRadFormCustomizer`: per-user visual changes on a whitelist |
+| `vendor/tms/rad.formstate.customize.session/.tools` | its editing session (TMS designer + DevExpress inspector) |
+| `packages/Rad.Editor.FormState(.Model)` | design-time editor (right click: Durum Editörü... / Kullanıcı İzinleri...) |
+
+Other components join the same record in two ways: an `IRadStateful` component through
+`Store.Attach` (or an `Items` entry), and an application-wide `IRadStateProvider` through
+`TRadFormState.RegisterProvider`. Each section carries its own version, so a store `Version`
+bump drops the layout only. Layout providers are fingerprinted against the designed form and
+skipped once the developer changes the grid or layout. `TRadFormState.ResetForm` deletes the
+record and reopens the form through the host's `TRadFormState.Reopen`.
+
+`TRadFormCustomizer` lets the user move, resize and edit what the developer allowed
+(`Allowed`, Turkish `Captions`) on the live form: `Customizer1.Customize` opens the session
+(`RadScriptTmsDesign` must be loaded). Only the user's changes are saved; the company layout
+(`TRadScriptDesigner`) is applied first and the user's changes go back on top of it.
 
 A `StoredValues` item with a `ValueType` (`svtInteger`, `svtDateTime`, ...) always reads back
 as that type: an unconvertible value falls back to its default, never raises.

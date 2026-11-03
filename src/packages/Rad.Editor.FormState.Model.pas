@@ -27,12 +27,17 @@ type
 
   TRadStatePreset = (spPage, spSize);
 
-  /// <summary>Owner components, their property paths, and the selection the store will save.</summary>
+  /// <summary>Owner components, their property paths, and the selection written back into an item list
+  /// (a store's Items, a customizer's Allowed).</summary>
   TRadStateEditorModel = class
   private
     FStore: TRadPropertiesStore;
+    FRoot: TComponent;
+    FItems: TRadStateItems;
+    FForStore: Boolean;
     FLeaves: TList<TRadStateLeaf>;
     FSelection: TStringList;
+    function Listed(AComponent: TComponent): Boolean;
     procedure AddObject(AComponent: TComponent; AObject: TObject; const APrefix: string; ADepth: Integer);
     procedure AddProperty(AComponent: TComponent; AObject: TObject; APropInfo: Pointer;
       const APrefix: string; ADepth: Integer);
@@ -42,6 +47,9 @@ type
     function FindComponent(const AName: string): TComponent;
   public
     constructor Create(AStore: TRadPropertiesStore);
+    /// <summary>Edits AItems over ARoot's components; AForStore adds the stateful rows and lists
+    /// non-visual components, otherwise only controls are listed.</summary>
+    constructor CreateFor(ARoot: TComponent; AItems: TRadStateItems; AForStore: Boolean);
     destructor Destroy; override;
     /// <summary>Lists every component of the store's owner and its paths.</summary>
     procedure Build;
@@ -58,6 +66,7 @@ type
     /// <summary>Selects the preset's paths on every listed component; returns how many were added.</summary>
     function ApplyPreset(APreset: TRadStatePreset): Integer;
     function LeafOf(AComponent: TComponent; const APath: string; out ALeaf: TRadStateLeaf): Boolean;
+    /// <summary>nil when the model edits something other than a store.</summary>
     property Store: TRadPropertiesStore read FStore;
     property Leaves: TList<TRadStateLeaf> read FLeaves;
     /// <summary>Ordered keys 'Component.Path'.</summary>
@@ -123,10 +132,25 @@ end;
 
 constructor TRadStateEditorModel.Create(AStore: TRadPropertiesStore);
 begin
-  inherited Create;
+  CreateFor(AStore.Owner, AStore.Items, True);
   FStore := AStore;
+end;
+
+constructor TRadStateEditorModel.CreateFor(ARoot: TComponent; AItems: TRadStateItems; AForStore: Boolean);
+begin
+  inherited Create;
+  FRoot := ARoot;
+  FItems := AItems;
+  FForStore := AForStore;
   FLeaves := TList<TRadStateLeaf>.Create;
   FSelection := TStringList.Create;
+end;
+
+function TRadStateEditorModel.Listed(AComponent: TComponent): Boolean;
+begin
+  // Stores never list themselves or each other; a customizer only offers controls, itself included out.
+  Result := (AComponent.Name <> '') and not (AComponent is TRadPropertiesStore) and
+    (FForStore or (AComponent is TControl));
 end;
 
 destructor TRadStateEditorModel.Destroy;
@@ -142,14 +166,14 @@ var
   LComponent: TComponent;
 begin
   FLeaves.Clear;
-  if FStore.Owner = nil then
+  if FRoot = nil then
     Exit;
-  for I := 0 to FStore.Owner.ComponentCount - 1 do
+  for I := 0 to FRoot.ComponentCount - 1 do
   begin
-    LComponent := FStore.Owner.Components[I];
-    if (LComponent = FStore) or (LComponent.Name = '') or (LComponent is TRadPropertiesStore) then
+    LComponent := FRoot.Components[I];
+    if not Listed(LComponent) then
       Continue;
-    if Supports(LComponent, IRadStateful) then
+    if FForStore and Supports(LComponent, IRadStateful) then
       AddLeaf(LComponent, STATE_SELF_PATH, 'IRadStateful', '', '');
     AddObject(LComponent, LComponent, '', 1);
   end;
@@ -233,10 +257,10 @@ end;
 
 function TRadStateEditorModel.FindComponent(const AName: string): TComponent;
 begin
-  if FStore.Owner = nil then
+  if FRoot = nil then
     Result := nil
   else
-    Result := FStore.Owner.FindComponent(AName);
+    Result := FRoot.FindComponent(AName);
 end;
 
 procedure TRadStateEditorModel.LoadFromStore;
@@ -245,10 +269,10 @@ var
   LItem: TRadStateItem;
 begin
   FSelection.Clear;
-  for I := 0 to FStore.Items.Count - 1 do
+  for I := 0 to FItems.Count - 1 do
   begin
-    LItem := FStore.Items[I];
-    if Supports(LItem.Component, IRadStateful) then
+    LItem := FItems[I];
+    if FForStore and Supports(LItem.Component, IRadStateful) then
       SetSelected(LItem.Component, STATE_SELF_PATH, True); // any item of it saves its state
     if LItem.Component <> nil then
       for J := 0 to LItem.Properties.Count - 1 do
@@ -266,7 +290,7 @@ var
 begin
   LItems := TDictionary<TComponent, TRadStateItem>.Create;
   try
-    FStore.Items.Clear;
+    FItems.Clear;
     for LKey in FSelection do
     begin
       LName := Copy(LKey, 1, Pos(KEY_SEPARATOR, LKey) - 1);
@@ -276,7 +300,7 @@ begin
         Continue;
       if not LItems.TryGetValue(LComponent, LItem) then
       begin
-        LItem := FStore.Items.Add;
+        LItem := FItems.Add;
         LItem.Component := LComponent;
         LItems.Add(LComponent, LItem);
       end;
@@ -355,12 +379,12 @@ var
   LPath: string;
 begin
   Result := 0;
-  if FStore.Owner = nil then
+  if FRoot = nil then
     Exit;
-  for I := 0 to FStore.Owner.ComponentCount - 1 do
+  for I := 0 to FRoot.ComponentCount - 1 do
   begin
-    LComponent := FStore.Owner.Components[I];
-    if (LComponent.Name = '') or (LComponent is TRadPropertiesStore) then
+    LComponent := FRoot.Components[I];
+    if not Listed(LComponent) then
       Continue;
     for LPath in PresetPaths(LComponent, APreset) do
       if not IsSelected(LComponent, LPath) then

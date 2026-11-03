@@ -28,6 +28,10 @@ const
   RAD_STATE_SECTION_PROPS = 'props';
   RAD_STATE_SECTION_VALUES = 'values';
   RAD_STATE_SECTION_CUSTOM = 'custom';
+  RAD_STATE_SECTION_EXT = 'ext';
+  /// <summary>Root map 'custom/Name' / 'ext/Name' -> version; kept apart so participant data stays theirs.</summary>
+  RAD_STATE_FIELD_SECTIONS = 'sections';
+  RAD_STATE_SECTION_KEY_SEPARATOR = '/';
 
 type
   /// <summary>Logical record key; each store maps it to its own file name or table row.</summary>
@@ -64,6 +68,24 @@ type
     procedure LoadState(const ADoc: IDocDict);
   end;
 
+  /// <summary>Optional on an IRadStateful: a saved section of another version is not loaded.</summary>
+  IRadStateVersion = interface
+    ['{8C2A3D71-6F0B-4E5A-9B1C-2D7E4F6A8B90}']
+    function StateVersion: Integer;
+  end;
+
+  /// <summary>Application-wide participant: registered once, asked for every store's owner.</summary>
+  /// <remarks>Saved under ext.Name; a section of another Version is skipped, the rest still load.</remarks>
+  IRadStateProvider = interface
+    ['{3F9E1B2C-7A4D-4C8E-A5B6-1D2E3F4A5B6C}']
+    function Name: RawUtf8;
+    function Version: Integer;
+    /// <summary>False when the owner has nothing for this provider (no section is written).</summary>
+    function Wants(AOwner: TComponent): Boolean;
+    procedure Save(AOwner: TComponent; const ADoc: IDocDict);
+    procedure Load(AOwner: TComponent; const ADoc: IDocDict);
+  end;
+
   /// <summary>Reads and writes published properties addressed by dotted paths.</summary>
   /// <remarks>A step is a property or a collection index ('Font.Size', 'Panels.0.Width'); class steps
   /// go through getters. TComponent references, whole collections and events are not leaves.</remarks>
@@ -94,6 +116,10 @@ type
     /// <summary>The section by reference: valid only until a key is added to or removed from ADoc.</summary>
     class function Section(const ADoc: IDocDict; const AName: RawUtf8;
       out ASection: IDocDict): Boolean; static;
+    /// <summary>Version saved for 'custom/Name' or 'ext/Name'; a missing entry counts as 0.</summary>
+    class function SectionVersion(const ADoc: IDocDict; const AKey: RawUtf8): Integer; static;
+    /// <summary>Records it only when not 0, so old records and version-less participants stay as they were.</summary>
+    class procedure SetSectionVersion(const ADoc: IDocDict; const AKey: RawUtf8; AVersion: Integer); static;
   end;
 
 implementation
@@ -415,6 +441,31 @@ class function TRadStateDoc.Section(const ADoc: IDocDict; const AName: RawUtf8;
 begin
   ASection := nil;
   Result := (ADoc <> nil) and ADoc.Get(AName, ASection);
+end;
+
+class function TRadStateDoc.SectionVersion(const ADoc: IDocDict; const AKey: RawUtf8): Integer;
+var
+  LMap: IDocDict;
+begin
+  Result := 0;
+  if Section(ADoc, RAD_STATE_FIELD_SECTIONS, LMap) then
+    LMap.Get(AKey, Result);
+end;
+
+class procedure TRadStateDoc.SetSectionVersion(const ADoc: IDocDict; const AKey: RawUtf8; AVersion: Integer);
+var
+  LMap: IDocDict;
+begin
+  if (ADoc = nil) or (AVersion = 0) then
+    Exit;
+  if Section(ADoc, RAD_STATE_FIELD_SECTIONS, LMap) then
+    LMap.I[AKey] := AVersion
+  else
+  begin
+    LMap := DocDict(STATE_DOC_MODEL);
+    LMap.I[AKey] := AVersion;
+    ADoc.D[RAD_STATE_FIELD_SECTIONS] := LMap; // stores a copy, so it is filled first
+  end;
 end;
 
 end.

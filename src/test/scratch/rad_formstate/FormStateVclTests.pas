@@ -69,6 +69,20 @@ type
     [Test]
     procedure Values_Convert_ParsesTextForms;
     [Test]
+    procedure Participants_VersionBump_KeepsCustomSections;
+    [Test]
+    procedure Provider_RoundTrip_HonoursWantsAndVersion;
+    [Test]
+    procedure Provider_Failure_DoesNotStopOthers;
+    [Test]
+    procedure Attach_StatefulWithoutItem_RoundTripsAndForgetsFreed;
+    [Test]
+    procedure ResetSaved_DeletesRecordAndBlocksSave;
+    [Test]
+    procedure ResetForm_DeletesAndCallsReopen;
+    [Test]
+    procedure StoredValue_TypeChange_ConvertsDesignValue;
+    [Test]
     procedure Measure_ThreeHundredPaths;
   end;
 
@@ -78,6 +92,7 @@ uses
   System.IOUtils,
   mormot.core.text,
   mormot.core.unicode,
+  rad.formstate.core,
   FormStateTestA,
   FormStateTestTwo,
   FormStateTestDm,
@@ -85,6 +100,82 @@ uses
 
 const
   SCOPE = 'test';
+
+type
+  /// Saves the owner's caption under ext.Name; counts loads, can refuse or fail.
+  TFakeProvider = class(TInterfacedObject, IRadStateProvider)
+  public
+    FName: RawUtf8;
+    FVersion: Integer;
+    FWants: Boolean;
+    FFails: Boolean;
+    FLoads: Integer;
+    constructor Create(const AName: RawUtf8; AVersion: Integer);
+    function Name: RawUtf8;
+    function Version: Integer;
+    function Wants(AOwner: TComponent): Boolean;
+    procedure Save(AOwner: TComponent; const ADoc: IDocDict);
+    procedure Load(AOwner: TComponent; const ADoc: IDocDict);
+  end;
+
+  TFakeStateful = class(TComponent, IRadStateful, IRadStateVersion)
+  public
+    Value: Integer;
+    procedure SaveState(const ADoc: IDocDict);
+    procedure LoadState(const ADoc: IDocDict);
+    function StateVersion: Integer;
+  end;
+
+constructor TFakeProvider.Create(const AName: RawUtf8; AVersion: Integer);
+begin
+  inherited Create;
+  FName := AName;
+  FVersion := AVersion;
+  FWants := True;
+end;
+
+function TFakeProvider.Name: RawUtf8;
+begin
+  Result := FName;
+end;
+
+function TFakeProvider.Version: Integer;
+begin
+  Result := FVersion;
+end;
+
+function TFakeProvider.Wants(AOwner: TComponent): Boolean;
+begin
+  Result := FWants;
+end;
+
+procedure TFakeProvider.Save(AOwner: TComponent; const ADoc: IDocDict);
+begin
+  ADoc.S['caption'] := TForm(AOwner).Caption;
+end;
+
+procedure TFakeProvider.Load(AOwner: TComponent; const ADoc: IDocDict);
+begin
+  Inc(FLoads);
+  if FFails then
+    raise EInvalidOperation.Create('fake failure');
+  TForm(AOwner).Caption := ADoc.S['caption'];
+end;
+
+procedure TFakeStateful.SaveState(const ADoc: IDocDict);
+begin
+  ADoc.I['value'] := Value;
+end;
+
+procedure TFakeStateful.LoadState(const ADoc: IDocDict);
+begin
+  Value := ADoc.I['value'];
+end;
+
+function TFakeStateful.StateVersion: Integer;
+begin
+  Result := 4;
+end;
 
 function SameEvent(const A, B: TMethod): Boolean;
 begin
@@ -470,6 +561,203 @@ begin
     LStore.Load;
     Assert.AreEqual(Integer(LCtrlS), Integer(LAction.ShortCut));
     Assert.IsTrue(LoadDoc('TFormPlain').Exists('custom'));
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.Participants_VersionBump_KeepsCustomSections;
+var
+  LForm: TFormPlain;
+  LStore: TRadPropertiesStore;
+  LList: TRadActionList;
+  LAction: TAction;
+  LCtrlS: TShortCut;
+begin
+  LCtrlS := ShortCut(Ord('S'), [ssCtrl]);
+  LForm := TFormPlain.Create(nil);
+  try
+    LList := TRadActionList.Create(LForm);
+    LList.Name := 'Actions1';
+    LAction := TAction.Create(LForm);
+    LAction.Name := 'actSave';
+    LAction.ActionList := LList;
+    LAction.ShortCut := LCtrlS;
+    LStore := TRadPropertiesStore.Create(LForm);
+    LStore.Items.Add.Component := LList;
+    LStore.Load;
+    Assert.IsTrue(LStore.Save);
+    LStore.Version := 7; // the developer changed the form
+    LAction.ShortCut := 0;
+    LStore.Load;
+    Assert.AreEqual(Integer(LCtrlS), Integer(LAction.ShortCut), 'shortcuts are not layout');
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.Provider_RoundTrip_HonoursWantsAndVersion;
+var
+  LForm: TFormPlain;
+  LStore: TRadPropertiesStore;
+  LProvider, LNewer: TFakeProvider;
+  LKeep: IRadStateProvider;
+  LDoc, LExt: IDocDict;
+begin
+  LProvider := TFakeProvider.Create('fake', 2);
+  LKeep := LProvider;
+  TRadFormState.RegisterProvider(LKeep);
+  LForm := TFormPlain.Create(nil);
+  try
+    LStore := TRadPropertiesStore.Create(LForm);
+    LForm.Caption := 'saved';
+    LStore.Load;
+    Assert.IsTrue(LStore.Save);
+    LDoc := LoadDoc('TFormPlain');
+    Assert.IsTrue(LDoc.Get('ext', LExt) and LExt.Exists('fake'), 'ext.fake written');
+    Assert.AreEqual(2, TRadStateDoc.SectionVersion(LDoc, 'ext/fake'));
+    LForm.Caption := 'changed';
+    LStore.Load;
+    Assert.AreEqual('saved', LForm.Caption);
+    LNewer := TFakeProvider.Create('fake', 3); // same name: replaces the first
+    TRadFormState.RegisterProvider(LNewer);
+    LForm.Caption := 'changed';
+    LStore.Load;
+    Assert.AreEqual('changed', LForm.Caption, 'another version is skipped');
+    Assert.AreEqual(0, LNewer.FLoads);
+    LNewer.FWants := False;
+    LForm.Caption := 'other';
+    Assert.IsTrue(LStore.Save);
+    Assert.IsFalse(LoadDoc('TFormPlain').Exists('ext'), 'nothing wanted: no section');
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.Provider_Failure_DoesNotStopOthers;
+var
+  LForm: TFormPlain;
+  LStore: TRadPropertiesStore;
+  LBad, LGood: TFakeProvider;
+begin
+  LBad := TFakeProvider.Create('bad', 0);
+  LGood := TFakeProvider.Create('good', 0);
+  TRadFormState.RegisterProvider(LBad);
+  TRadFormState.RegisterProvider(LGood);
+  LForm := TFormPlain.Create(nil);
+  try
+    LStore := TRadPropertiesStore.Create(LForm);
+    LForm.Caption := 'saved';
+    LStore.Load;
+    Assert.IsTrue(LStore.Save);
+    LBad.FFails := True;
+    LForm.Caption := 'changed';
+    LStore.Load;
+    Assert.AreEqual(1, LBad.FLoads);
+    Assert.AreEqual('saved', LForm.Caption, 'the good provider still loaded');
+    Assert.AreEqual(1, Integer(Length(LStore.Errors)));
+    Assert.IsTrue(Pos('bad', Utf8ToString(LStore.Errors[0])) = 1, Utf8ToString(LStore.Errors[0]));
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.Attach_StatefulWithoutItem_RoundTripsAndForgetsFreed;
+var
+  LForm: TFormPlain;
+  LStore: TRadPropertiesStore;
+  LPart: TFakeStateful;
+begin
+  LForm := TFormPlain.Create(nil);
+  try
+    LStore := TRadPropertiesStore.Create(LForm);
+    LPart := TFakeStateful.Create(LForm);
+    Assert.WillRaise(procedure begin LStore.Attach(LPart); end, ERadFormState, 'unnamed');
+    LPart.Name := 'Part1';
+    LStore.Attach(LPart);
+    LStore.Attach(LPart); // twice is harmless
+    LPart.Value := 42;
+    LStore.Load;
+    Assert.IsTrue(LStore.Save);
+    Assert.AreEqual(4, TRadStateDoc.SectionVersion(LoadDoc('TFormPlain'), 'custom/Part1'));
+    LPart.Value := 0;
+    LStore.Load;
+    Assert.AreEqual(42, LPart.Value);
+    LPart.Free;
+    LStore.Save; // must not touch the freed participant
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.ResetSaved_DeletesRecordAndBlocksSave;
+var
+  LForm: TFormPlain;
+  LStore: TRadPropertiesStore;
+begin
+  LForm := TFormPlain.Create(nil);
+  try
+    LStore := TRadPropertiesStore.Create(LForm);
+    LStore.StoredValue['n'] := 1;
+    LStore.Load;
+    LStore.StoredValue['n'] := 1;
+    Assert.IsTrue(LStore.Save);
+    LStore.ResetSaved;
+    Assert.IsTrue(LoadDoc('TFormPlain') = nil, 'record deleted');
+    LStore.StoredValue['n'] := 2;
+    Assert.IsFalse(LStore.Save, 'no save after a reset');
+    Assert.IsTrue(LoadDoc('TFormPlain') = nil, 'still deleted');
+    LStore.Load; // the reopened form loads again
+    LStore.StoredValue['n'] := 3;
+    Assert.IsTrue(LStore.Save, 'a new load ends the reset');
+  finally
+    LForm.Free;
+  end;
+end;
+
+procedure TRadFormStateVclTests.ResetForm_DeletesAndCallsReopen;
+var
+  LForm: TFormA;
+  LReopened: TCustomForm;
+begin
+  SaveAndFree(NewChangedFormA);
+  LReopened := nil;
+  TRadFormState.Reopen :=
+    procedure(AForm: TCustomForm)
+    begin
+      LReopened := AForm;
+    end;
+  LForm := TFormA.Create(nil);
+  try
+    Assert.AreEqual(222, LForm.Edit1.Width, 'restored first');
+    TRadFormState.ResetForm(LForm);
+    Assert.IsTrue(LReopened = LForm);
+    Assert.IsFalse(FileExists(StateFile('TFormA')), 'record deleted');
+  finally
+    TRadFormState.Reopen := nil;
+    LForm.Free; // closing must not write the reset form back
+  end;
+  Assert.IsFalse(FileExists(StateFile('TFormA')), 'not written on destroy');
+end;
+
+procedure TRadFormStateVclTests.StoredValue_TypeChange_ConvertsDesignValue;
+var
+  LForm: TFormPlain;
+  LStore: TRadPropertiesStore;
+  LItem: TRadStoredValue;
+begin
+  LForm := TFormPlain.Create(nil);
+  try
+    LStore := TRadPropertiesStore.Create(LForm);
+    LItem := TRadStoredValue(LStore.StoredValues.Add);
+    LItem.Name := 'n';
+    LItem.Value := '42';
+    LItem.ValueType := svtInteger;
+    Assert.AreEqual(varInt64, Integer(VarType(LItem.Value)));
+    Assert.AreEqual(Int64(42), Int64(LItem.Value));
+    LItem.Value := 'abc';
+    LItem.ValueType := svtFloat;
+    Assert.IsTrue(VarIsEmpty(LItem.Value), 'a value that does not fit is cleared');
   finally
     LForm.Free;
   end;

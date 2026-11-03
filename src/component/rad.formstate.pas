@@ -12,6 +12,7 @@ uses
   rad.formstate.store,
   rad.formstate.component,
   rad.formstate.uni,
+  Vcl.Forms,
   mormot.core.base;
 
 type
@@ -26,6 +27,8 @@ type
   TRadStateKeyEvent = rad.formstate.component.TRadStateKeyEvent;
   TRadStateKey = rad.formstate.core.TRadStateKey;
   IRadStateful = rad.formstate.core.IRadStateful;
+  IRadStateVersion = rad.formstate.core.IRadStateVersion;
+  IRadStateProvider = rad.formstate.core.IRadStateProvider;
   IRadStateStore = rad.formstate.store.IRadStateStore;
   TRadStateEntry = rad.formstate.store.TRadStateEntry;
   TRadStateEntries = rad.formstate.store.TRadStateEntries;
@@ -56,14 +59,19 @@ const
 
 type
   /// <summary>One setup call for every TRadPropertiesStore in the application.</summary>
+  TRadReopenProc = reference to procedure(AForm: TCustomForm);
+
   TRadFormState = class abstract
   public
+    /// <summary>Host hook for ResetForm: close AForm and open it again the same way.</summary>
+    class var Reopen: TRadReopenProc;
     /// <summary>Where and how states are saved. Closes any earlier setup first.</summary>
     /// <param name="AScope">User or company part of every key, e.g. 'emrah'.</param>
     /// <param name="ACipher">nil saves plain JSON; existing plain records stay readable later.</param>
     class procedure Kur(const AStore: IRadStateStore; const AScope: RawUtf8 = '';
       const ACipher: IRadCipher = nil); static;
-    /// <summary>Saves open forms that have not saved yet, then releases the store. Safe to call twice.</summary>
+    /// <summary>Saves open forms that have not saved yet, then releases the store and the providers.
+    /// Safe to call twice.</summary>
     class procedure Kapat; static;
     /// <summary>Reads every record of the current scope in one store call.</summary>
     class procedure Prefetch; static;
@@ -81,9 +89,21 @@ type
     class function DbStore(AConnection: TUniConnection;
       const ATable: string = RAD_STATE_DEFAULT_TABLE): IRadStateStore; static;
     class function Repository: TRadStateRepository; static;
+    /// <summary>Application-wide participant (grid layouts, ...); Kapat removes them.</summary>
+    class procedure RegisterProvider(const AProvider: IRadStateProvider); static;
+    /// <summary>Deletes the form's saved state and reopens it through Reopen, so DFM, company layout
+    /// and host code apply in their own order. Without Reopen the form closes with a notice.</summary>
+    class procedure ResetForm(AForm: TCustomForm); static;
   end;
 
 implementation
+
+uses
+  System.UITypes,
+  Vcl.Dialogs;
+
+resourcestring
+  SResetReopen = 'Formun ayarları sıfırlandı. Form yeniden açıldığında varsayılan görünüm gelir.';
 
 class procedure TRadFormState.Kur(const AStore: IRadStateStore; const AScope: RawUtf8;
   const ACipher: IRadCipher);
@@ -130,6 +150,27 @@ end;
 class function TRadFormState.Repository: TRadStateRepository;
 begin
   Result := TRadPropertiesStore.Repository;
+end;
+
+class procedure TRadFormState.RegisterProvider(const AProvider: IRadStateProvider);
+begin
+  TRadPropertiesStore.RegisterProvider(AProvider);
+end;
+
+class procedure TRadFormState.ResetForm(AForm: TCustomForm);
+var
+  I: Integer;
+begin
+  for I := 0 to AForm.ComponentCount - 1 do
+    if AForm.Components[I] is TRadPropertiesStore then
+      TRadPropertiesStore(AForm.Components[I]).ResetSaved;
+  if Assigned(Reopen) then
+    Reopen(AForm)
+  else
+  begin
+    MessageDlg(SResetReopen, mtInformation, [mbOK], 0);
+    AForm.Close;
+  end;
 end;
 
 end.

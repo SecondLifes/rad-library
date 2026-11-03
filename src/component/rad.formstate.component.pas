@@ -71,6 +71,7 @@ type
     FValueType: TRadStoredValueType;
     FValue: Variant;
     function IsValueStored: Boolean;
+    procedure SetValueType(AValue: TRadStoredValueType);
   protected
     function GetDisplayName: string; override;
   public
@@ -83,7 +84,8 @@ type
     class function EmptyOf(AType: TRadStoredValueType): Variant; static;
   published
     property Name: string read FName write FName;
-    property ValueType: TRadStoredValueType read FValueType write FValueType default svtVariant;
+    /// <summary>Changing it converts Value to the new type; a value that does not fit is cleared.</summary>
+    property ValueType: TRadStoredValueType read FValueType write SetValueType default svtVariant;
     property Value: Variant read FValue write FValue stored IsValueStored;
   end;
 
@@ -101,6 +103,7 @@ type
     class var FScope: RawUtf8;
     class var FClosed: Boolean;
     class var FLive: TList<TRadPropertiesStore>;
+    class var FProviders: TList<IRadStateProvider>;
     class constructor CreateClass;
     class destructor DestroyClass;
     class procedure SaveLive; static;
@@ -116,6 +119,8 @@ type
     FHook: TComponent;
     FRestored: Boolean;
     FSaved: Boolean;
+    FResetPending: Boolean;
+    FAttached: TList<TComponent>;
     FActiveControlName: RawUtf8;
     FErrors: TRawUtf8DynArray;
     FOnLoad: TRadStateEvent;
@@ -136,10 +141,13 @@ type
     procedure ApplyPlacement;
     procedure ApplyProps;
     procedure ApplyCustom;
+    procedure ApplyProviders;
+    function Participants: TArray<TComponent>;
     function BuildDoc: IDocDict;
     procedure CapturePlacement(const ADoc: IDocDict);
     procedure CaptureProps(const ADoc: IDocDict);
     procedure CaptureCustom(const ADoc: IDocDict);
+    procedure CaptureProviders(const ADoc: IDocDict);
   protected
     procedure Loaded; override;
     procedure Notification(AComponent: TComponent; AOperation: TOperation); override;
@@ -154,6 +162,10 @@ type
     class function Repository: TRadStateRepository; static;
     class function Scope: RawUtf8; static;
     class procedure SetScope(const AScope: RawUtf8); static;
+    /// <summary>Adds an application-wide participant; one with the same Name is replaced.</summary>
+    class procedure RegisterProvider(const AProvider: IRadStateProvider); static;
+    /// <summary>Removes every provider; Shutdown calls it after the last save.</summary>
+    class procedure ClearProviders; static;
     /// <summary>Scope + owner class name (+ '.' + StorageName), after OnGetKey.</summary>
     function Key: TRadStateKey;
     /// <summary>Reads and applies the saved state. False when there is no usable record.</summary>
@@ -162,6 +174,11 @@ type
     function Save: Boolean;
     /// <summary>Deletes the saved record and forgets the runtime values.</summary>
     procedure Reset;
+    /// <summary>Reset, and this session saves nothing more: the owner is about to be reopened.</summary>
+    procedure ResetSaved;
+    /// <summary>A named IRadStateful component that takes part without an Items entry.</summary>
+    procedure Attach(AComponent: TComponent);
+    procedure Detach(AComponent: TComponent);
     /// <summary>Runs on the owner's first show; focus cannot be given earlier.</summary>
     procedure ApplyActiveControl;
     function GetInteger(const AName: string; ADefault: Integer = 0): Integer;
@@ -201,6 +218,9 @@ uses
   mormot.core.datetime,
   mormot.core.rtti,
   mormot.core.log;
+
+resourcestring
+  SAttachNeedsStateful = '%s: Attach needs a named component that implements IRadStateful.';
 
 const
   FIELD_STATE = 'state';
@@ -529,6 +549,16 @@ begin
   Result := not VarIsEmpty(FValue);
 end;
 
+procedure TRadStoredValue.SetValueType(AValue: TRadStoredValueType);
+begin
+  if AValue = FValueType then
+    Exit;
+  FValueType := AValue;
+  // The DFM streams ValueType before Value, so loading reaches here with an empty Value.
+  if not VarIsEmpty(FValue) and not Convert(FValue, AValue, FValue) then
+    FValue := Unassigned;
+end;
+
 function TRadStoredValue.GetDisplayName: string;
 begin
   if FName = '' then
@@ -681,12 +711,14 @@ end;
 class constructor TRadPropertiesStore.CreateClass;
 begin
   FLive := TList<TRadPropertiesStore>.Create;
+  FProviders := TList<IRadStateProvider>.Create;
 end;
 
 class destructor TRadPropertiesStore.DestroyClass;
 begin
   Shutdown;
   FreeAndNil(FLive);
+  FreeAndNil(FProviders);
 end;
 
 class procedure TRadPropertiesStore.Configure(const ARepository: TRadStateRepository; const AScope: RawUtf8);
@@ -714,6 +746,7 @@ begin
   if FClosed then
     Exit;
   SaveLive; // forms still open at shutdown would otherwise save after the repository is gone
+  ClearProviders;
   FreeAndNil(FRepository);
   FClosed := True;
 end;
@@ -723,6 +756,22 @@ begin
   if (FRepository = nil) and not FClosed then
     FRepository := TRadStateRepository.Create(TRadFileStateStore.Create);
   Result := FRepository;
+end;
+
+class procedure TRadPropertiesStore.RegisterProvider(const AProvider: IRadStateProvider);
+var
+  I: Integer;
+begin
+  for I := FProviders.Count - 1 downto 0 do
+    if FProviders[I].Name = AProvider.Name then
+      FProviders.Delete(I);
+  FProviders.Add(AProvider);
+end;
+
+class procedure TRadPropertiesStore.ClearProviders;
+begin
+  if FProviders <> nil then
+    FProviders.Clear;
 end;
 
 class function TRadPropertiesStore.Scope: RawUtf8;
@@ -757,6 +806,7 @@ begin
     TRadStateHook(FHook).Detach(Self);
   FItems.Free;
   FStoredValues.Free;
+  FAttached.Free;
   inherited;
 end;
 
@@ -776,6 +826,8 @@ begin
     Exit;
   // While the owner is destroyed every child already carries csDestroying, so items are
   // only cleared then: deleting them would touch components that are already gone.
+  if FAttached <> nil then
+    FAttached.Remove(AComponent);
   if AComponent = FHook then
     FHook := nil
   else if FItems <> nil then
@@ -840,6 +892,7 @@ begin
   FDoc := nil;
   FRestored := True; // a load was attempted, so closing may save even without a record
   FSaved := False;
+  FResetPending := False;
   LRepo := Repository;
   Result := (LRepo <> nil) and LRepo.Load(Key, FDoc);
   if (LRepo <> nil) and not Result and (LRepo.LastError <> '') then
@@ -853,19 +906,25 @@ begin
 end;
 
 procedure TRadPropertiesStore.ApplyDoc;
+var
+  LLayout: Boolean;
 begin
   if soValues in FOptions then
     ApplyValues;
-  if not TRadStateDoc.VersionMatches(FDoc, FVersion) then
-    Exit; // the developer changed the form: its old layout no longer fits, values still do
+  // Version gates only the layout: a changed form no longer fits it. Participants carry their
+  // own version, so shortcuts or grid layouts survive a Version bump.
+  LLayout := TRadStateDoc.VersionMatches(FDoc, FVersion);
   BeginApply;
   try
-    if soPlacement in FOptions then
+    if LLayout and (soPlacement in FOptions) then
       ApplyPlacement;
-    if soProps in FOptions then
+    if LLayout and (soProps in FOptions) then
       ApplyProps;
     if soCustom in FOptions then
+    begin
       ApplyCustom;
+      ApplyProviders;
+    end;
   finally
     EndApply;
   end;
@@ -979,18 +1038,80 @@ begin
     end;
 end;
 
+function SectionKey(const AKind, AName: RawUtf8): RawUtf8;
+begin
+  Result := AKind + RAD_STATE_SECTION_KEY_SEPARATOR + AName;
+end;
+
+function StateVersionOf(AComponent: TComponent): Integer;
+var
+  LVersion: IRadStateVersion;
+begin
+  Result := 0;
+  if Supports(AComponent, IRadStateVersion, LVersion) then
+    Result := LVersion.StateVersion;
+end;
+
+function TRadPropertiesStore.Participants: TArray<TComponent>;
+var
+  LList: TList<TComponent>;
+  I: Integer;
+begin
+  LList := TList<TComponent>.Create;
+  try
+    for I := 0 to FItems.Count - 1 do
+      if Supports(FItems[I].Component, IRadStateful) and (LList.IndexOf(FItems[I].Component) < 0) then
+        LList.Add(FItems[I].Component);
+    if FAttached <> nil then
+      for I := 0 to FAttached.Count - 1 do
+        if LList.IndexOf(FAttached[I]) < 0 then
+          LList.Add(FAttached[I]);
+    Result := LList.ToArray;
+  finally
+    LList.Free;
+  end;
+end;
+
 procedure TRadPropertiesStore.ApplyCustom;
 var
   LCustom, LValues: IDocDict;
   LStateful: IRadStateful;
-  I: Integer;
+  LComponent: TComponent;
+  LName: RawUtf8;
 begin
   if not TRadStateDoc.Section(FDoc, RAD_STATE_SECTION_CUSTOM, LCustom) then
     Exit;
-  for I := 0 to FItems.Count - 1 do
-    if Supports(FItems[I].Component, IRadStateful, LStateful) and
-      LCustom.Get(StringToUtf8(FItems[I].Component.Name), LValues) then
-      LStateful.LoadState(LValues);
+  for LComponent in Participants do
+  begin
+    LName := StringToUtf8(LComponent.Name);
+    if LCustom.Get(LName, LValues) and Supports(LComponent, IRadStateful, LStateful) and
+      (TRadStateDoc.SectionVersion(FDoc, SectionKey(RAD_STATE_SECTION_CUSTOM, LName)) = StateVersionOf(LComponent)) then
+      try
+        LStateful.LoadState(LValues);
+      except
+        on E: Exception do // boundary: one participant must not stop the others
+          AddError(LName + ': ' + StringToUtf8(E.Message));
+      end;
+  end;
+end;
+
+procedure TRadPropertiesStore.ApplyProviders;
+var
+  LExt, LValues: IDocDict;
+  LProvider: IRadStateProvider;
+begin
+  if not TRadStateDoc.Section(FDoc, RAD_STATE_SECTION_EXT, LExt) then
+    Exit;
+  for LProvider in FProviders.ToArray do
+    if LExt.Get(LProvider.Name, LValues) and
+      (TRadStateDoc.SectionVersion(FDoc, SectionKey(RAD_STATE_SECTION_EXT, LProvider.Name)) = LProvider.Version) then
+      try
+        if LProvider.Wants(Owner) then
+          LProvider.Load(Owner, LValues);
+      except
+        on E: Exception do // boundary: one provider must not stop the others
+          AddError(LProvider.Name + ': ' + StringToUtf8(E.Message));
+      end;
 end;
 
 procedure TRadPropertiesStore.ApplyActiveControl;
@@ -1012,8 +1133,8 @@ var
 begin
   Result := False;
   LRepo := Repository;
-  if not FActive or not FRestored or (LRepo = nil) then
-    Exit; // never overwrite a record that this owner did not get to read
+  if not FActive or not FRestored or FResetPending or (LRepo = nil) then
+    Exit; // never overwrite a record that this owner did not get to read, or one just reset
   if Assigned(FOnSave) then
     FOnSave(Self, True);
   Result := LRepo.Save(Key, BuildDoc);
@@ -1030,7 +1151,10 @@ begin
   if soProps in FOptions then
     CaptureProps(Result);
   if soCustom in FOptions then
+  begin
     CaptureCustom(Result);
+    CaptureProviders(Result);
+  end;
   if (soValues in FOptions) and (FValues.Len > 0) then
     Result.D[RAD_STATE_SECTION_VALUES] := FValues;
 end;
@@ -1095,18 +1219,43 @@ procedure TRadPropertiesStore.CaptureCustom(const ADoc: IDocDict);
 var
   LCustom, LValues: IDocDict;
   LStateful: IRadStateful;
-  I: Integer;
+  LComponent: TComponent;
+  LName: RawUtf8;
 begin
   LCustom := DocDict(mFastFloat);
-  for I := 0 to FItems.Count - 1 do
-    if Supports(FItems[I].Component, IRadStateful, LStateful) then
+  for LComponent in Participants do
+    if Supports(LComponent, IRadStateful, LStateful) then
     begin
+      LName := StringToUtf8(LComponent.Name);
       LValues := DocDict(mFastFloat);
       LStateful.SaveState(LValues);
-      LCustom.D[StringToUtf8(FItems[I].Component.Name)] := LValues;
+      if LValues.Len = 0 then
+        Continue;
+      LCustom.D[LName] := LValues;
+      TRadStateDoc.SetSectionVersion(ADoc, SectionKey(RAD_STATE_SECTION_CUSTOM, LName), StateVersionOf(LComponent));
     end;
   if LCustom.Len > 0 then
     ADoc.D[RAD_STATE_SECTION_CUSTOM] := LCustom;
+end;
+
+procedure TRadPropertiesStore.CaptureProviders(const ADoc: IDocDict);
+var
+  LExt, LValues: IDocDict;
+  LProvider: IRadStateProvider;
+begin
+  LExt := DocDict(mFastFloat);
+  for LProvider in FProviders.ToArray do
+    if LProvider.Wants(Owner) then
+    begin
+      LValues := DocDict(mFastFloat);
+      LProvider.Save(Owner, LValues);
+      if LValues.Len = 0 then
+        Continue;
+      LExt.D[LProvider.Name] := LValues;
+      TRadStateDoc.SetSectionVersion(ADoc, SectionKey(RAD_STATE_SECTION_EXT, LProvider.Name), LProvider.Version);
+    end;
+  if LExt.Len > 0 then
+    ADoc.D[RAD_STATE_SECTION_EXT] := LExt;
 end;
 
 procedure TRadPropertiesStore.Reset;
@@ -1118,6 +1267,32 @@ begin
     LRepo.Delete(Key);
   FValues := DocDict(mFastFloat);
   FDoc := nil;
+end;
+
+procedure TRadPropertiesStore.ResetSaved;
+begin
+  Reset;
+  FResetPending := True;
+  FSaved := True;
+end;
+
+procedure TRadPropertiesStore.Attach(AComponent: TComponent);
+begin
+  if (AComponent = nil) or (AComponent.Name = '') or not Supports(AComponent, IRadStateful) then
+    raise ERadFormState.CreateFmt(SAttachNeedsStateful, [Name]);
+  if FAttached = nil then
+    FAttached := TList<TComponent>.Create;
+  if FAttached.IndexOf(AComponent) < 0 then
+  begin
+    FAttached.Add(AComponent);
+    AComponent.FreeNotification(Self);
+  end;
+end;
+
+procedure TRadPropertiesStore.Detach(AComponent: TComponent);
+begin
+  if (FAttached <> nil) and (FAttached.Remove(AComponent) >= 0) then
+    AComponent.RemoveFreeNotification(Self);
 end;
 
 { values }

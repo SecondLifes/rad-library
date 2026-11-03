@@ -53,12 +53,14 @@ kullanıcı katmanı ekler.
 
 1. **İki katılım biçimi, bir kayıt.**
    - *Bileşen katılımcısı*: `IRadStateful` (değişmez). `Items`'ta yolsuz öğe olarak ya da
-     `Store.Attach(AStateful, AName)` ile katılır. Bölümü `custom.<ad>`.
+     `Store.Attach(AComponent)` ile katılır (bileşen adı bölüm adıdır). Bölümü `custom.<ad>`.
    - *Global sağlayıcı*: `IRadStateProvider`, uygulamada bir kez kaydedilir, her store için çağrılır.
      Bölümü `ext.<ad>`.
-2. **Sürüm kapısı bölüm başına.** `Store.Version` yalnız `form` ve `props`'u kapılar. `custom.<ad>` ve
-   `ext.<ad>` kendi `v` alanını taşır; katılımcı kendi sürümünü bildirir, uyuşmazsa yalnız o bölüm
-   atlanır. Eski kayıtlarda `v` yoksa 0 sayılır (geriye uyum).
+2. **Sürüm kapısı bölüm başına.** `Store.Version` yalnız `form` ve `props`'u kapılar. Her `custom.<ad>`
+   ve `ext.<ad>`'ın sürümü kökteki `sections` haritasında (`"custom/<ad>": n`) tutulur; katılımcı kendi
+   sürümünü bildirir, uyuşmazsa yalnız o bölüm atlanır. Haritada olmayan = 0 (eski kayıtlar). Sürüm
+   bölümün içine yazılmaz: katılımcının verisine karışır (ör. `TRadActionList.LoadFromJson` her anahtarı
+   eylem adı sayar).
 3. **Formu varsayılana döndür = kaydı sil + formu yeniden aç.** Anında uygulama, host'un `OnCreate`'te
    kodla verdiği değerleri DFM değeriyle ezerdi. Yeniden açılan form DFM → şirket düzeni → host kodu
    sırasını kendiliğinden kurar; her katılımcı için doğru ve ek kod gerektirmez. Customizer içindeki
@@ -93,21 +95,22 @@ kullanıcı katmanı ekler.
 ```json
 {
   "schema": 1, "version": 3, "ppi": 96, "form": {}, "props": {}, "values": {},
+  "sections": { "custom/Customizer1": 1, "ext/cxgrid": 1, "ext/dxlayout": 1 },
   "custom": {
-    "ActionList1": { "v": 0, "...": "..." },
-    "Customizer1": { "v": 1, "ppi": 96,
+    "ActionList1": { "...": "..." },
+    "Customizer1": { "ppi": 96,
                      "diff": { "btnKaydet": { "Caption": "Kaydet*", "Left": 120 },
                                "edtAd":     { "Font.Size": 11, "Color": 15790320 } } }
   },
   "ext": {
-    "cxgrid": { "v": 1, "views": { "tvSatirlar": "<base64>" } },
-    "dxlayout": { "v": 1, "controls": { "lytMain": "<base64>" } }
+    "cxgrid": { "views": { "tvSatirlar": "<base64>" } },
+    "dxlayout": { "controls": { "lytMain": "<base64>" } }
   }
 }
 ```
 
-- `custom.<ad>.v` ve `ext.<ad>.v` store tarafından yazılır/okunur; katılımcı `v`'yi görmez.
-- Eski `custom` kayıtları (`v` yok) sürüm 0 kabul edilir.
+- `sections` store tarafından yazılır/okunur; katılımcı görmez. Sürümü 0 olan bölüm haritaya yazılmaz.
+- Boş bölüm (katılımcı hiçbir şey yazmadı) kaydedilmez.
 
 ## API
 
@@ -125,8 +128,8 @@ IRadStateVersion = interface      // isteğe bağlı; IRadStateful bileşen sür
 end;
 
 TRadPropertiesStore
-  procedure Attach(const AStateful: IRadStateful; const AName: RawUtf8);
-  procedure Detach(const AName: RawUtf8);
+  procedure Attach(AComponent: TComponent);   // adlı ve IRadStateful olmalı; FreeNotification ile izlenir
+  procedure Detach(AComponent: TComponent);
   procedure ResetSaved;           // kaydı siler, bu oturumun kapanış kaydını engeller
   class procedure RegisterProvider(const AProvider: IRadStateProvider);
 
@@ -239,8 +242,10 @@ Customizer1.Customize;             // "formu düzenle" komutu (RadScriptTmsDesig
 
 ## Aşamalar
 
-1. RadKon/RadKonD ayrımı; mevcut testler ve dört paket derlemesi.
-2. Katılımcı sistemi, bölüm sürümleri, `ResetSaved`/`ResetForm`, ValueType setter.
+1. ✅ RadKon/RadKonD ayrımı; dört paket derlendi (08f525a).
+2. ✅ Katılımcı sistemi, bölüm sürümleri, `ResetSaved`/`ResetForm`, ValueType setter. VCL testleri
+   23/23 Win32 + Win64 (yeni 7); altı mutasyon (sürüm kapısı, sağlayıcı sürümü, istisna yalıtımı,
+   `ResetSaved` kapısı, `Attach` bildirimi, ValueType çevirisi) her biri ayrı testi kırmızıya çevirdi.
 3. cxGrid ve dxLayout sağlayıcıları.
 4. Customizer çekirdeği, `Reapply` kancası.
 5. TMS oturumu ve araç penceresi; ilk iş canlı DevExpress formunda tıklama/sürükleme probu.

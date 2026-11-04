@@ -1,0 +1,7 @@
+bin/
+dcu/
+bin64/
+dcu64/
+*_log.txt
+shots/
+desktop-state/

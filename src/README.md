@@ -152,3 +152,40 @@ saved with the form. Spec, decisions and measurements: `docs/specs/rad.formstate
 Tests: `test/scratch/rad_formstate/build_and_run.bat Win32|Win64 <runner>` with
 `RunFormStateTests`, `RunFormStateVclTests`, `RunFormStateEditorTests` or
 `RunFormStateDbTests` (live databases).
+
+## ERP desktop (`rad.desktop`)
+
+A desktop surface for an ERP main window: groups of shortcuts (an always-open box or a folder
+that opens a panel), live widgets fed by providers or scripts, and dashboard tiles. Positions
+are grid cells, never pixels, so a resolution or DPI change cannot lose a layout.
+
+```pascal
+uses rad.desktop;
+
+TRadDesktop.Kur(Desktop1, Repository, KullaniciAdi);   // Desktop1: TRADDesktopView
+TRadDesktop.EkleAksiyonlar(ActionList1);              // 'act:<Name>'
+TRadDesktop.EkleMenu(MainMenu1);                      // 'menu:<Name>'
+TRadDesktop.Izin(function(const AId: string): Boolean begin Result := Yetkili(AId); end);
+TRadDesktop.EkleWidget(TRadDeskFuncWidget.Create('ciro', 'Günlük ciro', dsWide, 60000, ...));
+...
+TRadDesktop.Kapat;                                    // writes a pending change
+```
+
+| Unit | Role |
+|---|---|
+| `core/rad.desktop.core` | model, JSON, company/user merge, grid packing and resolve, keyboard navigation |
+| `core/rad.desktop.commands` | command sources (`prefix:name`), permission on every resolve and execute |
+| `core/rad.desktop.widgets` | widget data and providers; a failing provider stays on its own tile |
+| `core/rad.desktop.store` | `desktop\base` and `desktop\user.<name>` over `TRadStateRepository` |
+| `component/rad.desktop.view` | `TRADDesktopView` (GDI+, cached scene, drag and drop, keyboard) |
+| `component/rad.desktop.dialogs/.picker` | context menus and the shortcut picker (DFM) |
+| `component/rad.desktop.sources` | `TActionList` and `TMenu` sources |
+| `component/rad.desktop` | entry unit: aliases and `TRadDesktop` |
+| `vendor/tms/rad.desktop.script` | `<Kod>_Yenile(W)` routines of library scripts become `script:<Kod>` widgets |
+
+Saves are debounced (1.5 s), never written in a destructor. "Varsayılana dön" deletes the user
+record; `TRadDesktop.VarsayilanYap` saves the current layout as the company layer. In a remote
+desktop session blur is off and widget refreshes are at least 5 s apart (`Effects = deAuto`).
+Spec and measurements: `docs/specs/rad.desktop.md`. Tests and demo:
+`test/scratch/rad_desktop/build_and_run.bat Win32|Win64 <runner>` with `RunDesktopTests`,
+`RunDesktopVclTests`, `RunDesktopScriptTests`; `DesktopDemo.exe -shot <folder>` writes snapshots.

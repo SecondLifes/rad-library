@@ -150,6 +150,27 @@ kanal/JSON + `Calistir(Olay)`; `olay/zaman/kutuphane/pencere` çalıştırılır
 `form/komut` yalnız derlenir — `Form`/bileşenler orada çözülmez, hata ERP formu açılınca gelir). Deneme çalıştırması
 **şirket veritabanında** çalışır (onay sorulur). **Tasarla**: pencere script'i (DFM) ya da host açıyorsa form.
 
+## Masaüstü widget'ı (`rad.desktop.script`)
+
+Bir `kutuphane` script'indeki `<Kod>_Yenile(W: TRadDeskWidgetData)` yordamı, ERP masaüstünde
+`script:<Kod>` widget'ı olur. Script çizim yapmaz, yalnız `W`'yi doldurur. Çizimi masaüstü yapar.
+
+```pascal
+procedure Ciro_Yenile(W: TRadDeskWidgetData);
+begin
+  W.Title := 'Günlük ciro';
+  W.Value := '₺ 1,28 M';           // büyük yazı; sığmazsa otomatik küçülür
+  W.SubText := 'Dün: ₺ 1,12 M';
+  W.Trend := dtUp;                 // dtNone / dtUp / dtDown
+  W.AddPoint(42); W.AddPoint(47);  // mini grafik
+  W.AddLine('SP-1042 Akdeniz'#9'₺ 84.300');  // TAB'dan sonrası sağa yaslanır
+  // W.Settings: kutucuğun kendi ayar JSON'u
+end;
+```
+
+- Süre sınırı 3 saniyedir. Aşılırsa ya da script hata verirse hata yalnız o kutucukta gösterilir.
+- Hata atmak için `Raise('mesaj')` kullanılır. TMS'de `raise Exception.Create(...)` derlenmez.
+- Yenileme aralığı 60 saniyedir. Uzak masaüstünde en az 5 saniyedir.
 ## Paketleme
 
 Script'ler `script_paket` altında toplanır (`kod` = `firma.kasa-kontrol` biçimi), tek dosya

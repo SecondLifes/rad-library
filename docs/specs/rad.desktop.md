@@ -1,6 +1,6 @@
 # Specification: ERP masaüstü (`rad.desktop`)
 
-Durum: **uygulanıyor** (2026-11-04). Kullanıcı tasarım konuşmasından sonra "hiçbir şey sormadan bütün
+Durum: **uygulandı** (2026-11-04; ölçümler en altta). Kullanıcı tasarım konuşmasından sonra "hiçbir şey sormadan bütün
 fazları yap" dedi. Bu yüzden açık kararlar, konuşmada önerilen varsayılanlarla kapatıldı. Hepsi aşağıda
 **Varsayılan karar** olarak işaretli; kullanıcı dönünce itiraz edebilir.
 
@@ -199,6 +199,33 @@ Masaüstü ExpressDashboards'a bağımlı değildir; RDS'de yönetici bu öğe t
   - `TRadDesktop.Ekle(ASource)` bir komut kaynağı ekler.
   - `TRadDesktop.Kapat` bekleyen kaydı yazar.
 - **Acceptance:** Demo uygulaması yalnız `rad.desktop` unit'ini ekleyerek çalışır.
+
+## Uygulama notları ve ölçümler (2026-11-04)
+
+Uygulandı. Testler Win32 ve Win64'te: çekirdek 33/33, görünüm + mağaza + facade 25/25, script widget 5/5.
+Demo uygulaması `src/test/scratch/rad_desktop/DesktopDemo.exe -shot <klasör>` ile 7 ekran görüntüsü üretir.
+
+- **Ölçüm** (1184×761 piksel, 200 kutucuk, 5 tekrarın ortalaması):
+  - Sahnenin yeniden çizimi: Win32 87 ms, Win64 92 ms.
+  - Yalnız hover ya da odak yenilemesi: 1,1 / 1,2 ms.
+  - Sahne yalnız düzen ya da widget verisi değişince yeniden çizilir; widget verisinin `Signature`'ı
+    karşılaştırılır. Saat bu yüzden saniyede bir değil, dakikada bir yeniden çizdirir.
+- **Spec'ten sapmalar:**
+  - "Düzenleme modu" yerine `Locked` özelliği var. Sürükleme Fences'teki gibi her zaman açıktır;
+    `Locked` açıkken sürükleme ve düzenleme menüleri kapanır.
+  - Grup yüksekliği içeriğe göre otomatik hesaplanır; yalnız genişlik (`Cols`) saklanır.
+- **DPI:** Pencereli bir kontrolde `CurrentPPI`, `GetDpiForWindow` değerini döndürür. Form `Scaled`
+  değilse `ChangeScale`'in kaydettiği değer döner. Bu yüzden DPI testi `Scaled := False` ve
+  `ChangeScale(144, 96, True)` kullanır. Bu, VCL'in `WM_DPICHANGED` sırasında yaptığı çağrının
+  aynısıdır. `ScaleForPPI`, DPI-aware olmayan bir konsol uygulamasında hiçbir şey yapmaz (ölçüldü).
+- **TMS script:** İstisna `raise Exception.Create(...)` ile değil, `Raise('mesaj')` ile atılır.
+  İlki derlemede "method 'raise' expects 1 parameter" hatası verir.
+- **İkon:** Masaüstü, ikonu `Images` listesinin kendi boyutunda çizer. Yüksek DPI'da net ikon için
+  host'un SVG tabanlı bir `TVirtualImageList` vermesi gerekir. İkonu olmayan komut, baş harfli renkli
+  bir kare olarak çizilir.
+- **Paket derlemesi:** RadKon ve RadKonD depo içindeki geçici bir klasöre derlendi; kurulu BPL'lere
+  dokunulmadı. MSBuild, birimlerin C++ başlıklarını (`rad.desktop*.hpp`) yine de
+  `%PUBLIC%\Documents\Embarcadero\Studio\37.0\hpp\Win32` klasörüne yazdı.
 
 ## Kapsam dışı
 

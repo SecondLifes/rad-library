@@ -10,6 +10,7 @@ uses
   System.Classes,
   System.Types,
   System.IOUtils,
+  System.Diagnostics,
   System.Generics.Collections,
   Vcl.Forms,
   Vcl.Controls,
@@ -65,6 +66,7 @@ type
     [Test] procedure Dpi_TilesScale;
     [Test] procedure Narrow_GroupsStayVisible_StoredCellKept;
     [Test] procedure Reduced_InRemoteOrForced;
+    [Test] procedure Perf_200Tiles_SceneAndOverlay;
   end;
 
   [TestFixture]
@@ -459,6 +461,48 @@ begin
   Assert.IsFalse(FView.ReducedEffects);
   FView.Effects := deAuto;
   Assert.AreEqual(GetSystemMetrics(SM_REMOTESESSION) <> 0, FView.ReducedEffects);
+end;
+
+procedure TDesktopViewTests.Perf_200Tiles_SceneAndOverlay;
+const
+  CRuns = 5;
+var
+  G: TRadDeskGroup;
+  I, J: Integer;
+  LWatch: TStopwatch;
+  LScene, LOverlay: Double;
+begin
+  FView.Layout.Clear;
+  for I := 0 to 9 do
+  begin
+    G := FView.Layout.AddGroup('Grup ' + IntToStr(I));
+    G.Col := (I mod 2) * 12;
+    G.Row := (I div 2) * 12;
+    G.Cols := 12;
+    for J := 0 to 19 do
+      G.Items.Add(TRadDeskItem.Create(dkShortcut, 't:' + CNames[J mod Length(CNames)]));
+  end;
+  FView.Rebuild;
+  FView.Repaint;
+  LWatch := TStopwatch.StartNew;
+  for I := 1 to CRuns do
+  begin
+    FView.Rebuild;
+    FView.Repaint;
+  end;
+  LScene := LWatch.Elapsed.TotalMilliseconds / CRuns;
+  LWatch := TStopwatch.StartNew;
+  for I := 1 to CRuns do
+  begin
+    FView.Invalidate;
+    FView.Repaint;
+  end;
+  LOverlay := LWatch.Elapsed.TotalMilliseconds / CRuns;
+  TFile.AppendAllText(TPath.Combine(TPath.GetTempPath, 'raddesk_perf.txt'),
+    Format('%d-bit, 200 tiles, %dx%d: scene rebuild %.1f ms, overlay-only repaint %.1f ms',
+    [SizeOf(Pointer) * 8, FView.ClientWidth, FView.ClientHeight, LScene, LOverlay]) + sLineBreak);
+  Assert.AreEqual(200, FView.Tiles.Count);
+  Assert.IsTrue(LOverlay < LScene, 'hover/focus repaint must not rebuild the scene');
 end;
 
 { TDesktopStoreTests }

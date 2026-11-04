@@ -147,6 +147,7 @@ type
     procedure PaintShortcut(G: TGPGraphics; const ATile: TRadDeskTileView; AAccent: Cardinal);
     procedure PaintWidget(G: TGPGraphics; const ATile: TRadDeskTileView; AAccent: Cardinal);
     procedure PaintWidgetText(G: TGPGraphics; LData: TRadDeskWidgetData; const ARect: TGPRectF);
+    procedure PaintWidgetLine(G: TGPGraphics; const ALine: string; const ARect: TGPRectF);
     procedure PaintWidgetChart(G: TGPGraphics; LData: TRadDeskWidgetData; const ARect: TGPRectF; AAccent: Cardinal);
     procedure PaintDashboard(G: TGPGraphics; const ATile: TRadDeskTileView; AAccent: Cardinal);
     procedure PaintIcons;
@@ -589,6 +590,7 @@ var
   LNow, LDue: Cardinal;
   LInterval: Integer;
   LAny: Boolean;
+  LBefore: string;
 begin
   if not Assigned(FWidgets) then
     Exit;
@@ -604,7 +606,9 @@ begin
         Continue;
       if not AForce and FDue.TryGetValue(LItem.Id, LDue) and (Integer(LDue - LNow) > 0) then
         Continue;
+      LBefore := WidgetData(LItem).Signature;
       TRadDeskWidgets.SafeFetch(LProvider, LItem.Settings, WidgetData(LItem));
+      LAny := LAny or (WidgetData(LItem).Signature <> LBefore);
       LInterval := LProvider.Interval;
       if (LInterval > 0) and ReducedEffects then
         LInterval := Max(LInterval, CReducedMinInterval);
@@ -612,7 +616,6 @@ begin
         FDue.AddOrSetValue(LItem.Id, LNow + Cardinal(MaxInt))
       else
         FDue.AddOrSetValue(LItem.Id, LNow + Cardinal(LInterval));
-      LAny := True;
     end;
   if LAny then
   begin
@@ -970,10 +973,14 @@ begin
   LOpen := AView.Group = FPanelGroup;
   if not ReducedEffects then
     TRadDeskDraw.Shadow(G, R, Px(CRadius), Px(CShadow) / 2, FTheme.Shadow);
-  if LOpen then
+  if ReducedEffects then
+    TRadDeskDraw.FillRound(G, R, Px(CRadius), TRadDeskDraw.WithAlpha(FTheme.WallBottom, 235))
+  else if LOpen then
     TRadDeskDraw.Glass(G, FWallBlur, R, Px(CRadius), FTheme, TRadDeskDraw.WithAlpha(AView.Accent, 90))
   else
     TRadDeskDraw.Glass(G, FWallBlur, R, Px(CRadius), FTheme, FTheme.GlassTint);
+  if ReducedEffects and LOpen then
+    TRadDeskDraw.StrokeRound(G, R, Px(CRadius), Px(2), AView.Accent);
   S := Min(R.Width, R.Height) * 0.46;
   LIcon := MakeRect(R.X + (R.Width - S) / 2, R.Y + R.Height * 0.14, S, S * 0.86);
   TRadDeskDraw.Folder(G, LIcon, AView.Accent);
@@ -1126,10 +1133,28 @@ begin
   begin
     if Y + Px(16) > ARect.Y + ARect.Height then
       Break;
-    TRadDeskDraw.Text(G, LData.Lines[I], Font.Name, Px(CSmallFont + 1), FontStyleRegular,
-      MakeRect(ARect.X, Y, ARect.Width, Px(17)), FTheme.Text, StringAlignmentNear, StringAlignmentNear, False);
+    PaintWidgetLine(G, LData.Lines[I], MakeRect(ARect.X, Y, ARect.Width, Px(17)));
     Y := Y + Px(19);
   end;
+end;
+
+procedure TRADDesktopView.PaintWidgetLine(G: TGPGraphics; const ALine: string; const ARect: TGPRectF);
+var
+  LTab: Integer;
+begin
+  // 'left<TAB>right': the right part (an amount) is right-aligned, the left part gives way.
+  LTab := ALine.IndexOf(#9);
+  if LTab < 0 then
+  begin
+    TRadDeskDraw.Text(G, ALine, Font.Name, Px(CSmallFont + 1), FontStyleRegular, ARect, FTheme.Text,
+      StringAlignmentNear, StringAlignmentNear, False);
+    Exit;
+  end;
+  TRadDeskDraw.Text(G, ALine.Substring(LTab + 1), Font.Name, Px(CSmallFont + 1), FontStyleBold, ARect, FTheme.Title,
+    StringAlignmentFar, StringAlignmentNear, False);
+  TRadDeskDraw.Text(G, ALine.Substring(0, LTab), Font.Name, Px(CSmallFont + 1), FontStyleRegular,
+    MakeRect(ARect.X, ARect.Y, ARect.Width * 0.62, ARect.Height), FTheme.Text, StringAlignmentNear,
+    StringAlignmentNear, False);
 end;
 
 procedure TRADDesktopView.PaintWidgetChart(G: TGPGraphics; LData: TRadDeskWidgetData; const ARect: TGPRectF;

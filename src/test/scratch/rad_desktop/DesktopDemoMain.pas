@@ -186,11 +186,11 @@ begin
       AData.Title := 'Bekleyen siparişler';
       AData.Value := '23';
       AData.SubText := '5 tanesi bugün sevk edilmeli';
-      AData.AddLine('SP-1042  Akdeniz Gıda      ₺ 84.300');
-      AData.AddLine('SP-1045  Ege Tekstil       ₺ 41.950');
-      AData.AddLine('SP-1047  Marmara Yapı      ₺ 128.000');
-      AData.AddLine('SP-1050  Karadeniz Lojistik ₺ 22.480');
-      AData.AddLine('SP-1051  Anadolu Medikal   ₺ 9.600');
+      AData.AddLine('SP-1042  Akdeniz Gıda'#9'₺ 84.300');
+      AData.AddLine('SP-1045  Ege Tekstil'#9'₺ 41.950');
+      AData.AddLine('SP-1047  Marmara Yapı'#9'₺ 128.000');
+      AData.AddLine('SP-1050  Karadeniz Lojistik'#9'₺ 22.480');
+      AData.AddLine('SP-1051  Anadolu Medikal'#9'₺ 9.600');
     end));
   TRadDesktop.EkleWidget(TRadDeskFuncWidget.Create('kasa', 'Kasa bakiyesi', dsSmall, 60000,
     procedure(ASettings: string; AData: TRadDeskWidgetData)

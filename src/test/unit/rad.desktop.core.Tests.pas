@@ -72,6 +72,7 @@ type
     [Test] procedure SafeFetch_Exception_BecomesError;
     [Test] procedure Clock_FillsValue;
     [Test] procedure Registry_ReplacesSameId;
+    [Test] procedure Signature_ChangesOnlyWithContent;
   end;
 
 implementation
@@ -693,6 +694,30 @@ begin
     Assert.IsNull(LReg.Find('none'));
   finally
     LReg.Free;
+  end;
+end;
+
+procedure TDesktopWidgetTests.Signature_ChangesOnlyWithContent;
+var
+  A, B: TRadDeskWidgetData;
+begin
+  A := TRadDeskWidgetData.Create;
+  B := TRadDeskWidgetData.Create;
+  try
+    A.Value := '12';
+    A.AddPoint(1.5);
+    A.AddLine('x');
+    B.Assign(A);
+    B.Updated := Now + 1;
+    Assert.AreEqual(A.Signature, B.Signature, 'the refresh time is not content');
+    B.AddPoint(2);
+    Assert.AreNotEqual(A.Signature, B.Signature);
+    B.Assign(A);
+    B.Trend := dtUp;
+    Assert.AreNotEqual(A.Signature, B.Signature);
+  finally
+    B.Free;
+    A.Free;
   end;
 end;
 

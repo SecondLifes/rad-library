@@ -61,6 +61,7 @@ object RadDeskPickerForm: TRadDeskPickerForm
         Caption = 'Kategori'
         Width = 190
       end>
+    GroupView = True
     HideSelection = False
     ReadOnly = True
     RowSelect = True

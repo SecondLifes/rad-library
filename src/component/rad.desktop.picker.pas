@@ -34,6 +34,7 @@ type
     FChecked: TStringList;
     FFilling: Boolean;
     procedure UpdateCount;
+    function GroupOf(const ACategory: string): Integer;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -91,6 +92,24 @@ begin
   Fill;
 end;
 
+function TRadDeskPickerForm.GroupOf(const ACategory: string): Integer;
+var
+  I: Integer;
+  LGroup: TListGroup;
+  LHeader: string;
+begin
+  LHeader := ACategory;
+  if LHeader = '' then
+    LHeader := 'Diğer';
+  for I := 0 to lvCommands.Groups.Count - 1 do
+    if lvCommands.Groups[I].Header = LHeader then
+      Exit(lvCommands.Groups[I].GroupID);
+  LGroup := lvCommands.Groups.Add;
+  LGroup.Header := LHeader;
+  LGroup.State := [lgsNormal, lgsCollapsible];
+  Result := LGroup.GroupID;
+end;
+
 procedure TRadDeskPickerForm.Fill;
 var
   LInfo: TRadDeskCommandInfo;
@@ -102,11 +121,13 @@ begin
   lvCommands.Items.BeginUpdate;
   try
     lvCommands.Items.Clear;
+    lvCommands.Groups.Clear;
     for LInfo in FAll do
     begin
       if (LNeedle <> '') and not TRadDeskNav.Fold(LInfo.Caption + ' ' + LInfo.Category).Contains(LNeedle) then
         Continue;
       LItem := lvCommands.Items.Add;
+      LItem.GroupID := GroupOf(LInfo.Category);
       LItem.Caption := LInfo.Caption;
       LItem.SubItems.Add(LInfo.Category);
       LItem.Checked := FChecked.IndexOf(LInfo.Id) >= 0;

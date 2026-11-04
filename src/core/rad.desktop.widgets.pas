@@ -39,6 +39,8 @@ type
     procedure AddLine(const AText: string);
     /// <summary>One value of the mini chart.</summary>
     procedure AddPoint(AValue: Double);
+    /// <summary>Text of everything drawn; equal signatures need no repaint.</summary>
+    function Signature: string;
     property Points[AIndex: Integer]: Double read GetPoint;
     property PointCount: Integer read GetPointCount;
     property Lines: TStrings read FLines;
@@ -176,6 +178,23 @@ end;
 procedure TRadDeskWidgetData.AddPoint(AValue: Double);
 begin
   FPoints.Add(AValue);
+end;
+
+function TRadDeskWidgetData.Signature: string;
+var
+  LPoint: Double;
+  LBuilder: TStringBuilder;
+begin
+  LBuilder := TStringBuilder.Create;
+  try
+    LBuilder.Append(FTitle).Append(#1).Append(FValue).Append(#1).Append(FSubText).Append(#1)
+      .Append(Ord(FTrend)).Append(#1).Append(FColor).Append(#1).Append(FError).Append(#1).Append(FLines.Text);
+    for LPoint in FPoints do
+      LBuilder.Append(#1).Append(LPoint);
+    Result := LBuilder.ToString;
+  finally
+    LBuilder.Free;
+  end;
 end;
 
 function TRadDeskWidgetData.GetPoint(AIndex: Integer): Double;

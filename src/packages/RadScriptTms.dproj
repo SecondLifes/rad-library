@@ -178,6 +178,7 @@
         <DCCReference Include="..\vendor\tms\rad.script.dev.pas"/>
         <DCCReference Include="..\vendor\tms\rad.script.uni.pas"/>
         <DCCReference Include="..\vendor\tms\rad.scripting.kp.pas"/>
+        <DCCReference Include="..\vendor\tms\rad.desktop.script.pas"/>
         <BuildConfiguration Include="Base">
             <Key>Base</Key>
         </BuildConfiguration>

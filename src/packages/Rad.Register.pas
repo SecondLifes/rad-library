@@ -17,6 +17,7 @@ implementation
  ,rad.db, Permission.Edit
  ,Rad.Dev
  ,rad.tms.formtabs
+ ,rad.desktop.view
  //,Aksa.Collections,Aksa.BoundLabel
  //,Aksa.Vcl
 
@@ -48,6 +49,7 @@ implementation
   ,TRadButtonEdit,TRadDBButtonEdit,TRadImageComboBox,TRadDBImageComboBox
   ,TRadExtLookupComboBox,TRadDBExtLookupComboBox,TRadPopupEdit,TRadDBPopupEdit
   ,TRadFormTabs
+  ,TRADDesktopView
   {
   TDepoValue,TStickyLabel
   //TCommadList,

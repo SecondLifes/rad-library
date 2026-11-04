@@ -27,6 +27,7 @@ type
     FPoints: TList<Double>;
     FError: string;
     FUpdated: TDateTime;
+    FSettings: string;
     function GetPoint(AIndex: Integer): Double;
     function GetPointCount: Integer;
   public
@@ -52,6 +53,8 @@ type
     /// <summary>Set by the desktop when Fetch raised; drawn instead of the content.</summary>
     property Error: string read FError write FError;
     property Updated: TDateTime read FUpdated write FUpdated;
+    /// <summary>The item's own settings JSON, given to the provider before Fetch (read it from a script).</summary>
+    property Settings: string read FSettings write FSettings;
   end;
 
   IRadDeskWidgetProvider = interface
@@ -159,6 +162,7 @@ begin
   FColor := LSrc.FColor;
   FError := LSrc.FError;
   FUpdated := LSrc.FUpdated;
+  FSettings := LSrc.FSettings;
   FLines.Assign(LSrc.FLines);
   FPoints.Clear;
   FPoints.AddRange(LSrc.FPoints);
@@ -234,6 +238,7 @@ class procedure TRadDeskWidgets.SafeFetch(const AProvider: IRadDeskWidgetProvide
   const ASettings: string; AData: TRadDeskWidgetData);
 begin
   AData.Clear;
+  AData.Settings := ASettings;
   try
     AProvider.Fetch(ASettings, AData);
   except

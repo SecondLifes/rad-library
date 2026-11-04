@@ -26,6 +26,19 @@ that break something else in the kit.
 
 ### Added
 
+- `docs/specs/rad.desktop.md` — ERP masaüstü spec'i: gruplar (kutu/klasör), kısayol/widget/dashboard kutucukları, hücre ızgarası (piksel saklanmaz), şirket + kullanıcı katmanı, RDS'de sade efektler, EARS ölçütleri. Kullanıcı "sormadan bitir" dediği için açık kararlar önerilen varsayılanlarla kapatıldı ve spec'te işaretli.
+- `src/core/rad.desktop.core.pas` — masaüstü modeli: `TRadDeskLayout`/`TRadDeskGroup`/`TRadDeskItem`, JSON gidiş-dönüş, `MergeBase` (kullanıcının kaldırdıkları geri gelmez), `TRadDeskGrid` (first-fit yerleşim, aşağı iterek çakışma çözme, sıkıştırma), `TRadDeskNav` (45° koniyle ok tuşu komşusu, Türkçe I/İ/ı katlamalı yazarak bulma).
+- `src/core/rad.desktop.commands.pas` — `önek:ad` komut kimlikleri, `IRadDeskCommandSource`, her çözümde ve çalıştırmadan hemen önce yetki; `ICmds` için başlık/kategori veren `TRadDeskCmdSource`.
+- `src/core/rad.desktop.widgets.pas` — `TRadDeskWidgetData`, `IRadDeskWidgetProvider`, `SafeFetch` (sağlayıcı hatası yalnız kendi kutucuğunda), hazır `clock`.
+- `src/core/rad.desktop.store.pas` — `TRadStateRepository` üstünde `desktop\base` ve `desktop\user.<ad>` kayıtları.
+- `src/component/rad.desktop.view.pas`, `rad.desktop.paint.pas` — `TRADDesktopView`: RTL GDI+ ile önbellekli sahne (duvar kağıdı, buzlu cam gruplar, gölge), hover/odak/sürükleme katmanı, kutu ve klasör grupları, sürükle-bırak, ızgaraya oturtma, boyutlandırma, katlama, klavye, tekerlek kaydırma, uzak oturumda sade efekt.
+- `src/component/rad.desktop.dialogs.pas` + `.dfm`, `rad.desktop.picker.pas` + `.dfm` — sağ tık menüleri ve aranabilir "Kısayol ekle" seçicisi (DFM'de).
+- `src/component/rad.desktop.sources.pas` — `TActionList` (`act:`) ve `TMenu` (`menu:`) komut kaynakları.
+- `src/component/rad.desktop.pas` — giriş birimi: alias'lar ve `TRadDesktop.Kur/Ekle/EkleAksiyonlar/EkleMenu/EkleWidget/Izin/Kaydet/Sifirla/VarsayilanYap/Kapat`; kayıt 1,5 sn geciktirmeli, yıkıcıda değil.
+- `src/vendor/tms/rad.desktop.script.pas` — `kutuphane` script'lerindeki `<Kod>_Yenile(W)` yordamları `script:<Kod>` widget'ı olur; 3 sn süre sınırı.
+- `src/test/unit/rad.desktop.core.Tests.pas`, `rad.desktop.view.Tests.pas`, `src/test/scratch/rad_desktop/` (`RunDesktopTests`, `RunDesktopVclTests`, `RunDesktopScriptTests`, `DesktopDemo` + `-shot` ekran görüntüsü modu, `build_and_run.bat`) — 32 + 24 + 5 test, Win32 + Win64.
+- `RadKon`'a masaüstü birimleri, `RadScriptTms`'e `rad.desktop.script` eklendi; `Rad.Register` `TRADDesktopView`'u kaydeder.
+
 - `docs/specs/rad.formstate.md` — form/DataModule durum saklama sistemi spec'i (onaylandı; thread yok): JSON şeması, anahtar ve Scope, dosya/callback/UniDAC depoları, şifreleme zarfı, senkron `Prefetch`, tasarım editörü, EARS ölçütleri, ölçümler ve A0-A6 aşamaları.
 - `src/core/rad.formstate.core.pas` — form durum sisteminin çekirdeği (RTL + mORMot): `TRadStateKey`, `TRadStatePaths` (nokta yollu published özellik okuma/yazma; getter'lı sınıf, set, enum, `TStrings`, koleksiyon indeksi; yol başına hata yalıtımı; ppi ölçeği), `TRadStateDoc` (`schema`/`version`/`ppi`), `IRadStateful`.
 - `src/test/unit/rad.formstate.core.Tests.pas`, `src/test/scratch/rad_formstate/RunFormStateTests.dpr`, `build_and_run.bat` — DUnitX, 20/20 Win32 + Win64; DUnitX git kaynağından derlenir.

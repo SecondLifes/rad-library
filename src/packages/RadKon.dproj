@@ -220,6 +220,23 @@
         <DCCReference Include="..\core\rad.sqlfilter.pas"/>
         <DCCReference Include="..\core\rad.customfield.pas"/>
         <DCCReference Include="..\core\rad.script.pas"/>
+        <DCCReference Include="..\core\rad.desktop.core.pas"/>
+        <DCCReference Include="..\core\rad.desktop.commands.pas"/>
+        <DCCReference Include="..\core\rad.desktop.widgets.pas"/>
+        <DCCReference Include="..\core\rad.desktop.store.pas"/>
+        <DCCReference Include="..\component\rad.desktop.paint.pas"/>
+        <DCCReference Include="..\component\rad.desktop.view.pas"/>
+        <DCCReference Include="..\component\rad.desktop.dialogs.pas">
+            <Form>RadDeskMenus</Form>
+            <FormType>dfm</FormType>
+            <DesignClass>TDataModule</DesignClass>
+        </DCCReference>
+        <DCCReference Include="..\component\rad.desktop.picker.pas">
+            <Form>RadDeskPickerForm</Form>
+            <FormType>dfm</FormType>
+        </DCCReference>
+        <DCCReference Include="..\component\rad.desktop.sources.pas"/>
+        <DCCReference Include="..\component\rad.desktop.pas"/>
         <DCCReference Include="..\component\rad.dev.customfields.pas">
             <Form>RadCustomFieldsFrame</Form>
             <DesignClass>TFrame</DesignClass>

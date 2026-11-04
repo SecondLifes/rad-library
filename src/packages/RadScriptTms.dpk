@@ -50,6 +50,7 @@ contains
   rad.script.typedhooks in '..\vendor\tms\rad.script.typedhooks.pas',
   rad.script.dev in '..\vendor\tms\rad.script.dev.pas',
   rad.script.uni in '..\vendor\tms\rad.script.uni.pas',
-  rad.scripting.kp in '..\vendor\tms\rad.scripting.kp.pas';
+  rad.scripting.kp in '..\vendor\tms\rad.scripting.kp.pas',
+  rad.desktop.script in '..\vendor\tms\rad.desktop.script.pas';
 
 end.

@@ -87,6 +87,16 @@ contains
   rad.sqlfilter in '..\core\rad.sqlfilter.pas',
   rad.customfield in '..\core\rad.customfield.pas',
   rad.script in '..\core\rad.script.pas',
+  rad.desktop.core in '..\core\rad.desktop.core.pas',
+  rad.desktop.commands in '..\core\rad.desktop.commands.pas',
+  rad.desktop.widgets in '..\core\rad.desktop.widgets.pas',
+  rad.desktop.store in '..\core\rad.desktop.store.pas',
+  rad.desktop.paint in '..\component\rad.desktop.paint.pas',
+  rad.desktop.view in '..\component\rad.desktop.view.pas',
+  rad.desktop.dialogs in '..\component\rad.desktop.dialogs.pas' {RadDeskMenus: TDataModule},
+  rad.desktop.picker in '..\component\rad.desktop.picker.pas' {RadDeskPickerForm},
+  rad.desktop.sources in '..\component\rad.desktop.sources.pas',
+  rad.desktop in '..\component\rad.desktop.pas',
   rad.dev.customfields in '..\component\rad.dev.customfields.pas' {RadCustomFieldsFrame: TFrame},
   rad.dev.customfielddesigner in '..\component\rad.dev.customfielddesigner.pas' {RadCustomFieldDesigner};
 

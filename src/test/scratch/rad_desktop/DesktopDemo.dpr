@@ -7,6 +7,7 @@ uses
   System.SysUtils,
   System.IOUtils,
   Vcl.Forms,
+  Vcl.XPMan,
   rad.desktop.core in '..\..\..\core\rad.desktop.core.pas',
   rad.desktop.commands in '..\..\..\core\rad.desktop.commands.pas',
   rad.desktop.widgets in '..\..\..\core\rad.desktop.widgets.pas',

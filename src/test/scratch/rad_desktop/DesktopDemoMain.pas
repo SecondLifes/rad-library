@@ -85,6 +85,9 @@ uses
   rad.desktop.picker,
   Vcl.Imaging.pngimage;
 
+type
+  TViewAccess = class(TRADDesktopView);
+
 const
   CIconSize = 40;
   CGlyphFont = 'Segoe Fluent Icons';
@@ -371,6 +374,13 @@ begin
   Desktop.Effects := deReduced;
   Desktop.SaveSnapshot(TPath.Combine(AFolder, '05_uzak_masaustu.png'));
   Desktop.Effects := deAuto;
+  // 150%: what VCL calls on WM_DPICHANGED (Scaled off so CurrentPPI follows ChangeScale, not the monitor).
+  Desktop.OpenFolder(GroupByTitle('Tahsilat'));
+  Scaled := False;
+  TViewAccess(Desktop).ChangeScale(144, 96, True);
+  Desktop.SaveSnapshot(TPath.Combine(AFolder, '07_dpi_150.png'));
+  TViewAccess(Desktop).ChangeScale(96, 144, True);
+  Desktop.CloseFolder;
   LPicker := TRadDeskPickerForm.Create(nil);
   try
     LPicker.Load(TRadDesktop.Commands.All);

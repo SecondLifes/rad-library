@@ -1141,6 +1141,7 @@ end;
 procedure TRADDesktopView.PaintWidgetLine(G: TGPGraphics; const ALine: string; const ARect: TGPRectF);
 var
   LTab: Integer;
+  LRight: Single;
 begin
   // 'left<TAB>right': the right part (an amount) is right-aligned, the left part gives way.
   LTab := ALine.IndexOf(#9);
@@ -1152,9 +1153,10 @@ begin
   end;
   TRadDeskDraw.Text(G, ALine.Substring(LTab + 1), Font.Name, Px(CSmallFont + 1), FontStyleBold, ARect, FTheme.Title,
     StringAlignmentFar, StringAlignmentNear, False);
+  LRight := TRadDeskDraw.TextWidth(G, ALine.Substring(LTab + 1), Font.Name, Px(CSmallFont + 1), FontStyleBold);
   TRadDeskDraw.Text(G, ALine.Substring(0, LTab), Font.Name, Px(CSmallFont + 1), FontStyleRegular,
-    MakeRect(ARect.X, ARect.Y, ARect.Width * 0.62, ARect.Height), FTheme.Text, StringAlignmentNear,
-    StringAlignmentNear, False);
+    MakeRect(ARect.X, ARect.Y, Max(0, ARect.Width - LRight - Px(8)), ARect.Height), FTheme.Text,
+    StringAlignmentNear, StringAlignmentNear, False);
 end;
 
 procedure TRADDesktopView.PaintWidgetChart(G: TGPGraphics; LData: TRadDeskWidgetData; const ARect: TGPRectF;

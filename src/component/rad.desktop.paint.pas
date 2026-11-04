@@ -79,6 +79,8 @@ type
       AColor: Cardinal); static;
     class procedure Text(G: TGPGraphics; const AText, AFontName: string; ASize: Single; AStyle: Integer;
       const ARect: TGPRectF; AColor: Cardinal; AAlign, ALineAlign: TStringAlignment; AWrap: Boolean); static;
+    /// <summary>One-line width of AText in pixels.</summary>
+    class function TextWidth(G: TGPGraphics; const AText, AFontName: string; ASize: Single; AStyle: Integer): Single; static;
     /// <summary>Largest size from AMax down to AMin (step 1px) at which AText fits AWidth on one line.</summary>
     class function FitSize(G: TGPGraphics; const AText, AFontName: string; AMax, AMin: Single; AStyle: Integer;
       AWidth: Single): Single; static;
@@ -479,22 +481,28 @@ begin
   end;
 end;
 
-class function TRadDeskDraw.FitSize(G: TGPGraphics; const AText, AFontName: string; AMax, AMin: Single;
-  AStyle: Integer; AWidth: Single): Single;
+class function TRadDeskDraw.TextWidth(G: TGPGraphics; const AText, AFontName: string; ASize: Single;
+  AStyle: Integer): Single;
 var
   LFont: TGPFont;
   LBox: TGPRectF;
 begin
+  LFont := TGPFont.Create(AFontName, ASize, AStyle, UnitPixel);
+  try
+    G.MeasureString(AText, Length(AText), LFont, MakePoint(0.0, 0.0), LBox);
+    Result := LBox.Width;
+  finally
+    LFont.Free;
+  end;
+end;
+
+class function TRadDeskDraw.FitSize(G: TGPGraphics; const AText, AFontName: string; AMax, AMin: Single;
+  AStyle: Integer; AWidth: Single): Single;
+begin
   Result := AMax;
   while Result > AMin do
   begin
-    LFont := TGPFont.Create(AFontName, Result, AStyle, UnitPixel);
-    try
-      G.MeasureString(AText, Length(AText), LFont, MakePoint(0.0, 0.0), LBox);
-    finally
-      LFont.Free;
-    end;
-    if LBox.Width <= AWidth then
+    if TextWidth(G, AText, AFontName, Result, AStyle) <= AWidth then
       Exit;
     Result := Result - 1;
   end;

@@ -94,3 +94,8 @@ analysis/
 # konumu her makinede farklı). Commit edilirse başka bir klonda yanlış yola
 # işaret eder ve sunucu sessizce başlamaz.
 .mcp.json
+
+# Codex CLI yerel yapılandırması (makineye özel MCP yolları)
+.codex/
+# Arşivler depo içeriği değildir
+*.rar

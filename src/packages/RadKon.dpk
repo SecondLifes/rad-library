@@ -97,6 +97,10 @@ contains
   rad.desktop.picker in '..\component\rad.desktop.picker.pas' {RadDeskPickerForm},
   rad.desktop.sources in '..\component\rad.desktop.sources.pas',
   rad.desktop in '..\component\rad.desktop.pas',
+  rad.search.match in '..\core\rad.search.match.pas',
+  rad.search.core in '..\core\rad.search.core.pas',
+  rad.search.popup in '..\component\rad.search.popup.pas',
+  rad.search in '..\component\rad.search.pas',
   rad.dev.customfields in '..\component\rad.dev.customfields.pas' {RadCustomFieldsFrame: TFrame},
   rad.dev.customfielddesigner in '..\component\rad.dev.customfielddesigner.pas' {RadCustomFieldDesigner};
 

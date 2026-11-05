@@ -496,7 +496,8 @@ begin
   Assert.AreEqual(TRadDeskNav.Fold('İSTANBUL'), TRadDeskNav.Fold('ıstanbul'));
   Assert.AreEqual(TRadDeskNav.Fold('ISTANBUL'), TRadDeskNav.Fold('istanbul'));
   Assert.AreEqual('fatura', TRadDeskNav.Fold('&Fatura'));
-  Assert.AreEqual('çşğüö', TRadDeskNav.Fold('ÇŞĞÜÖ'));
+  // Arama kutusuyla aynı kural (rad.search.match): Türkçe harfler ASCII karşılığına katlanır.
+  Assert.AreEqual('csguo', TRadDeskNav.Fold('ÇŞĞÜÖ'));
 end;
 
 procedure TDesktopNavTests.Find_PrefersStartsWith_ThenContains;

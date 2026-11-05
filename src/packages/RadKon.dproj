@@ -237,6 +237,10 @@
         </DCCReference>
         <DCCReference Include="..\component\rad.desktop.sources.pas"/>
         <DCCReference Include="..\component\rad.desktop.pas"/>
+        <DCCReference Include="..\core\rad.search.match.pas"/>
+        <DCCReference Include="..\core\rad.search.core.pas"/>
+        <DCCReference Include="..\component\rad.search.popup.pas"/>
+        <DCCReference Include="..\component\rad.search.pas"/>
         <DCCReference Include="..\component\rad.dev.customfields.pas">
             <Form>RadCustomFieldsFrame</Form>
             <DesignClass>TFrame</DesignClass>

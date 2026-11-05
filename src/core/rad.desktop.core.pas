@@ -163,7 +163,7 @@ type
     /// <summary>Index of the nearest rectangle from ACurrent in ADir, or -1.</summary>
     class function Nearest(const ARects: TArray<TRect>; ACurrent: Integer;
       ADir: TRadDeskDirection): Integer; static;
-    /// <summary>Lower case with I/İ/ı/i folded together and '&amp;' removed.</summary>
+    /// <summary>TRadSearchMatch.Fold: lower case, Turkish letters folded to ASCII, '&amp;' removed.</summary>
     class function Fold(const AText: string): string; static;
     /// <summary>First caption after AStart (wrapping) that starts with AText, else one that contains it; -1.</summary>
     class function Find(const ACaptions: TArray<string>; AStart: Integer; const AText: string): Integer; static;
@@ -187,7 +187,8 @@ uses
   System.Math,
   System.Generics.Defaults,
   mormot.core.unicode,
-  mormot.core.json;
+  mormot.core.json,
+  rad.search.match;
 
 const
   CKindCodes: array[TRadDeskItemKind] of RawUtf8 = ('shortcut', 'widget', 'dashboard');
@@ -824,15 +825,9 @@ begin
 end;
 
 class function TRadDeskNav.Fold(const AText: string): string;
-var
-  I: Integer;
 begin
-  Result := AText.Replace('&', '');
-  for I := 1 to Length(Result) do
-    case Result[I] of
-      'I', #$0130, #$0131: Result[I] := 'i';
-    end;
-  Result := Result.ToLowerInvariant;
+  // Arama kutusuyla aynı kural: Türkçe harfler ASCII karşılığına katlanır (rad.search.match).
+  Result := TRadSearchMatch.Fold(AText);
 end;
 
 class function TRadDeskNav.Find(const ACaptions: TArray<string>; AStart: Integer; const AText: string): Integer;

@@ -26,6 +26,12 @@ that break something else in the kit.
 
 ### Added
 
+- `docs/specs/rad.search.md` — menü/kayıt araması: eşleştirme kuralları ve puan tablosu, kararlar (repository item yerine denetleyici, yalnız dizin önbelleği), 2. aşama (cari/stok) açık işleri.
+- `src/core/rad.search.match.pas` — Türkçe harf katlama (`ş/s`, `İ/ı/i`...), kelime ve baş harf (`yisf`), beş kademeli puan.
+- `src/core/rad.search.core.pas` — `IRadSearchProvider`, `TRadSearchEngine` (gruplu, puan/kullanım/uzunluk sıralı sonuç, sık kullanılanlar), `TRadSearchUsage`, `TRadDeskCommands` üzerinden komut kaynağı.
+- `src/component/rad.search.popup.pas` — `TRadSearchBox`: bir `TcxCustomTextEdit`'i arama kutusuna çevirir (olayları zincirler); `TRadSearchPopup`: odak almayan, skin renkli, ikonlu iki satırlı açılır liste.
+- `src/component/rad.search.pas` — facade: `TRadSearch.Kur`/`Kapat`/`Bagla`/`Motor`. Dört birim `RadKon` paketine eklendi.
+- `src/test/unit/rad.search.match.Tests.pas`, `src/test/scratch/rad_desktop/RunSearchTests.dpr` — 22 DUnitX testi (`build_and_run.bat Win32 RunSearchTests`).
 - `docs/specs/rad.desktop.md` — ERP masaüstü spec'i: gruplar (kutu/klasör), kısayol/widget/dashboard kutucukları, hücre ızgarası (piksel saklanmaz), şirket + kullanıcı katmanı, RDS'de sade efektler, EARS ölçütleri. Kullanıcı "sormadan bitir" dediği için açık kararlar önerilen varsayılanlarla kapatıldı ve spec'te işaretli.
 - `src/core/rad.desktop.core.pas` — masaüstü modeli: `TRadDeskLayout`/`TRadDeskGroup`/`TRadDeskItem`, JSON gidiş-dönüş, `MergeBase` (kullanıcının kaldırdıkları geri gelmez), `TRadDeskGrid` (first-fit yerleşim, aşağı iterek çakışma çözme, sıkıştırma), `TRadDeskNav` (45° koniyle ok tuşu komşusu, Türkçe I/İ/ı katlamalı yazarak bulma).
 - `src/core/rad.desktop.commands.pas` — `önek:ad` komut kimlikleri, `IRadDeskCommandSource`, her çözümde ve çalıştırmadan hemen önce yetki; `ICmds` için başlık/kategori veren `TRadDeskCmdSource`.
@@ -103,6 +109,7 @@ that break something else in the kit.
 ### Changed
 
 - `TRadConfig.RecordLoad<T>`/`RecordSave<T>`: kilitli, canlı belgede kayıt okuma/yazma. `Json` `d00e92f`'den beri kopya döndürdüğü için `Config.Json.Value._RecordSave` hiçbir şey kaydetmiyordu; tüketiciler bu iki yönteme geçmeli.
+- `TRadDeskNav.Fold` artık `TRadSearchMatch.Fold`'u kullanıyor: masaüstünde yazarak bulma `ş/s`, `ğ/g`, `ü/u`, `ö/o`, `ç/c`'yi de aynı sayar. `Fold_TurkishI_AndAccelerator` testi yeni kurala göre güncellendi.
 - Form düzenleme oturumu, kullanıcı geri bildirimi (2026-11-03):
   - Bir kontrol seçiliyken form kapanınca süreç `0xC000041D` ile çöküyordu: form, pencereleri (seçim tutamaçları dahil) yok edildikten sonra haber veriyor, oturum da o anda TMS designer'ı kapatmaya çalışıyordu. Artık designer'a dokunulmuyor (form onu kendisi serbest bırakıyor) ve oturum hemen serbest kalıyor; kapanan ana form kuyruğu hiç çalıştırmadığı için kuyruğa bırakılmıyor.
   - Araç penceresinin X'i yalnız pencereyi gizliyordu, form tasarım kipinde kalıyordu. Artık oturumu bitiriyor: değişiklik yoksa Vazgeç gibi, varsa "kaydedilsin mi?" (Evet/Hayır/İptal).

@@ -47,8 +47,13 @@ type
    destructor Destroy; override;
 
    function LoadFromFile(const aFileName: TFileName; const aSectionName: string='Main'): boolean;  overload;
-   /// <summary>Anlik goruntu: uzerine yazilan degisiklik KAYBOLUR; yazmak icin SetV/SetValue.</summary>
+   /// <summary>Anlik goruntu: uzerine yazilan degisiklik KAYBOLUR; yazmak icin SetV/SetValue,
+   /// kayit icin RecordSave. Veri bu kopyada "Root" altindadir; anahtar ust duzeyde aranmaz.</summary>
    function Json: IDocDict;
+   /// <summary>AKey altindaki nesneyi ARec'e okur (kilitli). Anahtar yoksa False, ARec degismez.</summary>
+   function RecordLoad<T>(const AKey: string; var ARec: T): Boolean;
+   /// <summary>ARec'i AKey altina yazar (kilitli). Dosyaya yazmak icin ardindan SaveIfNeeded.</summary>
+   function RecordSave<T>(const AKey: string; var ARec: T): Boolean;
 
 
    function FolderName: TFileName;
@@ -326,6 +331,26 @@ begin
   include(fSettingsOptions, fsoDisableSaveIfNeeded);
   raise ERadConfig.CreateFmt('Ayar dosyasi okunamadi: %s', [Value]);
 end;
+end;
+
+function TRadConfig.RecordLoad<T>(const AKey: string; var ARec: T): Boolean;
+begin
+  FSafe.ReadLock;
+  try
+    Result := FJson.Value._RecordLoad<T>(AKey, ARec);
+  finally
+    FSafe.ReadUnlock;
+  end;
+end;
+
+function TRadConfig.RecordSave<T>(const AKey: string; var ARec: T): Boolean;
+begin
+  FSafe.WriteLock;
+  try
+    Result := FJson.Value._RecordSave<T>(AKey, ARec);
+  finally
+    FSafe.WriteUnlock;
+  end;
 end;
 
 function TRadConfig.SetJson(const aKey, v: string): TRadConfig;

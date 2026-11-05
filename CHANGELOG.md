@@ -102,6 +102,7 @@ that break something else in the kit.
 
 ### Changed
 
+- `TRadConfig.RecordLoad<T>`/`RecordSave<T>`: kilitli, canlı belgede kayıt okuma/yazma. `Json` `d00e92f`'den beri kopya döndürdüğü için `Config.Json.Value._RecordSave` hiçbir şey kaydetmiyordu; tüketiciler bu iki yönteme geçmeli.
 - Form düzenleme oturumu, kullanıcı geri bildirimi (2026-11-03):
   - Bir kontrol seçiliyken form kapanınca süreç `0xC000041D` ile çöküyordu: form, pencereleri (seçim tutamaçları dahil) yok edildikten sonra haber veriyor, oturum da o anda TMS designer'ı kapatmaya çalışıyordu. Artık designer'a dokunulmuyor (form onu kendisi serbest bırakıyor) ve oturum hemen serbest kalıyor; kapanan ana form kuyruğu hiç çalıştırmadığı için kuyruğa bırakılmıyor.
   - Araç penceresinin X'i yalnız pencereyi gizliyordu, form tasarım kipinde kalıyordu. Artık oturumu bitiriyor: değişiklik yoksa Vazgeç gibi, varsa "kaydedilsin mi?" (Evet/Hayır/İptal).

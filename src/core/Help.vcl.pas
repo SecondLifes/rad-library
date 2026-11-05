@@ -218,9 +218,7 @@ type
    ///   * Kullanici formu veri gelmeden kapatirsa AOnDataReady HIC
    ///     cagrilmaz - sarkan isaretciye erisilmez.
    /// </remarks>
-   class function _ModalAsync(const ALoadData: TFunc<TObject>;
-     const AOnDataReady: TProc<TObject, TCustomForm>;
-     const AOnError: TProc<Exception> = nil): TModalResult;
+   class function _ModalAsync(const ALoadData: TFunc<TObject>; const AOnDataReady: TProc<TObject, TCustomForm>; const AOnError: TProc<Exception> = nil): TModalResult;
 
 
    { DefClientProc KALDIRILDI. Tek cagiran TRadFormBase.ClientWndProc idi ve o
@@ -296,6 +294,7 @@ type
     function _FindName(const AName:string):TAction;
     function  _DefaultKeyGet : TArray<TShortCut>;
     procedure _DefaultKeySet( const arg:TArray<TShortCut>);
+    procedure _SetVisible(const aVisible:Boolean);
   end;
 
 
@@ -774,7 +773,8 @@ class function TFormHelper._New(const AFormStyle: TFormStyle; AOwner: TComponent
 var
   LNeedStyleChange: Boolean;
 begin
-
+  _MainFormLock;
+  try
   if AOwner = nil then AOwner := Application;
   Result := TFormClass(Self).Create(AOwner);
   LNeedStyleChange := (Result.FormStyle <> AFormStyle);
@@ -794,7 +794,9 @@ begin
       Result.BringToFront;
     end;
   end;
-
+  finally
+   _MainFormUnLock;
+  end;
 end;
 
 function TFormHelper._SetAutoFree(const aAutoFree: Boolean): TCustomForm;
@@ -1706,7 +1708,13 @@ function TActionListHelp._FindName(const AName: string): TAction;
   end;
 
 
-  function TActionListHelp._UniqName: string;
+procedure TActionListHelp._SetVisible(const aVisible: Boolean);
+begin
+ for var i := 0 to self.ActionCount -1 do
+  TAction(Self.Actions[i])._Visible(aVisible);
+end;
+
+function TActionListHelp._UniqName: string;
   begin
       { Owner nil olabilir (kod icinde yaratilmis, sahipsiz bir ActionList).
         Eski hâl bu durumda erisim ihlali veriyordu. }

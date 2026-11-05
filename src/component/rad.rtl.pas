@@ -80,6 +80,7 @@ type
     procedure SaveState(const ADoc: IDocDict);
     procedure LoadState(const ADoc: IDocDict);
 
+
   published
    property Json :RawUtf8 read ToJson write LoadFromJson stored False;
 
